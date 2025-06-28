@@ -12,7 +12,7 @@ import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller"
 	"github.com/ajuda-dev/backend/src/controller/routes"
-	"github.com/ajuda-dev/backend/src/repository"
+	"github.com/ajuda-dev/backend/src/data/repository"
 	"github.com/ajuda-dev/backend/src/service"
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/ajuda-dev/backend/src/service/validator"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ajuda-dev/backend/src/repository/entity"
+	"github.com/ajuda-dev/backend/src/data/entity"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gorm.io/driver/postgres"

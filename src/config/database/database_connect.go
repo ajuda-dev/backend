@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ajuda-dev/backend/src/repository/entity"
+	"github.com/ajuda-dev/backend/src/data/entity"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -39,7 +39,7 @@ func Connect() (db *gorm.DB, err error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.AutoMigrate(&entity.UserEntity{})
+	err = db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{})
 	if err != nil {
 		return nil, fmt.Errorf("error doing AutoMigrate: %w", err)
 	}

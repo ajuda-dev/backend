@@ -2,7 +2,7 @@ package repository
 
 import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/repository/entity"
+	"github.com/ajuda-dev/backend/src/data/entity"
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
