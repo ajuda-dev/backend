@@ -24,7 +24,7 @@ var (
 	db             *gorm.DB
 	cleanupDB      func()
 	userRepository repository.UserRepository
-	app            *fiber.App
+	testEmail = "teste@ajuda.dev"
 )
 
 func TestMain(m *testing.M) {
@@ -71,10 +71,11 @@ func getCauseByField(field string, causesList []rest_err.Causes) []string {
 func TestCreateUserSuccess(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
+	
 	body := []byte(`
 	{
 		"name": "teste",
-		"email":"teste@ajuda.dev",
+		"email":"` + testEmail + `",
 		"password": "123456"
 	}
 	`)
@@ -89,6 +90,10 @@ func TestCreateUserSuccess(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201, recebeu %d", resp.StatusCode)
 	}
+	user, findUserError := userRepository.GetUserByEmail(testEmail)
+	if findUserError != nil || user == nil   || user.Id == "" {
+		t.Fatalf("user not found in database: %v", findUserError)
+	}
 }
 
 func TestCreateUserEmailAlreadyExists(t *testing.T) {
@@ -97,7 +102,7 @@ func TestCreateUserEmailAlreadyExists(t *testing.T) {
 
 	_, createErr := userRepository.CreateUser(&domain.UserDomain{
 		Name:     "teste",
-		Email:    "teste@ajuda.dev",
+		Email:    testEmail,
 		Password: "123456",
 	})
 	if createErr != nil {
@@ -107,7 +112,7 @@ func TestCreateUserEmailAlreadyExists(t *testing.T) {
 	body := []byte(`
 	{
 		"name": "teste",
-		"email": "teste@ajuda.dev",
+		"email": "` + testEmail + `",
 		"password": "123456"
 	}
 	`)
@@ -125,16 +130,7 @@ func TestCreateUserEmailAlreadyExists(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
-
-	if respBody.Message != "Invalid user data" {
-		t.Errorf("esperava message 'Invalid user data', recebeu '%s'", respBody.Message)
-	}
-	if respBody.Err != "bad_request" {
-		t.Errorf("esperava error 'bad_request', recebeu '%s'", respBody.Error())
-	}
-	if respBody.Code != 400 {
-		t.Errorf("esperava code 400, recebeu %d", respBody.Code)
-	}
+	verifyCodeError(t, respBody)
 	if len(respBody.Causes) == 0 || respBody.Causes[0].Field != "email" || respBody.Causes[0].Message != "Email already exists" {
 		t.Errorf("esperava cause para email já existente, recebeu %+v", respBody.Causes)
 	}
@@ -165,6 +161,19 @@ func TestCreateUserFail(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
+	verifyCodeError(t, respBody)
+
+	causes := getCauseByField("name", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "Name is not valid" {
+		t.Errorf("esperava cause para o campo 'name', recebeu %+v", respBody.Causes)
+	}
+	verifyEmailFieldError(t, respBody)
+	verifyPasswordFieldError(t, respBody)
+
+	
+}
+
+func verifyCodeError(t *testing.T, respBody rest_err.RestErr) {
 	if respBody.Message != "Invalid user data" {
 		t.Errorf("esperava message 'Invalid user data', recebeu '%s'", respBody.Message)
 	}
@@ -174,12 +183,12 @@ func TestCreateUserFail(t *testing.T) {
 	if respBody.Code != 400 {
 		t.Errorf("esperava code 400, recebeu %d", respBody.Code)
 	}
+}
 
-	causes := getCauseByField("name", respBody.Causes)
-	if len(causes) == 0 || causes[0] != "Name is not valid" {
-		t.Errorf("esperava cause para o campo 'name', recebeu %+v", respBody.Causes)
-	}
-	causes = getCauseByField("email", respBody.Causes)
+
+
+func verifyEmailFieldError(t *testing.T, respBody rest_err.RestErr) {
+	causes := getCauseByField("email", respBody.Causes)
 	expectedEmailMessages := map[string]bool{
 		"Email cannot be empty": true,
 		"Email is not valid":    true,
@@ -197,8 +206,11 @@ func TestCreateUserFail(t *testing.T) {
 			t.Errorf("esperava mensagem '%s' para o campo 'email', mas não foi encontrada. Mensagens recebidas: %+v", expectedMsg, causes)
 		}
 	}
+}
 
-	causes = getCauseByField("password", respBody.Causes)
+
+func verifyPasswordFieldError(t *testing.T, respBody rest_err.RestErr) {
+	causes := getCauseByField("password", respBody.Causes)
 	expectedPasswordMessages := map[string]bool{
 		"Password must be at least 6 characters long": true,
 		"Password cannot be empty":                    true,
