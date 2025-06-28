@@ -52,7 +52,7 @@ func (u *userValidator) ValidateRegisterUser(registerUser domain.UserDomain) *re
 	}
 	if len(causes) > 0 {
 		return rest_err.NewBadRequestValidationError(
-			"invalid probe data",
+			"Invalid user data",
 			causes,
 		)
 	}
