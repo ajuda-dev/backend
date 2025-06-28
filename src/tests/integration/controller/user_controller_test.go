@@ -184,20 +184,36 @@ func TestCreateUserFail(t *testing.T) {
 		"Email cannot be empty": true,
 		"Email is not valid":    true,
 	}
-	for _, msg := range causes {
-		if !expectedEmailMessages[msg] {
-			t.Errorf("mensagem inesperada para o campo 'email': %s", msg)
+
+	for expectedMsg := range expectedEmailMessages {
+		found := false
+		for _, msg := range causes {
+			if msg == expectedMsg {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("esperava mensagem '%s' para o campo 'email', mas não foi encontrada. Mensagens recebidas: %+v", expectedMsg, causes)
 		}
 	}
+
 	causes = getCauseByField("password", respBody.Causes)
 	expectedPasswordMessages := map[string]bool{
 		"Password must be at least 6 characters long": true,
 		"Password cannot be empty":                    true,
 	}
-
-	for _, msg := range causes {
-		if !expectedPasswordMessages[msg] {
-			t.Errorf("mensagem inesperada para o campo 'password': %s", msg)
+	// Verifica se todas as mensagens esperadas estão presentes
+	for expectedMsg := range expectedPasswordMessages {
+		found := false
+		for _, msg := range causes {
+			if msg == expectedMsg {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("esperava mensagem '%s' para o campo 'password', mas não foi encontrada. Mensagens recebidas: %+v", expectedMsg, causes)
 		}
 	}
 }
