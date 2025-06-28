@@ -4,19 +4,25 @@ import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/repository/entity"
 	"github.com/ajuda-dev/backend/src/service/domain"
-	"gorm.io/gorm"
 	"github.com/samborkent/uuidv7"
+	"gorm.io/gorm"
 )
 
 type UserRepository interface {
 	CreateUser(user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
+	GetUserByEmail(email string) (*domain.UserDomain, *rest_err.RestErr)
 }
 
 type userRepository struct {
 	database *gorm.DB
 }
 
-// CreateUser implements UserRepository.
+func NewUserRepository(db *gorm.DB) UserRepository {
+	return &userRepository{
+		database: db,
+	}
+}
+
 func (u *userRepository) CreateUser(user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr) {
 	var userEntity = entity.FromDomainUser(user)
 	userEntity.Id = uuidv7.New().String()
@@ -27,9 +33,15 @@ func (u *userRepository) CreateUser(user *domain.UserDomain) (*domain.UserDomain
 
 	return userEntity.ToDomainUser(), nil
 }
-
-func NewUserRepository(db *gorm.DB) UserRepository {
-	return &userRepository{
-		database: db,
+func (u *userRepository) GetUserByEmail(email string) (*domain.UserDomain, *rest_err.RestErr) {
+	var userEntity entity.UserEntity
+	if err := u.database.Where("email = ?", email).First(&userEntity).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, rest_err.NewNotFoundError("User not found")
+		}
+		return nil, rest_err.NewInternalServerError(err.Error())
 	}
+	return userEntity.ToDomainUser(), nil
 }
+
+

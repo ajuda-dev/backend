@@ -9,6 +9,7 @@ import (
 	"github.com/ajuda-dev/backend/src/controller/routes"
 	"github.com/ajuda-dev/backend/src/repository"
 	"github.com/ajuda-dev/backend/src/service"
+	"github.com/ajuda-dev/backend/src/service/validator"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
@@ -29,6 +30,6 @@ func InitApp() {
 
 func initUserController(database *gorm.DB) controller.UserController {
 	userRepository := repository.NewUserRepository(database)
-	userService := service.NewUserService(userRepository)
+	userService := service.NewUserService(userRepository, validator.NewUserValidator())
 	return controller.NewUserController(userService)
 }
