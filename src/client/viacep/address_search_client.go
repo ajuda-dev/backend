@@ -3,9 +3,10 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"io"
+	"net/http"
 
+	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/service/domain"
 )
@@ -49,12 +50,16 @@ func (a *addressSearchClient) SearchAddress(address domain.AddressDomain) (*doma
 
 	if err := json.Unmarshal(bodyBytes, &data); err != nil {
 		var dataArr []ViaCepResponse
-		if err := json.Unmarshal(bodyBytes, &dataArr); err != nil || len(dataArr) == 0 {
-			return nil, rest_err.NewInternalServerError("error decoding response viacep: " + err.Error())
+		if err := json.Unmarshal(bodyBytes, &dataArr); err != nil {
+			return nil, rest_err.NewInternalServerError("error decoding response ViaCEP: " + err.Error())
+		}
+		if len(dataArr) == 0 {
+			logger.Error("No data found in ViaCEP response", rest_err.NewBadRequestError("invalid search address data"))
+			return nil, rest_err.NewBadRequestError("invalid search address data")
 		}
 		data = dataArr[0]
 	}
-	if data.Erro {
+	if data.Erro  {
 		return nil, rest_err.NewBadRequestError("invalid search address data")
 	}
 	

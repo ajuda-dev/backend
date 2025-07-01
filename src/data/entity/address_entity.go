@@ -1,6 +1,8 @@
 package entity
 
 import (
+	"strings"
+
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"gorm.io/gorm"
 )
@@ -30,8 +32,8 @@ func (a *AddressEntity) ToDomainAddress() *domain.AddressDomain {
 func (a *AddressEntity) FromDomainAddress(address *domain.AddressDomain) *AddressEntity {
 	return &AddressEntity{
 		Id:      address.Id,
-		City:    address.City,
-		State:   address.State,
+		City:    strings.ToLower(address.City),
+		State:   strings.ToUpper(address.State),
 		ZipCode: address.ZipCode,
 	}
 }

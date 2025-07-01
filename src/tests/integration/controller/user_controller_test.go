@@ -2,55 +2,21 @@ package controller_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
-
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller"
-	"github.com/ajuda-dev/backend/src/controller/routes"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service"
 	"github.com/ajuda-dev/backend/src/service/domain"
-	"github.com/ajuda-dev/backend/src/service/validator"
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
-var (
-	db             *gorm.DB
-	cleanupDB      func()
-	userRepository repository.UserRepository
-	testEmail = "teste@ajuda.dev"
-)
 
-func TestMain(m *testing.M) {
-	var err error
-	db, cleanupDB, err = setupTestDB(context.Background())
-	if err != nil {
-		panic("Erro ao configurar o banco de dados: " + err.Error())
-	}
-	userRepository = repository.NewUserRepository(db)
 
-	code := m.Run()
-	cleanupDB()
-	os.Exit(code)
-}
 
-func setupApp() *fiber.App {
-	app := fiber.New()
-	routes.SetupRoutesUser(app, controller.NewUserController(
-		service.NewUserService(userRepository,
-			validator.NewUserValidator())))
-	return app
-}
 
-func cleanUsersTable() {
-	db.Exec("DELETE FROM users")
-}
+
+
 
 func newUserRegisterRequest(body []byte) *http.Request {
 	req := httptest.NewRequest("POST", "/v1/user/register", bytes.NewBuffer(body))
@@ -130,6 +96,9 @@ func TestCreateUserEmailAlreadyExists(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
+	if respBody.Message != "Invalid user data" {
+		t.Errorf("esperava message 'Invalid user data', recebeu '%s'", respBody.Message)
+	}
 	verifyCodeError(t, respBody)
 	if len(respBody.Causes) == 0 || respBody.Causes[0].Field != "email" || respBody.Causes[0].Message != "Email already exists" {
 		t.Errorf("esperava cause para email já existente, recebeu %+v", respBody.Causes)
@@ -161,6 +130,9 @@ func TestCreateUserFail(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
+	if respBody.Message != "Invalid user data" {
+		t.Errorf("esperava message 'Invalid user data', recebeu '%s'", respBody.Message)
+	}
 	verifyCodeError(t, respBody)
 
 	causes := getCauseByField("name", respBody.Causes)
@@ -173,17 +145,6 @@ func TestCreateUserFail(t *testing.T) {
 	
 }
 
-func verifyCodeError(t *testing.T, respBody rest_err.RestErr) {
-	if respBody.Message != "Invalid user data" {
-		t.Errorf("esperava message 'Invalid user data', recebeu '%s'", respBody.Message)
-	}
-	if respBody.Err != "bad_request" {
-		t.Errorf("esperava error 'bad_request', recebeu '%s'", respBody.Error())
-	}
-	if respBody.Code != 400 {
-		t.Errorf("esperava code 400, recebeu %d", respBody.Code)
-	}
-}
 
 
 

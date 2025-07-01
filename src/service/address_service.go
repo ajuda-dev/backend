@@ -38,7 +38,7 @@ func (a *addressService) CreateAddress(address *domain.AddressDomain) (*domain.A
 	}
 	address ,err = a.addressSearchClient.SearchAddress(*address)
 	if err != nil {
-		return nil, rest_err.NewInternalServerError("error search address: " + err.Error())
+		return nil, err
 	}
 	return a.addressRepository.CreateAddress(address)
 }
