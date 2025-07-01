@@ -15,10 +15,11 @@ type AddressEntity struct {
 	ZipCode string `gorm:"not null"`
 }
 
+
+
 func (a *AddressEntity) TableName() string {
 	return "addresses"
 }
-
 
 func (a *AddressEntity) ToDomainAddress() *domain.AddressDomain {
 	return &domain.AddressDomain{

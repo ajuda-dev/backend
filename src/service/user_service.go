@@ -17,11 +17,17 @@ func NewUserService(userRepository repository.UserRepository, validator validato
 
 type UserService interface {
 	CreateUser(user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
+	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
 }
 
 type userService struct {
 	userRepository repository.UserRepository
 	validator      validator.UserValidator
+}
+
+// FindById implements UserService.
+func (u *userService) FindById(id string) (*domain.UserDomain, *rest_err.RestErr) {
+	return u.userRepository.FindById(id)
 }
 
 // CreateUser implements UserService.
@@ -30,17 +36,17 @@ func (u *userService) CreateUser(user *domain.UserDomain) (*domain.UserDomain, *
 	if err != nil {
 		return nil, err
 	}
-	existingUser , err := u.userRepository.GetUserByEmail(user.Email)
+	existingUser, err := u.userRepository.GetUserByEmail(user.Email)
 	if err != nil && err.Code != rest_err.NOT_FOUND {
 		return nil, rest_err.NewInternalServerError(err.Error())
-	}	
+	}
 
 	if existingUser != nil {
-		return nil, rest_err.NewBadRequestValidationError(	
+		return nil, rest_err.NewBadRequestValidationError(
 			"Invalid user data",
-			[]rest_err.Causes{ 
+			[]rest_err.Causes{
 				{
-					Field:   "email",	
+					Field:   "email",
 					Message: "Email already exists",
 				},
 			})

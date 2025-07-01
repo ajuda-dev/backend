@@ -45,7 +45,7 @@ func (a *addressService) CreateAddress(address *domain.AddressDomain) (*domain.A
 
 
 func (a *addressService) GetAddressById(id uint) (*domain.AddressDomain, *rest_err.RestErr) {
-	panic("unimplemented")
+	return a.addressRepository.GetAddressById(id)
 }
 
 

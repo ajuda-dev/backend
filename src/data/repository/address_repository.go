@@ -55,7 +55,11 @@ func (a *addressRepository) SearchAddress(address *domain.AddressDomain) (*domai
 }
 
 func (a *addressRepository) GetAddressById(id uint) (*domain.AddressDomain, *rest_err.RestErr) {
-	panic("unimplemented")
+	var addressEntity entity.AddressEntity
+	if err := a.database.Where("id = ?", id).First(&addressEntity).Error ; err != nil {
+		handlerErrorDataBase(err)
+	}
+	return addressEntity.ToDomainAddress(), nil
 }
 
 func NewAddressRepository(db *gorm.DB) AddressRepository {

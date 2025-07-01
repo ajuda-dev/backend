@@ -2,8 +2,9 @@ package domain
 
 
 type CommunityDomain struct {
-	Id          string 
+	Id          uint 
 	Name        string
 	Description string
 	Owner       UserDomain
+	Address     AddressDomain
 }	

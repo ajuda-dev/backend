@@ -16,3 +16,9 @@ func SetupRoutesAddress(app *fiber.App, addressController controller.AddressCont
 	address := app.Group("/v1/address")
 	address.Post("/register", addressController.RegisterAddress())
 }
+
+
+func SetupRoutesCommunities(app *fiber.App, communityController controller.CommunityController){
+	communities := app.Group("/v1/community")
+	communities.Post("/register", communityController.RegisterCommunity())
+}
