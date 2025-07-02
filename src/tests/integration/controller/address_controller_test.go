@@ -13,6 +13,7 @@ import (
 )
 
 func TestRegisterAddressSuccess(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
 	app := setupApp()
 	body := []byte(
 		`
@@ -32,7 +33,6 @@ func TestRegisterAddressSuccess(t *testing.T) {
 		t.Errorf("esperava 201, recebeu %d", resp.StatusCode)
 	}
 
-	cleanUsersTable()
 
 }
 
@@ -44,6 +44,7 @@ func newAddressRegisterRequest(body []byte) *http.Request {
 
 
 func TestRegisterAddressBadRequest(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
 	app := setupApp()
 	body := []byte(
 		`
@@ -65,12 +66,12 @@ func TestRegisterAddressBadRequest(t *testing.T) {
 		t.Errorf("esperava 400, recebeu %d", resp.StatusCode)
 	}
 
-	cleanUsersTable()
 }
 
 
 
 func TestRegisterAddressAlreadyExist(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
 	app := setupApp()
 	addressRepository.CreateAddress(&domain.AddressDomain{
 		City:    "test_city",
@@ -115,7 +116,7 @@ func TestRegisterAddressAlreadyExist(t *testing.T) {
 		t.Errorf("esperava cause para address já existente, recebeu %+v", respBody.Causes)
 	}
 
-	cleanUsersTable()
+
 }
 
 

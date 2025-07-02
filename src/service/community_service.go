@@ -38,13 +38,40 @@ func (c *communityService) CreateCommunity(community *domain.CommunityDomain) (*
 	if err != nil {
 		return &domain.CommunityDomain{}, err
 	}
+	rc , err_rc := c.communityRepository.FindByName(community.Name)
+
+	if err_rc != nil && err_rc.Code != 404 {
+		return rc, err_rc
+	}
+
+	if rc != nil {
+		return &domain.CommunityDomain{}, 
+		rest_err.NewBadRequestValidationError("Invalid community data", []rest_err.Causes{
+			{
+				Field:   "name",
+				Message: "already has a community with this name",
+			},
+		})
+	}
 	user, err_u := c.userService.FindById(community.Owner.Id)
 	if err_u != nil {
+		if err_u.Code == 404 {
+		
+		}
 		return &domain.CommunityDomain{}, err_u
 	}
 	community.Owner = *user
 	address, err_a := c.addressService.GetAddressById(community.Address.Id)
 	if err_a != nil {
+		if err_a.Code == 404 {
+			return &domain.CommunityDomain{}, 
+			rest_err.NewBadRequestValidationError("Invalid community data", []rest_err.Causes{
+				{
+					Field:   "address_id",
+					Message: "address_id is not valid, not found this address",
+				},
+			})
+		} 
 		return &domain.CommunityDomain{}, err_a
 	}
 	community.Address = *address

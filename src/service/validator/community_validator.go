@@ -37,14 +37,14 @@ func (c *communityValidator) ValidatorRegisterCommunity(community domain.Communi
 	}
 	if community.Address == (domain.AddressDomain{}) || community.Address.Id == 0 {
 		causes = append(causes, rest_err.Causes{
-			Field:   "address",
-			Message: "Address is not valid",
+			Field:   "addressId",
+			Message: "AddressId is not valid",
 		})
 	}
 
 	if community.Owner == (domain.UserDomain{}) || community.Owner.Id == "" || !uuidv7.IsValidString(community.Owner.Id){
 		causes = append(causes, rest_err.Causes{
-			Field:   "owner",
+			Field:   "ownerId",
 			Message: "OwnerId is not valid",
 		})
 	}

@@ -22,7 +22,7 @@ type userRepository struct {
 func (u *userRepository) FindById(id string) (*domain.UserDomain, *rest_err.RestErr) {
 	var userEntity entity.UserEntity
 	if err := u.database.Where("id = ?", id).First(&userEntity).Error ; err != nil {
-		handlerErrorDataBase(err)
+		return handlerErrorDataBase(err)
 	}
 	return userEntity.ToDomainUser(), nil
 }

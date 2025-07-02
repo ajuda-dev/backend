@@ -28,6 +28,7 @@ var (
 	cleanupDB         func()
 	userRepository    repository.UserRepository
 	addressRepository repository.AddressRepository
+	communityRepository repository.CommunityRepository
 	testEmail         = "teste@ajuda.dev"
 )
 
@@ -75,7 +76,7 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 			log.Printf("Erro ao parar o container: %v", err)
 		}
 	}
-	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{})
+	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{})
 
 	return db, cleanup, nil
 }
@@ -89,6 +90,7 @@ func TestMain(m *testing.M) {
 	}
 	userRepository = repository.NewUserRepository(db)
 	addressRepository = repository.NewAddressRepository(db)
+	communityRepository = repository.NewCommunityRepository(db)
 	code := m.Run()
 	cleanupDB()
 	os.Exit(code)
@@ -96,8 +98,11 @@ func TestMain(m *testing.M) {
 
 func setupApp() *fiber.App {
 	app := fiber.New()
-	routes.SetupRoutesUser(app, controller.NewUserController(service.NewUserService(userRepository, validator.NewUserValidator())))
-	routes.SetupRoutesAddress(app, controller.NewAddressController(service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient())))
+	userService :=  service.NewUserService(userRepository, validator.NewUserValidator());
+	addressService := service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient());
+	routes.SetupRoutesUser(app, controller.NewUserController(userService))
+	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService))
+	routes.SetupRoutesCommunities(app, controller.NewCommunityController(service.NewCommunityService(userService, addressService,communityRepository, validator.NewCommunityValidator())))
 
 	return app
 }
@@ -108,6 +113,10 @@ func cleanUsersTable() {
 
 func cleanAddressesTable() {
 	db.Exec("DELETE FROM addresses")
+}
+
+func cleanCommunityTable(){
+	db.Exec("DELETE FROM communities")
 }
 
 type addressSearchClientMock struct {

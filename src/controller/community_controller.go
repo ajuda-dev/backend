@@ -37,6 +37,7 @@ func (c *communityController) RegisterCommunity() fiber.Handler {
 	
 		address, err := c.communityService.CreateCommunity(registerCommunityDto.ToDomain())
 		if err != nil {
+			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
 		return cf.Status(fiber.StatusCreated).JSON(registerCommunityDto.FromDomain(address))

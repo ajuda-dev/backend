@@ -36,7 +36,7 @@ func (c *CommunityEntity) FromDomain(domain domain.CommunityDomain) *CommunityEn
 }
 
 
-func (c CommunityEntity) ToDomainAddress() *domain.CommunityDomain {
+func (c CommunityEntity) ToDomain() *domain.CommunityDomain {
 	return &domain.CommunityDomain{
 		Id: c.Id,
 		Name: c.Name,

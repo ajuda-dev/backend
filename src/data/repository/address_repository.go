@@ -56,8 +56,11 @@ func (a *addressRepository) SearchAddress(address *domain.AddressDomain) (*domai
 
 func (a *addressRepository) GetAddressById(id uint) (*domain.AddressDomain, *rest_err.RestErr) {
 	var addressEntity entity.AddressEntity
-	if err := a.database.Where("id = ?", id).First(&addressEntity).Error ; err != nil {
-		handlerErrorDataBase(err)
+	if err := a.database.Where("id = ?", id).First(&addressEntity).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, rest_err.NewNotFoundError("Address not found")
+		}
+		return nil, rest_err.NewInternalServerError("Error getting address: " + err.Error())
 	}
 	return addressEntity.ToDomainAddress(), nil
 }

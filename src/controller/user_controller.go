@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/controller/dto"
 	"github.com/ajuda-dev/backend/src/service"
 	"github.com/gofiber/fiber/v2"
@@ -31,6 +32,7 @@ func (u *userController) RegisterUser() fiber.Handler {
 		}
 		user, err := u.userService.CreateUser(registerUserDto.ToDomain())
 		if err != nil {
+			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
 		var registerUserDtoOut  dto.RegisterUserDtoOut
