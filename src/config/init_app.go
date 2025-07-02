@@ -43,7 +43,7 @@ func initCommunityController(
 	communityRepository repository.CommunityRepository,
 	addressService service.AddressService,
 	userService service.UserService) controller.CommunityController {
-	return controller.NewCommunityController(service.NewCommunityService(userService,addressService,communityRepository))		
+	return controller.NewCommunityController(service.NewCommunityService(userService,addressService,communityRepository, validator.NewCommunityValidator() ))		
 }
 
 func initUserService(userRepository repository.UserRepository ) service.UserService{
