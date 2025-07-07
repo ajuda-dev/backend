@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"strconv"
+
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/controller/dto"
 	"github.com/ajuda-dev/backend/src/service"
@@ -9,6 +11,7 @@ import (
 
 type CommunityController interface {
 	RegisterCommunity() fiber.Handler
+	GetAllCommunities() fiber.Handler
 }
 
 type communityController struct {
@@ -23,7 +26,6 @@ func NewCommunityController(communityService service.CommunityService) Community
 	}
 }
 
-
 // RegisterCommunity implements CommunityController.
 func (c *communityController) RegisterCommunity() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -34,7 +36,7 @@ func (c *communityController) RegisterCommunity() fiber.Handler {
 				"error": "Não foi possível processar o corpo da requisição",
 			})
 		}
-	
+
 		address, err := c.communityService.CreateCommunity(registerCommunityDto.ToDomain())
 		if err != nil {
 			logger.Error("erro", err)
@@ -44,3 +46,27 @@ func (c *communityController) RegisterCommunity() fiber.Handler {
 	}
 }
 
+
+
+func (c *communityController) GetAllCommunities() fiber.Handler {
+	return func(cf *fiber.Ctx) error {
+		page, _ := strconv.Atoi(cf.Query("page", "1"))
+    limit, _ := strconv.Atoi(cf.Query("limit", "10"))
+
+	addressIDStr := cf.Query("address_id")
+		var addressID int = 0
+		if addressIDStr != "" {
+			if idParsed, err := strconv.ParseUint(addressIDStr, 10, 64); err == nil {
+					addressID = int(idParsed)
+			}
+		}
+		result, e := c.communityService.GetAll(addressID, page, limit)
+		if e != nil {
+			logger.Error("error: ", e)
+			return cf.Status(e.Code).JSON(e)
+		}
+
+		dtoResult := dto.PageableCommunityDto{}.FromDomain(*result)
+		return cf.Status(fiber.StatusOK).JSON(dtoResult)
+	}
+}

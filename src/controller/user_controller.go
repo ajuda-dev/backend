@@ -35,7 +35,7 @@ func (u *userController) RegisterUser() fiber.Handler {
 			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
-		var registerUserDtoOut  dto.RegisterUserDtoOut
+		var registerUserDtoOut dto.UserDtoOut
 		return c.Status(fiber.StatusCreated).JSON(registerUserDtoOut.FromDomainUser(user))
 	}
 }

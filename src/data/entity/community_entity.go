@@ -19,7 +19,7 @@ type CommunityEntity struct {
 
 
 func (c *CommunityEntity) TableName() string {
-	return "communities"
+	return "community"
 }
 
 func (c *CommunityEntity) FromDomain(domain domain.CommunityDomain) *CommunityEntity {
@@ -44,4 +44,12 @@ func (c CommunityEntity) ToDomain() *domain.CommunityDomain {
 		Owner: *c.Owner.ToDomainUser(),
 		Address: *c.Address.ToDomainAddress(),
 	}	
+}
+
+func ToCommunityDomainList(entities []CommunityEntity) []*domain.CommunityDomain {
+	var domains []*domain.CommunityDomain
+	for _, e := range entities {
+		domains = append(domains, e.ToDomain())
+	}
+	return domains
 }

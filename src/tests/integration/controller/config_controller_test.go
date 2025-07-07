@@ -116,7 +116,7 @@ func cleanAddressesTable() {
 }
 
 func cleanCommunityTable(){
-	db.Exec("DELETE FROM communities")
+	db.Exec("DELETE FROM community")
 }
 
 type addressSearchClientMock struct {

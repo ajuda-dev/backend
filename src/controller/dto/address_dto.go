@@ -6,7 +6,7 @@ type AddressDto struct {
 	Id      uint   `json:"id"`
 	City    string `json:"city"`
 	State   string `json:"state"`
-	Street  string `json:"street"`
+	Street  string `json:"street,omitempty"`
 	ZipCode string `json:"zip_code"`
 }
 
