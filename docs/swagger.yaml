@@ -1,0 +1,187 @@
+definitions:
+  dto.AddressDto:
+    properties:
+      city:
+        type: string
+      id:
+        type: integer
+      state:
+        type: string
+      street:
+        type: string
+      zip_code:
+        type: string
+    type: object
+  dto.CommunityDto:
+    properties:
+      address:
+        $ref: '#/definitions/dto.AddressDto'
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      owner:
+        $ref: '#/definitions/dto.UserDtoOut'
+    type: object
+  dto.PageableCommunityDto:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.CommunityDto'
+        type: array
+      has_next:
+        type: boolean
+    type: object
+  dto.RegisterCommunityDto:
+    properties:
+      address_id:
+        type: integer
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      owner_id:
+        type: string
+    type: object
+  dto.RegisterUserDtoIn:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+  dto.UserDtoOut:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /v1/address/register:
+    post:
+      consumes:
+      - application/json
+      description: Cria um novo endereço no sistema
+      parameters:
+      - description: Dados do endereço
+        in: body
+        name: address
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AddressDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.AddressDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Registra um novo endereço
+      tags:
+      - addresses
+  /v1/community:
+    get:
+      consumes:
+      - application/json
+      description: Retorna todas as comunidades, com paginação e filtro por endereço
+      parameters:
+      - description: Página
+        in: query
+        name: page
+        type: integer
+      - description: Limite
+        in: query
+        name: limit
+        type: integer
+      - description: ID do endereço
+        in: query
+        name: address_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PageableCommunityDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Lista comunidades
+      tags:
+      - communities
+  /v1/community/register:
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova comunidade no sistema
+      parameters:
+      - description: Dados da comunidade
+        in: body
+        name: community
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterCommunityDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.RegisterCommunityDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Registra uma nova comunidade
+      tags:
+      - communities
+  /v1/user/register:
+    post:
+      consumes:
+      - application/json
+      description: Cria um novo usuário no sistema
+      parameters:
+      - description: Dados do usuário
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterUserDtoIn'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.UserDtoOut'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Registra um novo usuário
+      tags:
+      - users
+swagger: "2.0"

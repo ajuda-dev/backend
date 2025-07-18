@@ -51,7 +51,7 @@ func TestCreateCommunitySuccess(t *testing.T) {
 	"address_id": ` + fmt.Sprintf("%d", address.Id) + `,
 	"owner_id": "` + user.Id + `",
 	"name": "Dev Mode Community",
-	"description": "comunidade de desenvoldedores de campos"
+	"description": "comunidade de desenvolvedores de campos"
 	}
 	`)
 	req := newCommunityRegisterRequest(body)

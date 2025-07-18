@@ -28,6 +28,7 @@ func InitApp() {
 	routes.SetupRoutesUser(app, initUserController(userService))
 	routes.SetupRoutesAddress(app, initAddressController(addressService))
 	routes.SetupRoutesCommunities(app, initCommunityController(repository.NewCommunityRepository(db), addressService, userService))
+	routes.SetupSwaggerRoute(app)
 	log.Fatal(app.Listen(":8080"))
 }
 
@@ -43,10 +44,10 @@ func initCommunityController(
 	communityRepository repository.CommunityRepository,
 	addressService service.AddressService,
 	userService service.UserService) controller.CommunityController {
-	return controller.NewCommunityController(service.NewCommunityService(userService,addressService,communityRepository, validator.NewCommunityValidator() ))		
+	return controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator()))
 }
 
-func initUserService(userRepository repository.UserRepository ) service.UserService{
+func initUserService(userRepository repository.UserRepository) service.UserService {
 	return service.NewUserService(userRepository, validator.NewUserValidator())
 }
 
@@ -56,5 +57,3 @@ func initAddressService(addressRepository service.AddressService) service.Addres
 		validator.NewAddressValidator(),
 		client.NewAddressSearchClient())
 }
-
-

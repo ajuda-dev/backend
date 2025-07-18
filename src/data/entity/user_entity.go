@@ -7,7 +7,7 @@ import (
 
 
 
-// UserEntity represents the user entity in the database.
+
 type UserEntity struct {
 	gorm.Model
 	Id       string `gorm:"primaryKey;type:uuid"`
@@ -16,7 +16,7 @@ type UserEntity struct {
 	Password string `gorm:"type:varchar(100);not null"`
 }
 
-// TableName overrides the table name used by UserEntity to `user`
+
 func (UserEntity) TableName() string {
 	return "users"
 }

@@ -14,13 +14,22 @@ type addressController struct {
 	addressService service.AddressService
 }
 
-
 func NewAddressController(addressService service.AddressService) AddressController {
 	return &addressController{
 		addressService: addressService,
 	}
 }
 
+// RegisterAddress godoc
+// @Summary      Registra um novo endereço
+// @Description  Cria um novo endereço no sistema
+// @Tags         addresses
+// @Accept       json
+// @Produce      json
+// @Param        address  body  dto.AddressDto  true  "Dados do endereço"
+// @Success      201   {object}  dto.AddressDto
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /v1/address/register [post]
 func (a *addressController) RegisterAddress() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var addressDto dto.AddressDto

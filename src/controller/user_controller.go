@@ -21,7 +21,16 @@ type userController struct {
 	userService service.UserService
 }
 
-// RegisterUser implements UserController.
+// RegisterUser godoc
+// @Summary      Registra um novo usuário
+// @Description  Cria um novo usuário no sistema
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        user  body  dto.RegisterUserDtoIn  true  "Dados do usuário"
+// @Success      201   {object}  dto.UserDtoOut
+// @Failure      400   {object}  map[string]interface{}
+// @Router       /v1/user/register [post]
 func (u *userController) RegisterUser() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var registerUserDto dto.RegisterUserDtoIn
