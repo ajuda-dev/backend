@@ -82,7 +82,7 @@ Controller (HTTP/Fiber) → Service (business rules) → Repository (GORM) → P
 
 - **Database:** PostgreSQL.
 - **Configuration:** environment variables loaded with `godotenv` (`.env` file; template in `.env.exemple`).
-- **Variables:** `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT`, `DB_SSL_MODE` (default `disable`), `DB_TIME_ZONE`.
+- **Variables:** `DB_HOST` (host:porta, ex. `localhost:5432`), `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL_MODE` (default `disable`), `DB_TIME_ZONE`.
 - **Connection:** `src/config/database/database_connect.go` builds the DSN and opens it with `gorm.Open(postgres.Open(dsn))`.
 - **Migration:** automatic `AutoMigrate` of the `UserEntity`, `AddressEntity`, `CommunityEntity` entities on startup.
 
