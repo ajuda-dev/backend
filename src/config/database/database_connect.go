@@ -10,9 +10,9 @@ import (
 )
 
 var (
-	HOST= "HOST"
-	USER= "USER"
-	PASSWORD= "PASSWORD"
+	DB_HOST= "DB_HOST"
+	DB_USER= "DB_USER"
+	DB_PASSWORD= "DB_PASSWORD"
 	DB_NAME= "DB_NAME"
 	DB_PORT= "DB_PORT"
 	DB_SSL_MODE= "DB_SSL_MODE"
@@ -25,9 +25,9 @@ func Connect() (db *gorm.DB, err error) {
 	
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
-		os.Getenv(HOST),
-		os.Getenv(USER),
-		os.Getenv(PASSWORD),
+		os.Getenv(DB_HOST),
+		os.Getenv(DB_USER),
+		os.Getenv(DB_PASSWORD),
 		os.Getenv(DB_NAME),
 		os.Getenv(DB_PORT),
 		os.Getenv(DB_SSL_MODE),
