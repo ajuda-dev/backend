@@ -25,6 +25,24 @@ definitions:
       owner:
         $ref: '#/definitions/dto.UserDtoOut'
     type: object
+  dto.LoginUserDtoIn:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  dto.LoginUserDtoOut:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      token:
+        type: string
+    type: object
   dto.PageableCommunityDto:
     properties:
       data:
@@ -157,6 +175,38 @@ paths:
       summary: Registra uma nova comunidade
       tags:
       - communities
+  /v1/user/login:
+    post:
+      consumes:
+      - application/json
+      description: Realiza o login de um usuário e retorna um token JWT
+      parameters:
+      - description: Credenciais do usuário
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginUserDtoIn'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.LoginUserDtoOut'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Autentica um usuário
+      tags:
+      - users
   /v1/user/register:
     post:
       consumes:

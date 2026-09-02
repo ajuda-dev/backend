@@ -9,6 +9,7 @@ import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/crypto/bcrypt"
 )
 
 
@@ -20,6 +21,12 @@ import (
 
 func newUserRegisterRequest(body []byte) *http.Request {
 	req := httptest.NewRequest("POST", "/v1/user/register", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
+
+func newUserLoginRequest(body []byte) *http.Request {
+	req := httptest.NewRequest("POST", "/v1/user/login", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	return req
 }
@@ -197,5 +204,128 @@ func verifyPasswordFieldError(t *testing.T, respBody rest_err.RestErr) {
 		if !found {
 			t.Errorf("esperava mensagem '%s' para o campo 'password', mas não foi encontrada. Mensagens recebidas: %+v", expectedMsg, causes)
 		}
+	}
+}
+
+func TestLoginSuccess(t *testing.T) {
+	t.Cleanup(cleanUsersTable)
+	app := setupApp()
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+	_, createErr := userRepository.CreateUser(&domain.UserDomain{
+		Name:     "teste",
+		Email:    testEmail,
+		Password: string(hashedPassword),
+	})
+	if createErr != nil {
+		t.Fatalf("failed to create user: %v", createErr)
+	}
+
+	body := []byte(`
+	{
+		"email": "` + testEmail + `",
+		"password": "123456"
+	}
+	`)
+	req := newUserLoginRequest(body)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != fiber.StatusOK {
+		t.Errorf("esperava 200, recebeu %d", resp.StatusCode)
+	}
+	var respBody struct {
+		Token string `json:"token"`
+		Id    string `json:"id"`
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if respBody.Token == "" {
+		t.Error("esperava token não vazio na resposta")
+	}
+	if respBody.Id == "" {
+		t.Error("esperava id não vazio na resposta")
+	}
+	if respBody.Email != testEmail {
+		t.Errorf("esperava email '%s', recebeu '%s'", testEmail, respBody.Email)
+	}
+}
+
+func TestLoginWrongPassword(t *testing.T) {
+	t.Cleanup(cleanUsersTable)
+	app := setupApp()
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+	_, createErr := userRepository.CreateUser(&domain.UserDomain{
+		Name:     "teste",
+		Email:    testEmail,
+		Password: string(hashedPassword),
+	})
+	if createErr != nil {
+		t.Fatalf("failed to create user: %v", createErr)
+	}
+
+	body := []byte(`
+	{
+		"email": "` + testEmail + `",
+		"password": "senha-errada"
+	}
+	`)
+	req := newUserLoginRequest(body)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401, recebeu %d", resp.StatusCode)
+	}
+	var respBody rest_err.RestErr
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if respBody.Message != "invalid credentials" {
+		t.Errorf("esperava message 'invalid credentials', recebeu '%s'", respBody.Message)
+	}
+}
+
+func TestLoginEmailNotFound(t *testing.T) {
+	t.Cleanup(cleanUsersTable)
+	app := setupApp()
+
+	body := []byte(`
+	{
+		"email": "nao-existe@ajuda.dev",
+		"password": "123456"
+	}
+	`)
+	req := newUserLoginRequest(body)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401, recebeu %d", resp.StatusCode)
+	}
+	var respBody rest_err.RestErr
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if respBody.Message != "invalid credentials" {
+		t.Errorf("esperava message 'invalid credentials', recebeu '%s'", respBody.Message)
 	}
 }

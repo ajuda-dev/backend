@@ -7,10 +7,11 @@ import (
 	"github.com/gofiber/swagger"
 )
 
-func SetupRoutesUser(app *fiber.App, userController controller.UserController) {
+func SetupRoutesUser(app *fiber.App, userController controller.UserController, authController controller.AuthController) {
 
 	user := app.Group("/v1/user")
 	user.Post("/register", userController.RegisterUser())
+	user.Post("/login", authController.LoginUser())
 }
 
 func SetupRoutesAddress(app *fiber.App, addressController controller.AddressController) {

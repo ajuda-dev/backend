@@ -101,11 +101,12 @@ func TestMain(m *testing.M) {
 
 func setupApp() *fiber.App {
 	app := fiber.New()
-	userService :=  service.NewUserService(userRepository, validator.NewUserValidator(), service.NewAuthService());
-	addressService := service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient());
-	routes.SetupRoutesUser(app, controller.NewUserController(userService))
+	authService := service.NewAuthService(userRepository)
+	userService := service.NewUserService(userRepository, validator.NewUserValidator(), authService)
+	addressService := service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient())
+	routes.SetupRoutesUser(app, controller.NewUserController(userService), controller.NewAuthController(authService))
 	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService))
-	routes.SetupRoutesCommunities(app, controller.NewCommunityController(service.NewCommunityService(userService, addressService,communityRepository, validator.NewCommunityValidator())))
+	routes.SetupRoutesCommunities(app, controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator())))
 
 	return app
 }

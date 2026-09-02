@@ -6,19 +6,44 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
+	"github.com/ajuda-dev/backend/src/data/repository"
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
-func NewAuthService() AuthService {
-	return &authService{}
+func NewAuthService(userRepository repository.UserRepository) AuthService {
+	return &authService{
+		userRepository: userRepository,
+	}
 }
 
 type AuthService interface {
+	LoginUser(email, password string) (*domain.UserDomain, string, *rest_err.RestErr)
 	CreateToken(user *domain.UserDomain) (string, *rest_err.RestErr)
 }
 
-type authService struct{}
+type authService struct {
+	userRepository repository.UserRepository
+}
+
+// LoginUser implements AuthService.
+func (a *authService) LoginUser(email, password string) (*domain.UserDomain, string, *rest_err.RestErr) {
+	user, err := a.userRepository.GetUserByEmail(email)
+	if err != nil {
+		return nil, "", rest_err.NewUnauthorizedError("invalid credentials")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+		return nil, "", rest_err.NewUnauthorizedError("invalid credentials")
+	}
+
+	token, err := a.CreateToken(user)
+	if err != nil {
+		return nil, "", err
+	}
+	return user, token, nil
+}
 
 // CreateToken implements AuthService.
 func (a *authService) CreateToken(user *domain.UserDomain) (string, *rest_err.RestErr) {
