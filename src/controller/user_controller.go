@@ -39,12 +39,14 @@ func (u *userController) RegisterUser() fiber.Handler {
 				"error": "Não foi possível processar o corpo da requisição",
 			})
 		}
-		user, err := u.userService.CreateUser(registerUserDto.ToDomain())
+		user, token, err := u.userService.CreateUser(registerUserDto.ToDomain())
 		if err != nil {
 			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
 		var registerUserDtoOut dto.UserDtoOut
-		return c.Status(fiber.StatusCreated).JSON(registerUserDtoOut.FromDomainUser(user))
+		registerUserDtoOut = *registerUserDtoOut.FromDomainUser(user)
+		registerUserDtoOut.Token = token
+		return c.Status(fiber.StatusCreated).JSON(registerUserDtoOut)
 	}
 }

@@ -56,6 +56,15 @@ func TestCreateUserSuccess(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201, recebeu %d", resp.StatusCode)
 	}
+	var respBody struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if respBody.Token == "" {
+		t.Error("esperava token não vazio na resposta")
+	}
 	user, findUserError := userRepository.GetUserByEmail(testEmail)
 	if findUserError != nil || user == nil   || user.Id == "" {
 		t.Fatalf("user not found in database: %v", findUserError)

@@ -84,6 +84,9 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 func TestMain(m *testing.M) {
 	var err error
 
+	os.Setenv("JWT_SECRET", "test-secret")
+	os.Setenv("JWT_EXPIRATION_TIME", "24")
+
 	db, cleanupDB, err = setupTestDB(context.Background())
 	if err != nil {
 		panic("Erro ao configurar o banco de dados: " + err.Error())
@@ -98,7 +101,7 @@ func TestMain(m *testing.M) {
 
 func setupApp() *fiber.App {
 	app := fiber.New()
-	userService :=  service.NewUserService(userRepository, validator.NewUserValidator());
+	userService :=  service.NewUserService(userRepository, validator.NewUserValidator(), service.NewAuthService());
 	addressService := service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient());
 	routes.SetupRoutesUser(app, controller.NewUserController(userService))
 	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService))

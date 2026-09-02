@@ -11,8 +11,8 @@ type CommunityDto struct {
 	Id          uint        `json:"id"`
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
-	Address     *AddressDto `json:address`
-	Owner       *UserDtoOut `json:owner`
+	Address     *AddressDto `json:"address"`
+	Owner       *UserDtoOut `json:"owner"`
 }
 
 func (pc PageableCommunityDto) FromDomain(domain domain.PageableCommunity) *PageableCommunityDto {

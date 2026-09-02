@@ -23,7 +23,7 @@ func InitApp() {
 		logger.Error("Failed to connect to the database", err)
 	}
 	app := fiber.New()
-	userService := initUserService(repository.NewUserRepository(db))
+	userService := initUserService(repository.NewUserRepository(db), service.NewAuthService())
 	addressService := initAddressService(repository.NewAddressRepository(db))
 	routes.SetupRoutesUser(app, initUserController(userService))
 	routes.SetupRoutesAddress(app, initAddressController(addressService))
@@ -47,8 +47,8 @@ func initCommunityController(
 	return controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator()))
 }
 
-func initUserService(userRepository repository.UserRepository) service.UserService {
-	return service.NewUserService(userRepository, validator.NewUserValidator())
+func initUserService(userRepository repository.UserRepository, authService service.AuthService) service.UserService {
+	return service.NewUserService(userRepository, validator.NewUserValidator(), authService)
 }
 
 func initAddressService(addressRepository service.AddressService) service.AddressService {

@@ -8,21 +8,23 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func NewUserService(userRepository repository.UserRepository, validator validator.UserValidator) UserService {
+func NewUserService(userRepository repository.UserRepository, validator validator.UserValidator, authService AuthService) UserService {
 	return &userService{
 		userRepository: userRepository,
 		validator:      validator,
+		authService:    authService,
 	}
 }
 
 type UserService interface {
-	CreateUser(user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
+	CreateUser(user *domain.UserDomain) (*domain.UserDomain, string, *rest_err.RestErr)
 	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
 }
 
 type userService struct {
 	userRepository repository.UserRepository
 	validator      validator.UserValidator
+	authService    AuthService
 }
 
 // FindById implements UserService.
@@ -31,18 +33,18 @@ func (u *userService) FindById(id string) (*domain.UserDomain, *rest_err.RestErr
 }
 
 // CreateUser implements UserService.
-func (u *userService) CreateUser(user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr) {
+func (u *userService) CreateUser(user *domain.UserDomain) (*domain.UserDomain, string, *rest_err.RestErr) {
 	err := u.validator.ValidateRegisterUser(*user)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	existingUser, err := u.userRepository.GetUserByEmail(user.Email)
 	if err != nil && err.Code != rest_err.NOT_FOUND {
-		return nil, rest_err.NewInternalServerError(err.Error())
+		return nil, "", rest_err.NewInternalServerError(err.Error())
 	}
 
 	if existingUser != nil {
-		return nil, rest_err.NewBadRequestValidationError(
+		return nil, "", rest_err.NewBadRequestValidationError(
 			"Invalid user data",
 			[]rest_err.Causes{
 				{
@@ -53,14 +55,18 @@ func (u *userService) CreateUser(user *domain.UserDomain) (*domain.UserDomain, *
 	}
 	password, errH := hashPassword(user.Password)
 	if errH != nil {
-		return nil, rest_err.NewInternalServerError(errH.Error())
+		return nil, "", rest_err.NewInternalServerError(errH.Error())
 	}
 	user.Password = password
 	user, err = u.userRepository.CreateUser(user)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return user, nil
+	token, err := u.authService.CreateToken(user)
+	if err != nil {
+		return nil, "", err
+	}
+	return user, token, nil
 }
 
 func hashPassword(password string) (string, error) {

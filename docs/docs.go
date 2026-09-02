@@ -289,6 +289,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "token": {
+                    "type": "string"
                 }
             }
         }
