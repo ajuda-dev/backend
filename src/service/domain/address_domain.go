@@ -1,7 +1,7 @@
 package domain
 
 type AddressDomain struct {
-	Id      uint 
+	Id      string
 	City    string
 	State   string
 	Street	 string

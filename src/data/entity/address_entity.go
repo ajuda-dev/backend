@@ -9,7 +9,7 @@ import (
 )
 
 type AddressEntity struct {
-	Id        uint      `gorm:"primaryKey;autoIncrement"`
+	Id        string    `gorm:"primaryKey;type:uuid"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt

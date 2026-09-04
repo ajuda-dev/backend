@@ -4,15 +4,16 @@ import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/data/entity"
 	"github.com/ajuda-dev/backend/src/service/domain"
+	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
 )
 
 type CommunityRepository interface {
 	CreateCommunity(community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr)
 	FindByName(name string) (*domain.CommunityDomain, *rest_err.RestErr)
-	FindById(id uint) (*domain.CommunityDomain, *rest_err.RestErr)
-	FindAll(address_id int, page int, size int) (*domain.PageableCommunity, *rest_err.RestErr)
-	SoftDeleteById(id uint) *rest_err.RestErr
+	FindById(id string) (*domain.CommunityDomain, *rest_err.RestErr)
+	FindAll(address_id string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
+	SoftDeleteById(id string) *rest_err.RestErr
 }
 
 type communityRepository struct {
@@ -28,6 +29,7 @@ func NewCommunityRepository(db *gorm.DB) CommunityRepository {
 func (c *communityRepository) CreateCommunity(community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr) {
 	var communityEntity entity.CommunityEntity
 	communityEntity = *communityEntity.FromDomain(*community)
+	communityEntity.Id = uuidv7.New().String()
 	if err := c.database.Create(&communityEntity).Error; err != nil {
 		return &domain.CommunityDomain{}, rest_err.NewInternalServerError(err.Error())
 	}
@@ -45,7 +47,7 @@ func (c *communityRepository) FindByName(name string) (*domain.CommunityDomain, 
 	return communityEntity.ToDomain(), nil
 }
 
-func (c *communityRepository) FindById(id uint) (*domain.CommunityDomain, *rest_err.RestErr) {
+func (c *communityRepository) FindById(id string) (*domain.CommunityDomain, *rest_err.RestErr) {
 	var communityEntity entity.CommunityEntity
 	if err := c.database.Preload("Address").Preload("Owner").Where("id = ?", id).First(&communityEntity).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -56,8 +58,8 @@ func (c *communityRepository) FindById(id uint) (*domain.CommunityDomain, *rest_
 	return communityEntity.ToDomain(), nil
 }
 
-func (c *communityRepository) SoftDeleteById(id uint) *rest_err.RestErr {
-	result := c.database.Delete(&entity.CommunityEntity{}, id)
+func (c *communityRepository) SoftDeleteById(id string) *rest_err.RestErr {
+	result := c.database.Where("id = ?", id).Delete(&entity.CommunityEntity{})
 	if result.Error != nil {
 		return rest_err.NewInternalServerError("Error deleting community: " + result.Error.Error())
 	}
@@ -67,7 +69,7 @@ func (c *communityRepository) SoftDeleteById(id uint) *rest_err.RestErr {
 	return nil
 }
 
-func (c *communityRepository) FindAll(address_id int, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
+func (c *communityRepository) FindAll(address_id string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
 	var communities []entity.CommunityEntity
 	query := c.database.Model(&communities)
 
@@ -77,7 +79,7 @@ func (c *communityRepository) FindAll(address_id int, page int, limit int) (*dom
 	if limit <= 0 {
 		limit = 10
 	}
-	if address_id != 0 {
+	if address_id != "" {
 		query = query.Where("address_id = ?", address_id)
 	}
 

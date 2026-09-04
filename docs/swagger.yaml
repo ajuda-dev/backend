@@ -4,7 +4,7 @@ definitions:
       city:
         type: string
       id:
-        type: integer
+        type: string
       state:
         type: string
       street:
@@ -19,7 +19,7 @@ definitions:
       description:
         type: string
       id:
-        type: integer
+        type: string
       name:
         type: string
       owner:
@@ -55,11 +55,11 @@ definitions:
   dto.RegisterCommunityDto:
     properties:
       address_id:
-        type: integer
+        type: string
       description:
         type: string
       id:
-        type: integer
+        type: string
       name:
         type: string
       owner_id:
@@ -132,7 +132,7 @@ paths:
       - description: ID do endereço
         in: query
         name: address_id
-        type: integer
+        type: string
       produces:
       - application/json
       responses:

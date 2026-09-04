@@ -83,7 +83,7 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "ID do endereço",
                         "name": "address_id",
                         "in": "query"
@@ -245,7 +245,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "state": {
                     "type": "string"
@@ -268,7 +268,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
@@ -324,13 +324,13 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "address_id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"

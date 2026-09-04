@@ -10,7 +10,7 @@ import (
 
 type AddressService interface {
 	CreateAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
-	GetAddressById(id uint) (*domain.AddressDomain, *rest_err.RestErr)
+	GetAddressById(id string) (*domain.AddressDomain, *rest_err.RestErr)
 	SearchAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
 }
 
@@ -44,7 +44,7 @@ func (a *addressService) CreateAddress(address *domain.AddressDomain) (*domain.A
 }
 
 
-func (a *addressService) GetAddressById(id uint) (*domain.AddressDomain, *rest_err.RestErr) {
+func (a *addressService) GetAddressById(id string) (*domain.AddressDomain, *rest_err.RestErr) {
 	return a.addressRepository.GetAddressById(id)
 }
 

@@ -4,9 +4,11 @@ import (
 	"strconv"
 
 	"github.com/ajuda-dev/backend/src/config/logger"
+	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller/dto"
 	"github.com/ajuda-dev/backend/src/service"
 	"github.com/gofiber/fiber/v2"
+	"github.com/samborkent/uuidv7"
 )
 
 type CommunityController interface {
@@ -61,7 +63,7 @@ func (c *communityController) RegisterCommunity() fiber.Handler {
 // @Produce      json
 // @Param        page      query   int     false  "Página"
 // @Param        limit     query   int     false  "Limite"
-// @Param        address_id query  int     false  "ID do endereço"
+// @Param        address_id query  string  false  "ID do endereço"
 // @Success      200   {object}  dto.PageableCommunityDto
 // @Failure      400   {object}  map[string]interface{}
 // @Router       /v1/community [get]
@@ -70,12 +72,11 @@ func (c *communityController) GetAllCommunities() fiber.Handler {
 		page, _ := strconv.Atoi(cf.Query("page", "1"))
 		limit, _ := strconv.Atoi(cf.Query("limit", "10"))
 
-		addressIDStr := cf.Query("address_id")
-		var addressID int = 0
-		if addressIDStr != "" {
-			if idParsed, err := strconv.ParseUint(addressIDStr, 10, 64); err == nil {
-				addressID = int(idParsed)
-			}
+		addressID := cf.Query("address_id")
+		if addressID != "" && !uuidv7.IsValidString(addressID) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid query params",
+				[]rest_err.Causes{{Field: "address_id", Message: "address_id must be a valid UUID v7"}}))
 		}
 		result, e := c.communityService.GetAll(addressID, page, limit)
 		if e != nil {

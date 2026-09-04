@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
+	"github.com/ajuda-dev/backend/src/controller/dto"
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/gofiber/fiber/v2"
+	"github.com/samborkent/uuidv7"
 )
 
 func TestRegisterAddressSuccess(t *testing.T) {
@@ -33,6 +35,13 @@ func TestRegisterAddressSuccess(t *testing.T) {
 		t.Errorf("esperava 201, recebeu %d", resp.StatusCode)
 	}
 
+	var respDto dto.AddressDto
+	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if !uuidv7.IsValidString(respDto.Id) {
+		t.Errorf("esperava id uuid v7 válido, recebeu '%s'", respDto.Id)
+	}
 
 }
 

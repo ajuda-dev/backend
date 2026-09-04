@@ -35,7 +35,7 @@ func (c *communityValidator) ValidatorRegisterCommunity(community domain.Communi
 			Message: "Description is not valid",
 		})
 	}
-	if community.Address == (domain.AddressDomain{}) || community.Address.Id == 0 {
+	if community.Address == (domain.AddressDomain{}) || !uuidv7.IsValidString(community.Address.Id) {
 		causes = append(causes, rest_err.Causes{
 			Field:   "addressId",
 			Message: "AddressId is not valid",

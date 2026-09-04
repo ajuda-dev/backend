@@ -1,7 +1,6 @@
 package controller_test
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/data/entity"
@@ -9,11 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func itoa(n uint) string {
-	return strconv.FormatUint(uint64(n), 10)
-}
-
-func createCommunityForTest(t *testing.T, name string) uint {
+func createCommunityForTest(t *testing.T, name string) string {
 	t.Helper()
 	user, createErr := userRepository.CreateUser(&domain.UserDomain{
 		Name:     "teste",
@@ -57,7 +52,7 @@ func TestSoftDeleteCommunityRemovesFromListing(t *testing.T) {
 		t.Fatalf("failed to soft delete community: %v", delErr)
 	}
 
-	page, findErr := communityRepository.FindAll(0, 1, 10)
+	page, findErr := communityRepository.FindAll("", 1, 10)
 	if findErr != nil {
 		t.Fatalf("failed to list communities: %v", findErr)
 	}
@@ -102,7 +97,7 @@ func TestSoftDeletedCommunityAllowsNameReuse(t *testing.T) {
 	}
 
 	body := []byte(`{
-		"address_id": ` + itoa(address.Id) + `,
+		"address_id": "` + address.Id + `",
 		"owner_id": "` + user.Id + `",
 		"name": "Dev Mode",
 		"description": "comunidade recriada"
@@ -139,6 +134,6 @@ func TestRestoreCommunity(t *testing.T) {
 		t.Fatalf("esperava achar a comunidade restaurada, recebeu %v", findErr)
 	}
 	if community.Id != id {
-		t.Errorf("esperava comunidade de id %d, recebeu %d", id, community.Id)
+		t.Errorf("esperava comunidade de id %s, recebeu %s", id, community.Id)
 	}
 }

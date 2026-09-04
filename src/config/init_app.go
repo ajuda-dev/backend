@@ -57,7 +57,7 @@ func initUserService(userRepository repository.UserRepository, authService servi
 	return service.NewUserService(userRepository, validator.NewUserValidator(), authService)
 }
 
-func initAddressService(addressRepository service.AddressService) service.AddressService {
+func initAddressService(addressRepository repository.AddressRepository) service.AddressService {
 	return service.NewAddressService(
 		addressRepository,
 		validator.NewAddressValidator(),

@@ -3,7 +3,7 @@ package dto
 import "github.com/ajuda-dev/backend/src/service/domain"
 
 type AddressDto struct {
-	Id      uint   `json:"id"`
+	Id      string `json:"id"`
 	City    string `json:"city"`
 	State   string `json:"state"`
 	Street  string `json:"street,omitempty"`

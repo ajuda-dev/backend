@@ -8,14 +8,14 @@ import (
 )
 
 type CommunityEntity struct {
-	Id          uint          `gorm:"primaryKey;autoIncrement"`
+	Id          string         `gorm:"primaryKey;type:uuid"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   gorm.DeletedAt `gorm:"uniqueIndex:idx_community_name_del,priority:2"`
 	Name        string         `gorm:"not null;uniqueIndex:idx_community_name_del,priority:1"`
 	Description string         `gorm:"not null"`
 	OwnerId     string         `gorm:"type:uuid;not null;index"`
-	AddressId   uint           `gorm:"not null;index"`
+	AddressId   string         `gorm:"type:uuid;not null;index"`
 	Address     AddressEntity  `gorm:"foreignKey:AddressId;references:Id"`
 	Owner       UserEntity     `gorm:"foreignKey:OwnerId;references:Id"`
 }

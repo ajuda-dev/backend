@@ -8,7 +8,7 @@ type PageableCommunityDto struct {
  }
 
 type CommunityDto struct {
-	Id          uint        `json:"id"`
+	Id          string      `json:"id"`
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
 	Address     *AddressDto `json:"address"`

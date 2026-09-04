@@ -4,12 +4,13 @@ import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/data/entity"
 	"github.com/ajuda-dev/backend/src/service/domain"
+	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
 )
 
 type AddressRepository interface {
 	CreateAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
-	GetAddressById(id uint) (*domain.AddressDomain, *rest_err.RestErr)
+	GetAddressById(id string) (*domain.AddressDomain, *rest_err.RestErr)
 	SearchAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
 }
 
@@ -20,6 +21,7 @@ type addressRepository struct {
 func (a *addressRepository) CreateAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr) {
 	var addressEntity entity.AddressEntity
 	addressEntity = *addressEntity.FromDomainAddress(address)
+	addressEntity.Id = uuidv7.New().String()
 	if err := a.database.Create(&addressEntity).Error; err != nil {
 		return &domain.AddressDomain{}, rest_err.NewInternalServerError(err.Error())
 	}
@@ -54,7 +56,7 @@ func (a *addressRepository) SearchAddress(address *domain.AddressDomain) (*domai
 	return results[0].ToDomainAddress(), nil
 }
 
-func (a *addressRepository) GetAddressById(id uint) (*domain.AddressDomain, *rest_err.RestErr) {
+func (a *addressRepository) GetAddressById(id string) (*domain.AddressDomain, *rest_err.RestErr) {
 	var addressEntity entity.AddressEntity
 	if err := a.database.Where("id = ?", id).First(&addressEntity).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {

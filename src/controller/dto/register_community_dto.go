@@ -5,11 +5,11 @@ import (
 )
 
 type RegisterCommunityDto struct {
-	Id 					uint   `json:"id"`
+	Id 					string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	OwnerId     string `json:"owner_id"`
-	AddressId   uint   `json:"address_id"`
+	AddressId   string `json:"address_id"`
 }
 
 func (r RegisterCommunityDto) FromDomain(domain *domain.CommunityDomain) interface{} {

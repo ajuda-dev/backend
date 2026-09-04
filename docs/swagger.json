@@ -72,7 +72,7 @@
                         "in": "query"
                     },
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "ID do endereço",
                         "name": "address_id",
                         "in": "query"
@@ -234,7 +234,7 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "state": {
                     "type": "string"
@@ -257,7 +257,7 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
@@ -313,13 +313,13 @@
             "type": "object",
             "properties": {
                 "address_id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
