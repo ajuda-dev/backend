@@ -10,7 +10,9 @@ import (
 type CommunityRepository interface {
 	CreateCommunity(community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr)
 	FindByName(name string) (*domain.CommunityDomain, *rest_err.RestErr)
+	FindById(id uint) (*domain.CommunityDomain, *rest_err.RestErr)
 	FindAll(address_id int, page int, size int) (*domain.PageableCommunity, *rest_err.RestErr)
+	SoftDeleteById(id uint) *rest_err.RestErr
 }
 
 type communityRepository struct {
@@ -41,6 +43,28 @@ func (c *communityRepository) FindByName(name string) (*domain.CommunityDomain, 
 		return nil, rest_err.NewInternalServerError("Error getting community: " + err.Error())
 	}
 	return communityEntity.ToDomain(), nil
+}
+
+func (c *communityRepository) FindById(id uint) (*domain.CommunityDomain, *rest_err.RestErr) {
+	var communityEntity entity.CommunityEntity
+	if err := c.database.Preload("Address").Preload("Owner").Where("id = ?", id).First(&communityEntity).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, rest_err.NewNotFoundError("community not found")
+		}
+		return nil, rest_err.NewInternalServerError("Error getting community: " + err.Error())
+	}
+	return communityEntity.ToDomain(), nil
+}
+
+func (c *communityRepository) SoftDeleteById(id uint) *rest_err.RestErr {
+	result := c.database.Delete(&entity.CommunityEntity{}, id)
+	if result.Error != nil {
+		return rest_err.NewInternalServerError("Error deleting community: " + result.Error.Error())
+	}
+	if result.RowsAffected == 0 {
+		return rest_err.NewNotFoundError("community not found")
+	}
+	return nil
 }
 
 func (c *communityRepository) FindAll(address_id int, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {

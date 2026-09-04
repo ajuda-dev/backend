@@ -1,19 +1,23 @@
 package entity
 
 import (
+	"time"
+
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"gorm.io/gorm"
 )
 
 type CommunityEntity struct {
-	gorm.Model
-	Id          uint          `gorm:"primaryKey;"`
-	Name        string        `gorm:"not null;unique"`
-	Description string        `gorm:"not null"`
-	OwnerId     string        `gorm:"not null"`
-	AddressId   uint          `gorm:"not null"`
-	Address     AddressEntity `gorm:"foreignKey:AddressId;references:Id"`
-	Owner       UserEntity    `gorm:"foreignKey:OwnerId;references:Id"`
+	Id          uint          `gorm:"primaryKey;autoIncrement"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   gorm.DeletedAt `gorm:"uniqueIndex:idx_community_name_del,priority:2"`
+	Name        string         `gorm:"not null;uniqueIndex:idx_community_name_del,priority:1"`
+	Description string         `gorm:"not null"`
+	OwnerId     string         `gorm:"type:uuid;not null;index"`
+	AddressId   uint           `gorm:"not null;index"`
+	Address     AddressEntity  `gorm:"foreignKey:AddressId;references:Id"`
+	Owner       UserEntity     `gorm:"foreignKey:OwnerId;references:Id"`
 }
 
 

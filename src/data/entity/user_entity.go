@@ -1,19 +1,20 @@
 package entity
 
 import (
+	"time"
+
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"gorm.io/gorm"
 )
 
-
-
-
 type UserEntity struct {
-	gorm.Model
-	Id       string `gorm:"primaryKey;type:uuid"`
-	Name     string `gorm:"type:varchar(100);not null"`
-	Email    string `gorm:"type:varchar(100);unique;not null"`
-	Password string `gorm:"type:varchar(100);not null"`
+	Id        string         `gorm:"primaryKey;type:uuid"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"uniqueIndex:idx_users_email_del,priority:2"`
+	Name      string         `gorm:"type:varchar(100);not null"`
+	Email     string         `gorm:"type:varchar(100);not null;uniqueIndex:idx_users_email_del,priority:1"`
+	Password  string         `gorm:"type:varchar(100);not null"`
 }
 
 

@@ -2,17 +2,20 @@ package entity
 
 import (
 	"strings"
+	"time"
 
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"gorm.io/gorm"
 )
 
 type AddressEntity struct {
-	gorm.Model
-	Id      uint   `gorm:"primaryKey;autoIncrement"`
-	City    string `gorm:"not null"`
-	State   string `gorm:"not null"`
-	ZipCode string `gorm:"not null"`
+	Id        uint      `gorm:"primaryKey;autoIncrement"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt
+	City      string    `gorm:"not null"`
+	State     string    `gorm:"not null"`
+	ZipCode   string    `gorm:"not null"`
 }
 
 
