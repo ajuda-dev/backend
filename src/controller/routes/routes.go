@@ -25,6 +25,14 @@ func SetupRoutesCommunities(app *fiber.App, communityController controller.Commu
 	communities.Get("", communityController.GetAllCommunities())
 }
 
+func SetupRoutesEvents(app *fiber.App, eventController controller.EventController) {
+	events := app.Group("/v1/event")
+	events.Post("/register", eventController.RegisterEvent())
+	events.Get("/:id", eventController.GetEventById())
+	events.Get("", eventController.GetAllEvents())
+	events.Delete("/:id", eventController.DeleteEventById())
+}
+
 func SetupSwaggerRoute(app *fiber.App) {
 	app.Get("/swagger/*", swagger.HandlerDefault)
 }

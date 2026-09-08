@@ -24,12 +24,13 @@ import (
 )
 
 var (
-	db                *gorm.DB
-	cleanupDB         func()
-	userRepository    repository.UserRepository
-	addressRepository repository.AddressRepository
+	db                 *gorm.DB
+	cleanupDB          func()
+	userRepository     repository.UserRepository
+	addressRepository  repository.AddressRepository
 	communityRepository repository.CommunityRepository
-	testEmail         = "teste@ajuda.dev"
+	eventRepository    repository.EventRepository
+	testEmail          = "teste@ajuda.dev"
 )
 
 func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
@@ -76,7 +77,7 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 			log.Printf("Erro ao parar o container: %v", err)
 		}
 	}
-	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{})
+	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{})
 
 	return db, cleanup, nil
 }
@@ -94,6 +95,7 @@ func TestMain(m *testing.M) {
 	userRepository = repository.NewUserRepository(db)
 	addressRepository = repository.NewAddressRepository(db)
 	communityRepository = repository.NewCommunityRepository(db)
+	eventRepository = repository.NewEventRepository(db)
 	code := m.Run()
 	cleanupDB()
 	os.Exit(code)
@@ -107,6 +109,7 @@ func setupApp() *fiber.App {
 	routes.SetupRoutesUser(app, controller.NewUserController(userService), controller.NewAuthController(authService))
 	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService))
 	routes.SetupRoutesCommunities(app, controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator())))
+	routes.SetupRoutesEvents(app, controller.NewEventController(service.NewEventService(userService, addressService, communityRepository, eventRepository, validator.NewEventValidator())))
 
 	return app
 }
@@ -121,6 +124,10 @@ func cleanAddressesTable() {
 
 func cleanCommunityTable(){
 	db.Exec("DELETE FROM community")
+}
+
+func cleanEventsTable() {
+	db.Exec("DELETE FROM events")
 }
 
 type addressSearchClientMock struct {

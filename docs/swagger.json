@@ -136,6 +136,194 @@
                 }
             }
         },
+        "/v1/event": {
+            "get": {
+                "description": "Retorna todos os eventos, com paginação e filtros por comunidade, categoria, tipo, endereço, cidade e apenas futuros",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Lista eventos",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Página",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limite",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID da comunidade",
+                        "name": "community_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Categoria (COMMUNITY_EVENT, MENTORING, WEBINAR)",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Formato (ONLINE, INPERSON, HYBRID)",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID do endereço",
+                        "name": "address_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cidade do endereço do evento",
+                        "name": "city",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Somente eventos futuros",
+                        "name": "upcoming",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PageableEventDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/event/register": {
+            "post": {
+                "description": "Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Registra um novo evento",
+                "parameters": [
+                    {
+                        "description": "Dados do evento",
+                        "name": "event",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.RegisterEventDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.RegisterEventDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/event/{id}": {
+            "get": {
+                "description": "Retorna o detalhe do evento com owner, endereço e comunidade (preloads)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Busca evento por id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventDto"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Arquiva o evento marcando deleted_at",
+                "tags": [
+                    "events"
+                ],
+                "summary": "Remove evento (soft delete)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/user/login": {
             "post": {
                 "description": "Realiza o login de um usuário e retorna um token JWT",
@@ -267,6 +455,47 @@
                 }
             }
         },
+        "dto.EventDto": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "$ref": "#/definitions/dto.AddressDto"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "community": {
+                    "$ref": "#/definitions/dto.CommunityDto"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "duration_min": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "max_slots": {
+                    "type": "integer"
+                },
+                "meeting_link": {
+                    "type": "string"
+                },
+                "owner": {
+                    "$ref": "#/definitions/dto.UserDtoOut"
+                },
+                "start_at": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.LoginUserDtoIn": {
             "type": "object",
             "properties": {
@@ -309,6 +538,20 @@
                 }
             }
         },
+        "dto.PageableEventDto": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.EventDto"
+                    }
+                },
+                "has_next": {
+                    "type": "boolean"
+                }
+            }
+        },
         "dto.RegisterCommunityDto": {
             "type": "object",
             "properties": {
@@ -325,6 +568,47 @@
                     "type": "string"
                 },
                 "owner_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.RegisterEventDto": {
+            "type": "object",
+            "properties": {
+                "address_id": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "community_id": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "duration_min": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "max_slots": {
+                    "type": "integer"
+                },
+                "meeting_link": {
+                    "type": "string"
+                },
+                "owner_id": {
+                    "type": "string"
+                },
+                "start_at": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }

@@ -1,0 +1,68 @@
+package dto
+
+import (
+	"time"
+
+	"github.com/ajuda-dev/backend/src/service/domain"
+)
+
+type RegisterEventDto struct {
+	Id          string    `json:"id"`
+	OwnerId     string    `json:"owner_id"`
+	CommunityId *string   `json:"community_id"`
+	AddressId   *string   `json:"address_id"`
+	Category    string    `json:"category"`
+	Type        string    `json:"type"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	StartAt     time.Time `json:"start_at"`
+	DurationMin int       `json:"duration_min"`
+	MeetingLink string    `json:"meeting_link"`
+	MaxSlots    *int      `json:"max_slots"`
+}
+
+func (r *RegisterEventDto) ToDomain() *domain.EventDomain {
+	var community *domain.CommunityDomain
+	if r.CommunityId != nil {
+		community = &domain.CommunityDomain{Id: *r.CommunityId}
+	}
+	var address *domain.AddressDomain
+	if r.AddressId != nil {
+		address = &domain.AddressDomain{Id: *r.AddressId}
+	}
+	return &domain.EventDomain{
+		Owner:       domain.UserDomain{Id: r.OwnerId},
+		Community:   community,
+		Address:     address,
+		Category:    r.Category,
+		Type:        r.Type,
+		Title:       r.Title,
+		Description: r.Description,
+		StartAt:     r.StartAt,
+		DurationMin: r.DurationMin,
+		MeetingLink: r.MeetingLink,
+		MaxSlots:    r.MaxSlots,
+	}
+}
+
+func (r RegisterEventDto) FromDomain(event *domain.EventDomain) interface{} {
+	dtoEvent := &RegisterEventDto{
+		Id:          event.Id,
+		OwnerId:     event.Owner.Id,
+		Category:    event.Category,
+		Type:        event.Type,
+		Title:       event.Title,
+		Description: event.Description,
+		StartAt:     event.StartAt,
+		DurationMin: event.DurationMin,
+		MeetingLink: event.MeetingLink,
+		MaxSlots:    event.MaxSlots,
+	}
+	if event.Community != nil {
+		dtoEvent.CommunityId = &event.Community.Id
+	}
+	if event.Address != nil {
+		dtoEvent.AddressId = &event.Address.Id
+	}
+	return dtoEvent
+}

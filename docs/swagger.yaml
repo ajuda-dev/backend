@@ -25,6 +25,33 @@ definitions:
       owner:
         $ref: '#/definitions/dto.UserDtoOut'
     type: object
+  dto.EventDto:
+    properties:
+      address:
+        $ref: '#/definitions/dto.AddressDto'
+      category:
+        type: string
+      community:
+        $ref: '#/definitions/dto.CommunityDto'
+      description:
+        type: string
+      duration_min:
+        type: integer
+      id:
+        type: string
+      max_slots:
+        type: integer
+      meeting_link:
+        type: string
+      owner:
+        $ref: '#/definitions/dto.UserDtoOut'
+      start_at:
+        type: string
+      title:
+        type: string
+      type:
+        type: string
+    type: object
   dto.LoginUserDtoIn:
     properties:
       email:
@@ -52,6 +79,15 @@ definitions:
       has_next:
         type: boolean
     type: object
+  dto.PageableEventDto:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.EventDto'
+        type: array
+      has_next:
+        type: boolean
+    type: object
   dto.RegisterCommunityDto:
     properties:
       address_id:
@@ -63,6 +99,33 @@ definitions:
       name:
         type: string
       owner_id:
+        type: string
+    type: object
+  dto.RegisterEventDto:
+    properties:
+      address_id:
+        type: string
+      category:
+        type: string
+      community_id:
+        type: string
+      description:
+        type: string
+      duration_min:
+        type: integer
+      id:
+        type: string
+      max_slots:
+        type: integer
+      meeting_link:
+        type: string
+      owner_id:
+        type: string
+      start_at:
+        type: string
+      title:
+        type: string
+      type:
         type: string
     type: object
   dto.RegisterUserDtoIn:
@@ -175,6 +238,133 @@ paths:
       summary: Registra uma nova comunidade
       tags:
       - communities
+  /v1/event:
+    get:
+      consumes:
+      - application/json
+      description: Retorna todos os eventos, com paginação e filtros por comunidade,
+        categoria, tipo, endereço, cidade e apenas futuros
+      parameters:
+      - description: Página
+        in: query
+        name: page
+        type: integer
+      - description: Limite
+        in: query
+        name: limit
+        type: integer
+      - description: ID da comunidade
+        in: query
+        name: community_id
+        type: string
+      - description: Categoria (COMMUNITY_EVENT, MENTORING, WEBINAR)
+        in: query
+        name: category
+        type: string
+      - description: Formato (ONLINE, INPERSON, HYBRID)
+        in: query
+        name: type
+        type: string
+      - description: ID do endereço
+        in: query
+        name: address_id
+        type: string
+      - description: Cidade do endereço do evento
+        in: query
+        name: city
+        type: string
+      - description: Somente eventos futuros
+        in: query
+        name: upcoming
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PageableEventDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Lista eventos
+      tags:
+      - events
+  /v1/event/{id}:
+    delete:
+      description: Arquiva o evento marcando deleted_at
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Remove evento (soft delete)
+      tags:
+      - events
+    get:
+      consumes:
+      - application/json
+      description: Retorna o detalhe do evento com owner, endereço e comunidade (preloads)
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.EventDto'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Busca evento por id
+      tags:
+      - events
+  /v1/event/register:
+    post:
+      consumes:
+      - application/json
+      description: Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id
+        é obrigatório; para ONLINE, address_id deve ser nulo.
+      parameters:
+      - description: Dados do evento
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterEventDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.RegisterEventDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Registra um novo evento
+      tags:
+      - events
   /v1/user/login:
     post:
       consumes:

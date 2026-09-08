@@ -27,9 +27,11 @@ func InitApp() {
 	authService := service.NewAuthService(userRepository)
 	userService := initUserService(userRepository, authService)
 	addressService := initAddressService(repository.NewAddressRepository(db))
+	communityRepository := repository.NewCommunityRepository(db)
 	routes.SetupRoutesUser(app, initUserController(userService), initAuthController(authService))
 	routes.SetupRoutesAddress(app, initAddressController(addressService))
-	routes.SetupRoutesCommunities(app, initCommunityController(repository.NewCommunityRepository(db), addressService, userService))
+	routes.SetupRoutesCommunities(app, initCommunityController(communityRepository, addressService, userService))
+	routes.SetupRoutesEvents(app, initEventController(userService, addressService, communityRepository, repository.NewEventRepository(db)))
 	routes.SetupSwaggerRoute(app)
 	log.Fatal(app.Listen(":8080"))
 }
@@ -51,6 +53,14 @@ func initCommunityController(
 	addressService service.AddressService,
 	userService service.UserService) controller.CommunityController {
 	return controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator()))
+}
+
+func initEventController(
+	userService service.UserService,
+	addressService service.AddressService,
+	communityRepository repository.CommunityRepository,
+	eventRepository repository.EventRepository) controller.EventController {
+	return controller.NewEventController(service.NewEventService(userService, addressService, communityRepository, eventRepository, validator.NewEventValidator()))
 }
 
 func initUserService(userRepository repository.UserRepository, authService service.AuthService) service.UserService {
