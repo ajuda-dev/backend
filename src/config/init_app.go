@@ -28,10 +28,20 @@ func InitApp() {
 	userService := initUserService(userRepository, authService)
 	addressService := initAddressService(repository.NewAddressRepository(db))
 	communityRepository := repository.NewCommunityRepository(db)
+	eventRepository := repository.NewEventRepository(db)
+	eventUserRepository := repository.NewEventUserRepository(db)
+	eventService := service.NewEventService(
+		userService,
+		addressService,
+		communityRepository,
+		eventRepository,
+		eventUserRepository,
+		validator.NewEventValidator())
 	routes.SetupRoutesUser(app, initUserController(userService), initAuthController(authService))
 	routes.SetupRoutesAddress(app, initAddressController(addressService))
 	routes.SetupRoutesCommunities(app, initCommunityController(communityRepository, addressService, userService))
-	routes.SetupRoutesEvents(app, initEventController(userService, addressService, communityRepository, repository.NewEventRepository(db)))
+	routes.SetupRoutesEvents(app, controller.NewEventController(eventService))
+	routes.SetupRoutesEventUsers(app, initEventUserController(userService, eventService, eventUserRepository))
 	routes.SetupSwaggerRoute(app)
 	log.Fatal(app.Listen(":8080"))
 }
@@ -55,12 +65,11 @@ func initCommunityController(
 	return controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator()))
 }
 
-func initEventController(
+func initEventUserController(
 	userService service.UserService,
-	addressService service.AddressService,
-	communityRepository repository.CommunityRepository,
-	eventRepository repository.EventRepository) controller.EventController {
-	return controller.NewEventController(service.NewEventService(userService, addressService, communityRepository, eventRepository, validator.NewEventValidator()))
+	eventService service.EventService,
+	eventUserRepository repository.EventUserRepository) controller.EventUserController {
+	return controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator()))
 }
 
 func initUserService(userRepository repository.UserRepository, authService service.AuthService) service.UserService {

@@ -197,6 +197,24 @@
                         "description": "Somente eventos futuros",
                         "name": "upcoming",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID do usuário (agenda: eventos com participação)",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Papel da participação (com user_id)",
+                        "name": "role",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status da participação (com user_id)",
+                        "name": "status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -249,6 +267,277 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/event/{eventId}/join": {
+            "post": {
+                "description": "Inscreve o usuário como ATTENDEE em um evento COMMUNITY_EVENT ou WEBINAR, respeitando MaxSlots. A linha é única por (evento, usuário): cancelamentos viram CANCELLED e uma nova inscrição reativa a linha.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "event_users"
+                ],
+                "summary": "Auto-inscreve um participante",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Dados da inscrição",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.JoinEventDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventUserDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/event/{eventId}/participants": {
+            "get": {
+                "description": "Retorna os participantes do evento com usuário (preload), com filtro opcional de status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "event_users"
+                ],
+                "summary": "Lista participantes do evento",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtro por status (REQUESTED, CONFIRMED, REJECTED, CANCELLED)",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.EventUserDto"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "O host adiciona um MENTEE (status REQUESTED) em eventos MENTORING ou um SPEAKER (status CONFIRMED) em eventos COMMUNITY_EVENT/WEBINAR.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "event_users"
+                ],
+                "summary": "Adiciona participante (MENTEE ou SPEAKER)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Dados do participante",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.AddParticipantDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventUserDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/event/{eventId}/participants/{userId}": {
+            "delete": {
+                "description": "Não deleta a linha: o status vira CANCELLED. Reinscrever depois volta a mesma linha para CONFIRMED.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "event_users"
+                ],
+                "summary": "Cancela participação (desistência)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID do usuário",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventUserDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/event/{eventId}/participants/{userId}/status": {
+            "put": {
+                "description": "MENTEE aceita (CONFIRMED) ou recusa (REJECTED) o convite de mentoria. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "event_users"
+                ],
+                "summary": "Atualiza status do participante",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID do usuário",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Novo status (CONFIRMED ou REJECTED)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateParticipantStatusDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventUserDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -415,6 +704,17 @@
         }
     },
     "definitions": {
+        "dto.AddParticipantDto": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.AddressDto": {
             "type": "object",
             "properties": {
@@ -492,6 +792,37 @@
                     "type": "string"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.EventUserDto": {
+            "type": "object",
+            "properties": {
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/dto.UserDtoOut"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.JoinEventDto": {
+            "type": "object",
+            "properties": {
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -623,6 +954,14 @@
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.UpdateParticipantStatusDto": {
+            "type": "object",
+            "properties": {
+                "status": {
                     "type": "string"
                 }
             }

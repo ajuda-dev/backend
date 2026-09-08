@@ -1,4 +1,11 @@
 definitions:
+  dto.AddParticipantDto:
+    properties:
+      role:
+        type: string
+      user_id:
+        type: string
+    type: object
   dto.AddressDto:
     properties:
       city:
@@ -50,6 +57,26 @@ definitions:
       title:
         type: string
       type:
+        type: string
+    type: object
+  dto.EventUserDto:
+    properties:
+      event_id:
+        type: string
+      id:
+        type: string
+      role:
+        type: string
+      status:
+        type: string
+      user:
+        $ref: '#/definitions/dto.UserDtoOut'
+      user_id:
+        type: string
+    type: object
+  dto.JoinEventDto:
+    properties:
+      user_id:
         type: string
     type: object
   dto.LoginUserDtoIn:
@@ -135,6 +162,11 @@ definitions:
       name:
         type: string
       password:
+        type: string
+    type: object
+  dto.UpdateParticipantStatusDto:
+    properties:
+      status:
         type: string
     type: object
   dto.UserDtoOut:
@@ -277,6 +309,18 @@ paths:
         in: query
         name: upcoming
         type: boolean
+      - description: 'ID do usuário (agenda: eventos com participação)'
+        in: query
+        name: user_id
+        type: string
+      - description: Papel da participação (com user_id)
+        in: query
+        name: role
+        type: string
+      - description: Status da participação (com user_id)
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -292,6 +336,195 @@ paths:
       summary: Lista eventos
       tags:
       - events
+  /v1/event/{eventId}/join:
+    post:
+      consumes:
+      - application/json
+      description: 'Inscreve o usuário como ATTENDEE em um evento COMMUNITY_EVENT
+        ou WEBINAR, respeitando MaxSlots. A linha é única por (evento, usuário): cancelamentos
+        viram CANCELLED e uma nova inscrição reativa a linha.'
+      parameters:
+      - description: ID do evento
+        in: path
+        name: eventId
+        required: true
+        type: string
+      - description: Dados da inscrição
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.JoinEventDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.EventUserDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Auto-inscreve um participante
+      tags:
+      - event_users
+  /v1/event/{eventId}/participants:
+    get:
+      consumes:
+      - application/json
+      description: Retorna os participantes do evento com usuário (preload), com filtro
+        opcional de status
+      parameters:
+      - description: ID do evento
+        in: path
+        name: eventId
+        required: true
+        type: string
+      - description: Filtro por status (REQUESTED, CONFIRMED, REJECTED, CANCELLED)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.EventUserDto'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Lista participantes do evento
+      tags:
+      - event_users
+    post:
+      consumes:
+      - application/json
+      description: O host adiciona um MENTEE (status REQUESTED) em eventos MENTORING
+        ou um SPEAKER (status CONFIRMED) em eventos COMMUNITY_EVENT/WEBINAR.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: eventId
+        required: true
+        type: string
+      - description: Dados do participante
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AddParticipantDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.EventUserDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Adiciona participante (MENTEE ou SPEAKER)
+      tags:
+      - event_users
+  /v1/event/{eventId}/participants/{userId}:
+    delete:
+      consumes:
+      - application/json
+      description: 'Não deleta a linha: o status vira CANCELLED. Reinscrever depois
+        volta a mesma linha para CONFIRMED.'
+      parameters:
+      - description: ID do evento
+        in: path
+        name: eventId
+        required: true
+        type: string
+      - description: ID do usuário
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.EventUserDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Cancela participação (desistência)
+      tags:
+      - event_users
+  /v1/event/{eventId}/participants/{userId}/status:
+    put:
+      consumes:
+      - application/json
+      description: MENTEE aceita (CONFIRMED) ou recusa (REJECTED) o convite de mentoria.
+        Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: eventId
+        required: true
+        type: string
+      - description: ID do usuário
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Novo status (CONFIRMED ou REJECTED)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateParticipantStatusDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.EventUserDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Atualiza status do participante
+      tags:
+      - event_users
   /v1/event/{id}:
     delete:
       description: Arquiva o evento marcando deleted_at

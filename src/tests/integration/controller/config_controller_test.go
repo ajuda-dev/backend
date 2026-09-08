@@ -30,7 +30,8 @@ var (
 	addressRepository  repository.AddressRepository
 	communityRepository repository.CommunityRepository
 	eventRepository    repository.EventRepository
-	testEmail          = "teste@ajuda.dev"
+	eventUserRepository repository.EventUserRepository
+	testEmail           = "teste@ajuda.dev"
 )
 
 func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
@@ -77,7 +78,7 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 			log.Printf("Erro ao parar o container: %v", err)
 		}
 	}
-	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{})
+	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{})
 
 	return db, cleanup, nil
 }
@@ -96,6 +97,7 @@ func TestMain(m *testing.M) {
 	addressRepository = repository.NewAddressRepository(db)
 	communityRepository = repository.NewCommunityRepository(db)
 	eventRepository = repository.NewEventRepository(db)
+	eventUserRepository = repository.NewEventUserRepository(db)
 	code := m.Run()
 	cleanupDB()
 	os.Exit(code)
@@ -109,7 +111,9 @@ func setupApp() *fiber.App {
 	routes.SetupRoutesUser(app, controller.NewUserController(userService), controller.NewAuthController(authService))
 	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService))
 	routes.SetupRoutesCommunities(app, controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator())))
-	routes.SetupRoutesEvents(app, controller.NewEventController(service.NewEventService(userService, addressService, communityRepository, eventRepository, validator.NewEventValidator())))
+	eventService := service.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, validator.NewEventValidator())
+	routes.SetupRoutesEvents(app, controller.NewEventController(eventService))
+	routes.SetupRoutesEventUsers(app, controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator())))
 
 	return app
 }
@@ -128,6 +132,10 @@ func cleanCommunityTable(){
 
 func cleanEventsTable() {
 	db.Exec("DELETE FROM events")
+}
+
+func cleanEventUsersTable() {
+	db.Exec("DELETE FROM event_users")
 }
 
 type addressSearchClientMock struct {

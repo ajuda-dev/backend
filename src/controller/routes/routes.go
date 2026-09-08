@@ -33,6 +33,15 @@ func SetupRoutesEvents(app *fiber.App, eventController controller.EventControlle
 	events.Delete("/:id", eventController.DeleteEventById())
 }
 
+func SetupRoutesEventUsers(app *fiber.App, eventUserController controller.EventUserController) {
+	events := app.Group("/v1/event")
+	events.Post("/:eventId/join", eventUserController.JoinEvent())
+	events.Post("/:eventId/participants", eventUserController.AddParticipant())
+	events.Get("/:eventId/participants", eventUserController.GetParticipants())
+	events.Put("/:eventId/participants/:userId/status", eventUserController.UpdateParticipantStatus())
+	events.Delete("/:eventId/participants/:userId", eventUserController.CancelParticipation())
+}
+
 func SetupSwaggerRoute(app *fiber.App) {
 	app.Get("/swagger/*", swagger.HandlerDefault)
 }

@@ -16,6 +16,7 @@ type EventService interface {
 
 type eventService struct {
 	eventRepository     repository.EventRepository
+	eventUserRepository repository.EventUserRepository
 	eventValidator      validator.EventValidator
 	userService         UserService
 	addressService      AddressService
@@ -27,17 +28,24 @@ func NewEventService(
 	addressService AddressService,
 	communityRepository repository.CommunityRepository,
 	eventRepository repository.EventRepository,
+	eventUserRepository repository.EventUserRepository,
 	eventValidator validator.EventValidator) EventService {
 	return &eventService{
 		userService:         userService,
 		addressService:      addressService,
 		communityRepository: communityRepository,
 		eventRepository:     eventRepository,
+		eventUserRepository: eventUserRepository,
 		eventValidator:      eventValidator,
 	}
 }
 
 func (e *eventService) CreateEvent(event *domain.EventDomain) (*domain.EventDomain, *rest_err.RestErr) {
+	if event.Category == domain.CategoryMentoring {
+		maxSlots := 2
+		event.MaxSlots = &maxSlots
+	}
+
 	err := e.eventValidator.ValidatorRegisterEvent(*event)
 	if err != nil {
 		return &domain.EventDomain{}, err
@@ -83,7 +91,23 @@ func (e *eventService) CreateEvent(event *domain.EventDomain) (*domain.EventDoma
 		event.Community = community
 	}
 
-	return e.eventRepository.CreateEvent(event)
+	createdEvent, createErr := e.eventRepository.CreateEvent(event)
+	if createErr != nil {
+		return &domain.EventDomain{}, createErr
+	}
+
+	if event.Category == domain.CategoryMentoring {
+		if _, mentorErr := e.eventUserRepository.CreateOrUpdate(&domain.EventUserDomain{
+			EventId: createdEvent.Id,
+			UserId:  createdEvent.Owner.Id,
+			Role:    domain.RoleMentor,
+			Status:  domain.StatusConfirmed,
+		}, createdEvent.MaxSlots); mentorErr != nil {
+			return &domain.EventDomain{}, mentorErr
+		}
+	}
+
+	return createdEvent, nil
 }
 
 func (e *eventService) GetEventById(id string) (*domain.EventDomain, *rest_err.RestErr) {

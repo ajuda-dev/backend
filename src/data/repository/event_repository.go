@@ -18,6 +18,9 @@ type EventFilter struct {
 	AddressId   string
 	City        string
 	Upcoming    bool
+	UserId      string
+	Role        string
+	Status      string
 }
 
 type EventRepository interface {
@@ -102,6 +105,18 @@ func (e *eventRepository) FindAll(filter EventFilter, page int, limit int) (*dom
 	}
 	if filter.Upcoming {
 		query = query.Where("start_at > ?", time.Now())
+	}
+	if filter.UserId != "" || filter.Role != "" || filter.Status != "" {
+		query = query.Joins("JOIN event_users ON event_users.event_id = events.id")
+	}
+	if filter.UserId != "" {
+		query = query.Where("event_users.user_id = ?", filter.UserId)
+	}
+	if filter.Role != "" {
+		query = query.Where("event_users.role = ?", filter.Role)
+	}
+	if filter.Status != "" {
+		query = query.Where("event_users.status = ?", filter.Status)
 	}
 	query = query.Order("start_at")
 	query = query.Preload("Owner").

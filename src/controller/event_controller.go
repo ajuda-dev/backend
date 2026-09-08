@@ -100,6 +100,9 @@ func (e *eventController) GetEventById() fiber.Handler {
 // @Param        address_id   query  string  false  "ID do endereço"
 // @Param        city         query  string  false  "Cidade do endereço do evento"
 // @Param        upcoming     query  boolean false  "Somente eventos futuros"
+// @Param        user_id      query  string  false  "ID do usuário (agenda: eventos com participação)"
+// @Param        role         query  string  false  "Papel da participação (com user_id)"
+// @Param        status       query  string  false  "Status da participação (com user_id)"
 // @Success      200   {object}  dto.PageableEventDto
 // @Failure      400   {object}  map[string]interface{}
 // @Router       /v1/event [get]
@@ -115,6 +118,9 @@ func (e *eventController) GetAllEvents() fiber.Handler {
 			AddressId:   cf.Query("address_id"),
 			City:        cf.Query("city"),
 			Upcoming:    strings.EqualFold(cf.Query("upcoming"), "true"),
+			UserId:      cf.Query("user_id"),
+			Role:        cf.Query("role"),
+			Status:      cf.Query("status"),
 		}
 		if filter.CommunityId != "" && !uuidv7.IsValidString(filter.CommunityId) {
 			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
@@ -125,6 +131,11 @@ func (e *eventController) GetAllEvents() fiber.Handler {
 			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
 				"Invalid query params",
 				[]rest_err.Causes{{Field: "address_id", Message: "address_id must be a valid UUID v7"}}))
+		}
+		if filter.UserId != "" && !uuidv7.IsValidString(filter.UserId) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid query params",
+				[]rest_err.Causes{{Field: "user_id", Message: "user_id must be a valid UUID v7"}}))
 		}
 
 		result, e := e.eventService.GetAll(filter, page, limit)
