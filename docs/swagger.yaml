@@ -10,7 +10,11 @@ definitions:
     properties:
       city:
         type: string
+      complement:
+        type: string
       id:
+        type: string
+      number:
         type: string
       state:
         type: string

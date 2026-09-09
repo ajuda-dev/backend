@@ -1645,7 +1645,13 @@ const docTemplate = `{
                 "city": {
                     "type": "string"
                 },
+                "complement": {
+                    "type": "string"
+                },
                 "id": {
+                    "type": "string"
+                },
+                "number": {
                     "type": "string"
                 },
                 "state": {

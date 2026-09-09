@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"strings"
+
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/data/entity"
 	"github.com/ajuda-dev/backend/src/service/domain"
@@ -33,16 +35,23 @@ func (a *addressRepository) SearchAddress(address *domain.AddressDomain) (*domai
 	var results []entity.AddressEntity
 	query := a.database.Model(&entity.AddressEntity{})
 
+	street := strings.ToLower(strings.TrimSpace(address.Street))
+	number := strings.TrimSpace(address.Number)
+	complement := strings.ToLower(strings.TrimSpace(address.Complement))
+
 	if address.ZipCode != "" {
 		query = query.Where("zip_code = ?", address.ZipCode)
 	} else {
 		if address.City != "" {
-			query = query.Where("city = ?", address.City)
+			query = query.Where("city = ?", strings.ToLower(strings.TrimSpace(address.City)))
 		}
 		if address.State != "" {
-			query = query.Where("state = ?", address.State)
+			query = query.Where("state = ?", strings.ToUpper(strings.TrimSpace(address.State)))
 		}
 	}
+	query = query.Where("street = ?", street).
+		Where("number = ?", number).
+		Where("complement = ?", complement)
 	err := query.Find(&results).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
