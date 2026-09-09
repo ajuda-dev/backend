@@ -624,6 +624,286 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/skill": {
+            "get": {
+                "description": "Retorna as skills com paginação e busca por prefixo do nome (case insensitive: o termo é normalizado para caixa alta antes do LIKE)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Lista skills do catálogo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Prefixo do nome da skill",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limite",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PageableSkillDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/skill/register": {
+            "post": {
+                "description": "Cria uma skill no catálogo. O nome é salvo em caixa alta (normalizado) e é único entre skills ativas.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Registra uma nova skill",
+                "parameters": [
+                    {
+                        "description": "Dados da skill",
+                        "name": "skill",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.RegisterSkillDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.RegisterSkillDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/skill/{id}": {
+            "get": {
+                "description": "Retorna o detalhe da skill",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Busca skill por id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da skill",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.SkillDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Atualiza o nome da skill (normalizado para caixa alta). Nome já usado por outra skill ativa gera conflito.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Renomeia uma skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da skill",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Novo nome da skill",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateSkillDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.RegisterSkillDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Arquiva a skill marcando deleted_at e remove as associações skill_users dela (a skill some do perfil de todos os usuários)",
+                "tags": [
+                    "skills"
+                ],
+                "summary": "Remove skill (soft delete)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da skill",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/skill/{skillId}/users": {
+            "post": {
+                "description": "Associa uma skill do catálogo a um usuário com um nível (WANT_TO_LEARN, LEARN_AND_TEACH ou TEACH). A linha é única por (skill, usuário): tentar associar de novo gera erro.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skill_users"
+                ],
+                "summary": "Adiciona skill ao perfil do usuário",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da skill",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Dados da associação",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.AssignSkillDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.SkillUserDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/user/login": {
             "post": {
                 "description": "Realiza o login de um usuário e retorna um token JWT",
@@ -712,6 +992,98 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v1/user/{userId}/skills": {
+            "get": {
+                "description": "Retorna as skills ativas do usuário (com nível), em ordem alfabética. Usuário válido sem skills retorna lista vazia.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skill_users"
+                ],
+                "summary": "Lista skills do perfil do usuário",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do usuário",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.SkillUserDto"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/user/{userId}/skills/{skillId}": {
+            "delete": {
+                "description": "Remove fisicamente a associação entre o usuário e a skill",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "skill_users"
+                ],
+                "summary": "Remove skill do perfil do usuário",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do usuário",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID da skill",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -742,6 +1114,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "zip_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.AssignSkillDto": {
+            "type": "object",
+            "properties": {
+                "level": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -894,6 +1277,20 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.PageableSkillDto": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.SkillDto"
+                    }
+                },
+                "has_next": {
+                    "type": "boolean"
+                }
+            }
+        },
         "dto.RegisterCommunityDto": {
             "type": "object",
             "properties": {
@@ -955,6 +1352,17 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.RegisterSkillDto": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.RegisterUserDtoIn": {
             "type": "object",
             "properties": {
@@ -969,10 +1377,49 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.SkillDto": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.SkillUserDto": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "skill": {
+                    "$ref": "#/definitions/dto.SkillDto"
+                },
+                "skill_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.UpdateParticipantStatusDto": {
             "type": "object",
             "properties": {
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.UpdateSkillDto": {
+            "type": "object",
+            "properties": {
+                "name": {
                     "type": "string"
                 }
             }

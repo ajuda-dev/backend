@@ -37,7 +37,7 @@ func Connect() (db *gorm.DB, err error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{})
+	err = db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{})
 	if err != nil {
 		return nil, fmt.Errorf("error doing AutoMigrate: %w", err)
 	}

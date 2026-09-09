@@ -42,6 +42,24 @@ func SetupRoutesEventUsers(app *fiber.App, eventUserController controller.EventU
 	events.Delete("/:eventId/participants/:userId", eventUserController.CancelParticipation())
 }
 
+func SetupRoutesSkills(app *fiber.App, skillController controller.SkillController) {
+	skills := app.Group("/v1/skill")
+	skills.Post("/register", skillController.RegisterSkill())
+	skills.Get("/:id", skillController.GetSkillById())
+	skills.Get("", skillController.GetAllSkills())
+	skills.Put("/:id", skillController.UpdateSkill())
+	skills.Delete("/:id", skillController.DeleteSkill())
+}
+
+func SetupRoutesSkillUsers(app *fiber.App, skillUserController controller.SkillUserController) {
+	skills := app.Group("/v1/skill")
+	skills.Post("/:skillId/users", skillUserController.AssignSkill())
+
+	users := app.Group("/v1/user")
+	users.Get("/:userId/skills", skillUserController.GetUserSkills())
+	users.Delete("/:userId/skills/:skillId", skillUserController.RemoveSkillFromUser())
+}
+
 func SetupSwaggerRoute(app *fiber.App) {
 	app.Get("/swagger/*", swagger.HandlerDefault)
 }

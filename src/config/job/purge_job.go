@@ -40,6 +40,7 @@ func RunPurge(db *gorm.DB, olderThanDays int) {
 	cutoff := time.Now().AddDate(0, 0, -olderThanDays)
 	purgeEventUsers(db, cutoff)
 	purgeEvents(db, cutoff)
+	purgeSkills(db, cutoff)
 	purgeCommunities(db, cutoff)
 	purgeAddresses(db, cutoff)
 	purgeUsers(db, cutoff)
@@ -57,6 +58,13 @@ func purgeEvents(db *gorm.DB, cutoff time.Time) {
 		Where("deleted_at IS NOT NULL AND deleted_at < ?", cutoff).
 		Delete(&entity.EventEntity{})
 	logPurgeResult(result, "events")
+}
+
+func purgeSkills(db *gorm.DB, cutoff time.Time) {
+	result := db.Unscoped().
+		Where("deleted_at IS NOT NULL AND deleted_at < ?", cutoff).
+		Delete(&entity.SkillEntity{})
+	logPurgeResult(result, "skills")
 }
 
 func purgeCommunities(db *gorm.DB, cutoff time.Time) {

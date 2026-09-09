@@ -19,6 +19,13 @@ definitions:
       zip_code:
         type: string
     type: object
+  dto.AssignSkillDto:
+    properties:
+      level:
+        type: string
+      user_id:
+        type: string
+    type: object
   dto.CommunityDto:
     properties:
       address:
@@ -115,6 +122,15 @@ definitions:
       has_next:
         type: boolean
     type: object
+  dto.PageableSkillDto:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.SkillDto'
+        type: array
+      has_next:
+        type: boolean
+    type: object
   dto.RegisterCommunityDto:
     properties:
       address_id:
@@ -155,6 +171,13 @@ definitions:
       type:
         type: string
     type: object
+  dto.RegisterSkillDto:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
   dto.RegisterUserDtoIn:
     properties:
       email:
@@ -164,9 +187,34 @@ definitions:
       password:
         type: string
     type: object
+  dto.SkillDto:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  dto.SkillUserDto:
+    properties:
+      id:
+        type: string
+      level:
+        type: string
+      skill:
+        $ref: '#/definitions/dto.SkillDto'
+      skill_id:
+        type: string
+      user_id:
+        type: string
+    type: object
   dto.UpdateParticipantStatusDto:
     properties:
       status:
+        type: string
+    type: object
+  dto.UpdateSkillDto:
+    properties:
+      name:
         type: string
     type: object
   dto.UserDtoOut:
@@ -598,6 +646,263 @@ paths:
       summary: Registra um novo evento
       tags:
       - events
+  /v1/skill:
+    get:
+      consumes:
+      - application/json
+      description: 'Retorna as skills com paginação e busca por prefixo do nome (case
+        insensitive: o termo é normalizado para caixa alta antes do LIKE)'
+      parameters:
+      - description: Prefixo do nome da skill
+        in: query
+        name: name
+        type: string
+      - description: Página
+        in: query
+        name: page
+        type: integer
+      - description: Limite
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PageableSkillDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Lista skills do catálogo
+      tags:
+      - skills
+  /v1/skill/{id}:
+    delete:
+      description: Arquiva a skill marcando deleted_at e remove as associações skill_users
+        dela (a skill some do perfil de todos os usuários)
+      parameters:
+      - description: ID da skill
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Remove skill (soft delete)
+      tags:
+      - skills
+    get:
+      consumes:
+      - application/json
+      description: Retorna o detalhe da skill
+      parameters:
+      - description: ID da skill
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SkillDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Busca skill por id
+      tags:
+      - skills
+    put:
+      consumes:
+      - application/json
+      description: Atualiza o nome da skill (normalizado para caixa alta). Nome já
+        usado por outra skill ativa gera conflito.
+      parameters:
+      - description: ID da skill
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Novo nome da skill
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateSkillDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.RegisterSkillDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Renomeia uma skill
+      tags:
+      - skills
+  /v1/skill/{skillId}/users:
+    post:
+      consumes:
+      - application/json
+      description: 'Associa uma skill do catálogo a um usuário com um nível (WANT_TO_LEARN,
+        LEARN_AND_TEACH ou TEACH). A linha é única por (skill, usuário): tentar associar
+        de novo gera erro.'
+      parameters:
+      - description: ID da skill
+        in: path
+        name: skillId
+        required: true
+        type: string
+      - description: Dados da associação
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AssignSkillDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.SkillUserDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Adiciona skill ao perfil do usuário
+      tags:
+      - skill_users
+  /v1/skill/register:
+    post:
+      consumes:
+      - application/json
+      description: Cria uma skill no catálogo. O nome é salvo em caixa alta (normalizado)
+        e é único entre skills ativas.
+      parameters:
+      - description: Dados da skill
+        in: body
+        name: skill
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterSkillDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.RegisterSkillDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Registra uma nova skill
+      tags:
+      - skills
+  /v1/user/{userId}/skills:
+    get:
+      consumes:
+      - application/json
+      description: Retorna as skills ativas do usuário (com nível), em ordem alfabética.
+        Usuário válido sem skills retorna lista vazia.
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.SkillUserDto'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Lista skills do perfil do usuário
+      tags:
+      - skill_users
+  /v1/user/{userId}/skills/{skillId}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove fisicamente a associação entre o usuário e a skill
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: ID da skill
+        in: path
+        name: skillId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Remove skill do perfil do usuário
+      tags:
+      - skill_users
   /v1/user/login:
     post:
       consumes:

@@ -30,6 +30,8 @@ func InitApp() {
 	communityRepository := repository.NewCommunityRepository(db)
 	eventRepository := repository.NewEventRepository(db)
 	eventUserRepository := repository.NewEventUserRepository(db)
+	skillRepository := repository.NewSkillRepository(db)
+	skillUserRepository := repository.NewSkillUserRepository(db)
 	eventService := service.NewEventService(
 		userService,
 		addressService,
@@ -37,11 +39,14 @@ func InitApp() {
 		eventRepository,
 		eventUserRepository,
 		validator.NewEventValidator())
+	skillService := service.NewSkillService(skillRepository, validator.NewSkillValidator())
 	routes.SetupRoutesUser(app, initUserController(userService), initAuthController(authService))
 	routes.SetupRoutesAddress(app, initAddressController(addressService))
 	routes.SetupRoutesCommunities(app, initCommunityController(communityRepository, addressService, userService))
 	routes.SetupRoutesEvents(app, controller.NewEventController(eventService))
 	routes.SetupRoutesEventUsers(app, initEventUserController(userService, eventService, eventUserRepository))
+	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService))
+	routes.SetupRoutesSkillUsers(app, initSkillUserController(userService, skillService, skillUserRepository))
 	routes.SetupSwaggerRoute(app)
 	log.Fatal(app.Listen(":8080"))
 }
@@ -70,6 +75,13 @@ func initEventUserController(
 	eventService service.EventService,
 	eventUserRepository repository.EventUserRepository) controller.EventUserController {
 	return controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator()))
+}
+
+func initSkillUserController(
+	userService service.UserService,
+	skillService service.SkillService,
+	skillUserRepository repository.SkillUserRepository) controller.SkillUserController {
+	return controller.NewSkillUserController(service.NewSkillUserService(userService, skillService, skillUserRepository, validator.NewSkillUserValidator()))
 }
 
 func initUserService(userRepository repository.UserRepository, authService service.AuthService) service.UserService {

@@ -24,13 +24,15 @@ import (
 )
 
 var (
-	db                 *gorm.DB
-	cleanupDB          func()
-	userRepository     repository.UserRepository
-	addressRepository  repository.AddressRepository
+	db                  *gorm.DB
+	cleanupDB           func()
+	userRepository      repository.UserRepository
+	addressRepository   repository.AddressRepository
 	communityRepository repository.CommunityRepository
-	eventRepository    repository.EventRepository
+	eventRepository     repository.EventRepository
 	eventUserRepository repository.EventUserRepository
+	skillRepository     repository.SkillRepository
+	skillUserRepository repository.SkillUserRepository
 	testEmail           = "teste@ajuda.dev"
 )
 
@@ -78,7 +80,7 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 			log.Printf("Erro ao parar o container: %v", err)
 		}
 	}
-	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{})
+	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{})
 
 	return db, cleanup, nil
 }
@@ -98,6 +100,8 @@ func TestMain(m *testing.M) {
 	communityRepository = repository.NewCommunityRepository(db)
 	eventRepository = repository.NewEventRepository(db)
 	eventUserRepository = repository.NewEventUserRepository(db)
+	skillRepository = repository.NewSkillRepository(db)
+	skillUserRepository = repository.NewSkillUserRepository(db)
 	code := m.Run()
 	cleanupDB()
 	os.Exit(code)
@@ -114,6 +118,9 @@ func setupApp() *fiber.App {
 	eventService := service.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, validator.NewEventValidator())
 	routes.SetupRoutesEvents(app, controller.NewEventController(eventService))
 	routes.SetupRoutesEventUsers(app, controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator())))
+	skillService := service.NewSkillService(skillRepository, validator.NewSkillValidator())
+	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService))
+	routes.SetupRoutesSkillUsers(app, controller.NewSkillUserController(service.NewSkillUserService(userService, skillService, skillUserRepository, validator.NewSkillUserValidator())))
 
 	return app
 }
@@ -126,7 +133,7 @@ func cleanAddressesTable() {
 	db.Exec("DELETE FROM addresses")
 }
 
-func cleanCommunityTable(){
+func cleanCommunityTable() {
 	db.Exec("DELETE FROM community")
 }
 
@@ -138,12 +145,20 @@ func cleanEventUsersTable() {
 	db.Exec("DELETE FROM event_users")
 }
 
+func cleanSkillsTable() {
+	db.Exec("DELETE FROM skills")
+}
+
+func cleanSkillUsersTable() {
+	db.Exec("DELETE FROM skill_users")
+}
+
 type addressSearchClientMock struct {
 }
 
 // SearchAddress implements client.AddressSearchClient.
 func (a *addressSearchClientMock) SearchAddress(address domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr) {
-	 if(address.ZipCode == "test_zip_code") {
+	if address.ZipCode == "test_zip_code" {
 		return &domain.AddressDomain{
 			City:    "Mock City",
 			State:   "Mock State",
@@ -152,13 +167,12 @@ func (a *addressSearchClientMock) SearchAddress(address domain.AddressDomain) (*
 		}, nil
 	} else {
 		return nil, rest_err.NewBadRequestError("Invalid address data")
-	}	
+	}
 }
 
 func NewAddressSearchClient() client.AddressSearchClient {
 	return &addressSearchClientMock{}
 }
-
 
 func verifyCodeError(t *testing.T, respBody rest_err.RestErr) {
 
