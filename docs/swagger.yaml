@@ -306,7 +306,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retorna todas as comunidades, com paginação e filtro por endereço
+      description: Retorna todas as comunidades, com paginação e filtros por endereço
+        e cidade
       parameters:
       - description: Página
         in: query
@@ -319,6 +320,10 @@ paths:
       - description: ID do endereço
         in: query
         name: address_id
+        type: string
+      - description: Cidade do endereço da comunidade
+        in: query
+        name: city
         type: string
       produces:
       - application/json

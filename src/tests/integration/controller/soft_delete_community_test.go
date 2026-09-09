@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/data/entity"
+	"github.com/ajuda-dev/backend/src/data/repository"
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/gofiber/fiber/v2"
 )
@@ -52,7 +53,7 @@ func TestSoftDeleteCommunityRemovesFromListing(t *testing.T) {
 		t.Fatalf("failed to soft delete community: %v", delErr)
 	}
 
-	page, findErr := communityRepository.FindAll("", 1, 10)
+	page, findErr := communityRepository.FindAll(repository.CommunityFilter{}, 1, 10)
 	if findErr != nil {
 		t.Fatalf("failed to list communities: %v", findErr)
 	}

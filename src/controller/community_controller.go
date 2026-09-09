@@ -7,6 +7,7 @@ import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller/dto"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
+	"github.com/ajuda-dev/backend/src/data/repository"
 	"github.com/ajuda-dev/backend/src/service"
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/gofiber/fiber/v2"
@@ -69,13 +70,14 @@ func (c *communityController) RegisterCommunity() fiber.Handler {
 
 // GetAllCommunities godoc
 // @Summary      Lista comunidades
-// @Description  Retorna todas as comunidades, com paginação e filtro por endereço
+// @Description  Retorna todas as comunidades, com paginação e filtros por endereço e cidade
 // @Tags         communities
 // @Accept       json
 // @Produce      json
 // @Param        page      query   int     false  "Página"
 // @Param        limit     query   int     false  "Limite"
 // @Param        address_id query  string  false  "ID do endereço"
+// @Param        city      query  string  false  "Cidade do endereço da comunidade"
 // @Success      200   {object}  dto.PageableCommunityDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
@@ -86,13 +88,16 @@ func (c *communityController) GetAllCommunities() fiber.Handler {
 		page, _ := strconv.Atoi(cf.Query("page", "1"))
 		limit, _ := strconv.Atoi(cf.Query("limit", "10"))
 
-		addressID := cf.Query("address_id")
-		if addressID != "" && !uuidv7.IsValidString(addressID) {
+		filter := repository.CommunityFilter{
+			AddressId: cf.Query("address_id"),
+			City:      cf.Query("city"),
+		}
+		if filter.AddressId != "" && !uuidv7.IsValidString(filter.AddressId) {
 			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
 				"Invalid query params",
 				[]rest_err.Causes{{Field: "address_id", Message: "address_id must be a valid UUID v7"}}))
 		}
-		result, e := c.communityService.GetAll(addressID, page, limit)
+		result, e := c.communityService.GetAll(filter, page, limit)
 		if e != nil {
 			logger.Error("error: ", e)
 			return cf.Status(e.Code).JSON(e)

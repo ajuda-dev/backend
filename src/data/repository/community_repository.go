@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"strings"
+
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/data/entity"
 	"github.com/ajuda-dev/backend/src/service/domain"
@@ -8,11 +10,16 @@ import (
 	"gorm.io/gorm"
 )
 
+type CommunityFilter struct {
+	AddressId string
+	City      string
+}
+
 type CommunityRepository interface {
 	CreateCommunity(community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr)
 	FindByName(name string) (*domain.CommunityDomain, *rest_err.RestErr)
 	FindById(id string) (*domain.CommunityDomain, *rest_err.RestErr)
-	FindAll(address_id string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
+	FindAll(filter CommunityFilter, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
 	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
 }
@@ -80,7 +87,7 @@ func (c *communityRepository) CountByOwnerId(userId string) (int64, *rest_err.Re
 	return count, nil
 }
 
-func (c *communityRepository) FindAll(address_id string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
+func (c *communityRepository) FindAll(filter CommunityFilter, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
 	var communities []entity.CommunityEntity
 	query := c.database.Model(&communities)
 
@@ -90,8 +97,12 @@ func (c *communityRepository) FindAll(address_id string, page int, limit int) (*
 	if limit <= 0 {
 		limit = 10
 	}
-	if address_id != "" {
-		query = query.Where("address_id = ?", address_id)
+	if filter.AddressId != "" {
+		query = query.Where("address_id = ?", filter.AddressId)
+	}
+	if filter.City != "" {
+		query = query.Joins("JOIN addresses ON addresses.id = community.address_id").
+			Where("addresses.city = ?", strings.ToLower(filter.City))
 	}
 
 	offset := (page - 1) * limit

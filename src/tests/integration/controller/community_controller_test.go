@@ -122,3 +122,181 @@ func TestCreateCommunityFail(t *testing.T){
 		t.Errorf("o owner agora vem do token; não esperava cause para o campo 'ownerId', recebeu %+v", respBody.Causes)
 	}
 }
+
+func createCommunityUser(t *testing.T) *domain.UserDomain {
+	t.Helper()
+	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+		Name:     "teste",
+		Email:    testEmail,
+		Password: "123456",
+	})
+	if createErr != nil {
+		t.Fatalf("failed to create user: %v", createErr)
+	}
+	return user
+}
+
+func createCommunityAddress(t *testing.T, city string) *domain.AddressDomain {
+	t.Helper()
+	address, aErr := addressRepository.CreateAddress(&domain.AddressDomain{
+		City:    city,
+		State:   "sp",
+		Street:  "test_street",
+		ZipCode: "test_zip_code_" + city,
+	})
+	if aErr != nil {
+		t.Fatalf("failed to create address: %v", aErr)
+	}
+	return address
+}
+
+func registerCommunityViaApi(t *testing.T, app *fiber.App, token string, addressId string, name string) string {
+	t.Helper()
+	body := []byte(`{
+	"address_id": "` + addressId + `",
+	"name": "` + name + `",
+	"description": "comunidade de teste"
+	}
+	`)
+	req := newCommunityRegisterRequest(body)
+	resp, err := doAuthedRequest(app, req, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 ao criar comunidade '%s', recebeu %d", name, resp.StatusCode)
+	}
+	var created dto.RegisterCommunityDto
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	return created.Id
+}
+
+func listCommunitiesByCity(t *testing.T, app *fiber.App, token string, query string) dto.PageableCommunityDto {
+	t.Helper()
+	req := httptest.NewRequest("GET", "/v1/community?"+query, nil)
+	resp, err := doAuthedRequest(app, req, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
+	}
+	var page dto.PageableCommunityDto
+	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	return page
+}
+
+func TestListCommunitiesByCity(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	addressSaoPaulo := createCommunityAddress(t, "sao paulo")
+	addressCampinas := createCommunityAddress(t, "campinas")
+
+	spCommunity := registerCommunityViaApi(t, app, token, addressSaoPaulo.Id, "Comunidade Sao Paulo")
+	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
+
+	page := listCommunitiesByCity(t, app, token, "city=sao%20paulo")
+	if len(page.Data) != 1 || page.Data[0].Id != spCommunity {
+		t.Errorf("esperava somente a comunidade de sao paulo, recebeu %+v", page.Data)
+	}
+	if len(page.Data) == 1 && (page.Data[0].Address == nil || page.Data[0].Address.City != "sao paulo") {
+		t.Errorf("esperava address.city 'sao paulo' no item, recebeu %+v", page.Data[0].Address)
+	}
+}
+
+func TestListCommunitiesByCityCaseInsensitive(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	addressSaoPaulo := createCommunityAddress(t, "sao paulo")
+	addressCampinas := createCommunityAddress(t, "campinas")
+
+	spCommunity := registerCommunityViaApi(t, app, token, addressSaoPaulo.Id, "Comunidade Sao Paulo")
+	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
+
+	page := listCommunitiesByCity(t, app, token, "city=SAO%20PAULO")
+	if len(page.Data) != 1 || page.Data[0].Id != spCommunity {
+		t.Errorf("esperava somente a comunidade de sao paulo (case-insensitive), recebeu %+v", page.Data)
+	}
+}
+
+func TestListCommunitiesByCityAndAddressId(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	addressSaoPaulo1 := createCommunityAddress(t, "sao paulo")
+	addressSaoPaulo2 := createCommunityAddress(t, "sao paulo")
+	addressCampinas := createCommunityAddress(t, "campinas")
+
+	firstCommunity := registerCommunityViaApi(t, app, token, addressSaoPaulo1.Id, "Comunidade Paulista Primeira")
+	registerCommunityViaApi(t, app, token, addressSaoPaulo2.Id, "Comunidade Paulista Segunda")
+	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
+
+	page := listCommunitiesByCity(t, app, token, "city=sao%20paulo&address_id="+addressSaoPaulo1.Id)
+	if len(page.Data) != 1 || page.Data[0].Id != firstCommunity {
+		t.Errorf("esperava somente a comunidade do endereço 1 em sao paulo, recebeu %+v", page.Data)
+	}
+}
+
+func TestListCommunitiesByCityNoMatch(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	addressSaoPaulo := createCommunityAddress(t, "sao paulo")
+	addressCampinas := createCommunityAddress(t, "campinas")
+
+	registerCommunityViaApi(t, app, token, addressSaoPaulo.Id, "Comunidade Sao Paulo")
+	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
+
+	page := listCommunitiesByCity(t, app, token, "city=nao%20existe")
+	if len(page.Data) != 0 || page.HasNext {
+		t.Errorf("esperava lista vazia com has_next false, recebeu %d itens, has_next=%v", len(page.Data), page.HasNext)
+	}
+}
+
+func TestListCommunitiesByCityPagination(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo Um")
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo Dois")
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo Tres")
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "campinas").Id, "Comunidade Campinas")
+
+	pageOne := listCommunitiesByCity(t, app, token, "city=sao%20paulo&limit=2")
+	if len(pageOne.Data) != 2 || !pageOne.HasNext {
+		t.Errorf("esperava 2 itens com has_next true, recebeu %d itens, has_next=%v", len(pageOne.Data), pageOne.HasNext)
+	}
+
+	pageTwo := listCommunitiesByCity(t, app, token, "city=sao%20paulo&limit=2&page=2")
+	if len(pageTwo.Data) != 1 || pageTwo.HasNext {
+		t.Errorf("esperava 1 item com has_next false, recebeu %d itens, has_next=%v", len(pageTwo.Data), pageTwo.HasNext)
+	}
+}
