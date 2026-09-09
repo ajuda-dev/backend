@@ -210,8 +210,9 @@ func TestGetUsersBySkillAfterSkillSoftDelete(t *testing.T) {
 	lucas := createUserForSkillSearch(t, "lucas", "lucas@ajuda.dev")
 	java := createSkillForTest(t, "JAVA")
 	assignSkillViaApi(t, app, java.Id, lucas.Id, domain.LevelTeach)
+	moderator := createUserWithRole(t, "user_skill_search_mod@ajuda.dev", domain.UserRoleModerator)
 
-	resp, err := doAuthedRequest(app, httptest.NewRequest("DELETE", "/v1/skill/"+java.Id, nil), validTokenFor(t, lucas.Id))
+	resp, err := doAuthedRequest(app, httptest.NewRequest("DELETE", "/v1/skill/"+java.Id, nil), validTokenFor(t, moderator.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}

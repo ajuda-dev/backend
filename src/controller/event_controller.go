@@ -7,8 +7,10 @@ import (
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller/dto"
+	"github.com/ajuda-dev/backend/src/controller/middleware"
 	"github.com/ajuda-dev/backend/src/data/repository"
 	"github.com/ajuda-dev/backend/src/service"
+	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -32,7 +34,7 @@ func NewEventController(eventService service.EventService) EventController {
 
 // RegisterEvent godoc
 // @Summary      Registra um novo evento
-// @Description  Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo.
+// @Description  Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado)
 // @Tags         events
 // @Accept       json
 // @Produce      json
@@ -52,12 +54,19 @@ func (e *eventController) RegisterEvent() fiber.Handler {
 			})
 		}
 
-		event, err := e.eventService.CreateEvent(registerEventDto.ToDomain())
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		event := registerEventDto.ToDomain()
+		event.Owner = domain.UserDomain{Id: userId}
+
+		eventResult, err := e.eventService.CreateEvent(event)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusCreated).JSON(registerEventDto.FromDomain(event))
+		return cf.Status(fiber.StatusCreated).JSON(registerEventDto.FromDomain(eventResult))
 	}
 }
 

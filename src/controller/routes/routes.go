@@ -13,6 +13,7 @@ func SetupRoutesUser(app *fiber.App, userController controller.UserController, a
 	user.Post("/register", userController.RegisterUser())
 	user.Post("/login", authController.LoginUser())
 	user.Get("", auth, userController.GetAllUsers())
+	user.Delete("/:userId", auth, userController.DeleteUser())
 }
 
 func SetupRoutesAddress(app *fiber.App, addressController controller.AddressController, auth fiber.Handler) {
@@ -24,6 +25,7 @@ func SetupRoutesCommunities(app *fiber.App, communityController controller.Commu
 	communities := app.Group("/v1/community", auth)
 	communities.Post("/register", communityController.RegisterCommunity())
 	communities.Get("", communityController.GetAllCommunities())
+	communities.Delete("/:id", communityController.DeleteCommunity())
 }
 
 func SetupRoutesCommunityUsers(app *fiber.App, communityUserController controller.CommunityUserController, auth fiber.Handler) {

@@ -110,6 +110,8 @@ definitions:
         type: string
       name:
         type: string
+      role:
+        type: string
       token:
         type: string
     type: object
@@ -243,6 +245,8 @@ definitions:
         type: string
       name:
         type: string
+      role:
+        type: string
       token:
         type: string
     type: object
@@ -338,6 +342,45 @@ paths:
       summary: Lista comunidades
       tags:
       - communities
+  /v1/community/{id}:
+    delete:
+      description: Arquiva a comunidade marcando deleted_at. Somente o owner pode
+        deletar a própria comunidade (usuários comuns); moderadores e admins podem
+        deletar qualquer comunidade. Comunidade com membros ativos não pode ser deletada.
+      parameters:
+      - description: ID da comunidade
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remove comunidade (soft delete)
+      tags:
+      - communities
   /v1/community/{id}/join:
     post:
       consumes:
@@ -420,7 +463,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Cria uma nova comunidade no sistema
+      description: Cria uma nova comunidade no sistema. O owner é sempre o usuário
+        autenticado (owner_id do body é ignorado)
       parameters:
       - description: Dados da comunidade
         in: body
@@ -811,7 +855,8 @@ paths:
       consumes:
       - application/json
       description: Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id
-        é obrigatório; para ONLINE, address_id deve ser nulo.
+        é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário
+        autenticado (owner_id do body é ignorado)
       parameters:
       - description: Dados do evento
         in: body
@@ -885,7 +930,8 @@ paths:
   /v1/skill/{id}:
     delete:
       description: Arquiva a skill marcando deleted_at e remove as associações skill_users
-        dela (a skill some do perfil de todos os usuários)
+        dela (a skill some do perfil de todos os usuários). Somente moderadores e
+        admins podem executar.
       parameters:
       - description: ID da skill
         in: path
@@ -902,6 +948,11 @@ paths:
             type: object
         "401":
           description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
           schema:
             additionalProperties: true
             type: object
@@ -1118,6 +1169,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Busca usuários por skill
+      tags:
+      - users
+  /v1/user/{userId}:
+    delete:
+      description: Arquiva o usuário marcando deleted_at. Somente admins podem executar.
+        O alvo não pode ser dono de comunidade/evento ativos nem ter participação
+        ativa ou membership ativa.
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: userId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remove usuário (soft delete)
       tags:
       - users
   /v1/user/{userId}/skills:

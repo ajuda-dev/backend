@@ -28,6 +28,7 @@ type EventRepository interface {
 	FindById(id string) (*domain.EventDomain, *rest_err.RestErr)
 	FindAll(filter EventFilter, page int, limit int) (*domain.PageableEvent, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
+	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
 }
 
 type eventRepository struct {
@@ -75,6 +76,16 @@ func (e *eventRepository) SoftDeleteById(id string) *rest_err.RestErr {
 		return rest_err.NewNotFoundError("event not found")
 	}
 	return nil
+}
+
+func (e *eventRepository) CountByOwnerId(userId string) (int64, *rest_err.RestErr) {
+	var count int64
+	if err := e.database.Model(&entity.EventEntity{}).
+		Where("owner_id = ?", userId).
+		Count(&count).Error; err != nil {
+		return 0, rest_err.NewInternalServerError("Error counting events: " + err.Error())
+	}
+	return count, nil
 }
 
 func (e *eventRepository) FindAll(filter EventFilter, page int, limit int) (*domain.PageableEvent, *rest_err.RestErr) {

@@ -14,16 +14,18 @@ type SkillService interface {
 	GetSkillById(id string) (*domain.SkillDomain, *rest_err.RestErr)
 	GetAll(filter repository.SkillFilter, page int, limit int) (*domain.PageableSkill, *rest_err.RestErr)
 	UpdateSkill(id string, name string) (*domain.SkillDomain, *rest_err.RestErr)
-	DeleteSkill(id string) *rest_err.RestErr
+	DeleteSkill(id string, requesterId string) *rest_err.RestErr
 }
 
 type skillService struct {
+	userService    UserService
 	skillRepository repository.SkillRepository
 	skillValidator  validator.SkillValidator
 }
 
-func NewSkillService(skillRepository repository.SkillRepository, skillValidator validator.SkillValidator) SkillService {
+func NewSkillService(userService UserService, skillRepository repository.SkillRepository, skillValidator validator.SkillValidator) SkillService {
 	return &skillService{
+		userService:     userService,
 		skillRepository: skillRepository,
 		skillValidator:  skillValidator,
 	}
@@ -88,9 +90,16 @@ func (s *skillService) UpdateSkill(id string, name string) (*domain.SkillDomain,
 	return s.skillRepository.UpdateName(id, name)
 }
 
-func (s *skillService) DeleteSkill(id string) *rest_err.RestErr {
+func (s *skillService) DeleteSkill(id string, requesterId string) *rest_err.RestErr {
 	if err := s.skillValidator.ValidateSkillId(id); err != nil {
 		return err
+	}
+	requester, err := authenticatedUser(s.userService, requesterId)
+	if err != nil {
+		return err
+	}
+	if !roleAtLeast(requester.Role, domain.UserRoleModerator) {
+		return rest_err.NewForbiddenError("only moderators and admins can delete skills")
 	}
 	return s.skillRepository.SoftDeleteById(id)
 }

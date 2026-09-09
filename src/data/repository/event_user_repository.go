@@ -18,6 +18,7 @@ type EventUserRepository interface {
 	FindById(id string) (*domain.EventUserDomain, *rest_err.RestErr)
 	UpdateStatus(eventId string, userId string, status string, maxSlots *int) (*domain.EventUserDomain, *rest_err.RestErr)
 	CountConfirmedByEvent(eventId string) (int64, *rest_err.RestErr)
+	CountActiveByUserId(userId string) (int64, *rest_err.RestErr)
 }
 
 type eventUserRepository struct {
@@ -77,6 +78,19 @@ func (e *eventUserRepository) CountConfirmedByEvent(eventId string) (int64, *res
 		Count(&count).Error
 	if err != nil {
 		return 0, rest_err.NewInternalServerError("Error counting participants: " + err.Error())
+	}
+	return count, nil
+}
+
+func (e *eventUserRepository) CountActiveByUserId(userId string) (int64, *rest_err.RestErr) {
+	var count int64
+	err := e.database.Model(&entity.EventUserEntity{}).
+		Joins("JOIN events ON events.id = event_users.event_id").
+		Where("events.deleted_at IS NULL AND event_users.user_id = ? AND event_users.status IN ?",
+			userId, []string{domain.StatusRequested, domain.StatusConfirmed}).
+		Count(&count).Error
+	if err != nil {
+		return 0, rest_err.NewInternalServerError("Error counting participations: " + err.Error())
 	}
 	return count, nil
 }

@@ -8,11 +8,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func NewUserService(userRepository repository.UserRepository, validator validator.UserValidator, authService AuthService) UserService {
+func NewUserService(userRepository repository.UserRepository, validator validator.UserValidator, authService AuthService,
+	communityRepository repository.CommunityRepository,
+	eventRepository repository.EventRepository,
+	eventUserRepository repository.EventUserRepository,
+	communityUserRepository repository.CommunityUserRepository) UserService {
 	return &userService{
-		userRepository: userRepository,
-		validator:      validator,
-		authService:    authService,
+		userRepository:         userRepository,
+		validator:              validator,
+		authService:            authService,
+		communityRepository:    communityRepository,
+		eventRepository:        eventRepository,
+		eventUserRepository:    eventUserRepository,
+		communityUserRepository: communityUserRepository,
 	}
 }
 
@@ -20,12 +28,17 @@ type UserService interface {
 	CreateUser(user *domain.UserDomain) (*domain.UserDomain, string, *rest_err.RestErr)
 	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
 	GetAllUsers(filter repository.UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr)
+	DeleteUser(targetId string, requesterId string) *rest_err.RestErr
 }
 
 type userService struct {
-	userRepository repository.UserRepository
-	validator      validator.UserValidator
-	authService    AuthService
+	userRepository         repository.UserRepository
+	validator              validator.UserValidator
+	authService            AuthService
+	communityRepository    repository.CommunityRepository
+	eventRepository        repository.EventRepository
+	eventUserRepository    repository.EventUserRepository
+	communityUserRepository repository.CommunityUserRepository
 }
 
 // FindById implements UserService.
@@ -90,6 +103,66 @@ func (u *userService) CreateUser(user *domain.UserDomain) (*domain.UserDomain, s
 		return nil, "", err
 	}
 	return user, token, nil
+}
+
+// DeleteUser implements UserService.
+func (u *userService) DeleteUser(targetId string, requesterId string) *rest_err.RestErr {
+	requester, err := authenticatedUser(u, requesterId)
+	if err != nil {
+		return err
+	}
+	if requester.Role != domain.UserRoleAdmin {
+		return rest_err.NewForbiddenError("only admins can delete users")
+	}
+	if _, err := u.userRepository.FindById(targetId); err != nil {
+		return err
+	}
+
+	causes := []rest_err.Causes{}
+	communityCount, countErr := u.communityRepository.CountByOwnerId(targetId)
+	if countErr != nil {
+		return countErr
+	}
+	if communityCount > 0 {
+		causes = append(causes, rest_err.Causes{
+			Field:   "community",
+			Message: "is owner of an active community",
+		})
+	}
+	eventCount, countErr := u.eventRepository.CountByOwnerId(targetId)
+	if countErr != nil {
+		return countErr
+	}
+	if eventCount > 0 {
+		causes = append(causes, rest_err.Causes{
+			Field:   "event",
+			Message: "is owner of an active event",
+		})
+	}
+	participationCount, countErr := u.eventUserRepository.CountActiveByUserId(targetId)
+	if countErr != nil {
+		return countErr
+	}
+	if participationCount > 0 {
+		causes = append(causes, rest_err.Causes{
+			Field:   "event_users",
+			Message: "has an active participation in an event",
+		})
+	}
+	membershipCount, countErr := u.communityUserRepository.CountByUserId(targetId)
+	if countErr != nil {
+		return countErr
+	}
+	if membershipCount > 0 {
+		causes = append(causes, rest_err.Causes{
+			Field:   "community_users",
+			Message: "is a member of an active community",
+		})
+	}
+	if len(causes) > 0 {
+		return rest_err.NewBadRequestValidationError("cannot delete user with active associations", causes)
+	}
+	return u.userRepository.SoftDeleteById(targetId)
 }
 
 func hashPassword(password string) (string, error) {

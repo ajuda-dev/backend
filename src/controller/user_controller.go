@@ -4,10 +4,13 @@ import (
 	"strconv"
 
 	"github.com/ajuda-dev/backend/src/config/logger"
+	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller/dto"
+	"github.com/ajuda-dev/backend/src/controller/middleware"
 	"github.com/ajuda-dev/backend/src/data/repository"
 	"github.com/ajuda-dev/backend/src/service"
 	"github.com/gofiber/fiber/v2"
+	"github.com/samborkent/uuidv7"
 )
 
 func NewUserController(userService service.UserService) UserController {
@@ -19,6 +22,7 @@ func NewUserController(userService service.UserService) UserController {
 type UserController interface {
 	RegisterUser() fiber.Handler
 	GetAllUsers() fiber.Handler
+	DeleteUser() fiber.Handler
 }
 
 type userController struct {
@@ -84,5 +88,34 @@ func (u *userController) GetAllUsers() fiber.Handler {
 
 		dtoResult := dto.PageableUserDto{}.FromDomain(*result)
 		return c.Status(fiber.StatusOK).JSON(dtoResult)
+	}
+}
+
+// DeleteUser godoc
+// @Summary      Remove usuário (soft delete)
+// @Description  Arquiva o usuário marcando deleted_at. Somente admins podem executar. O alvo não pode ser dono de comunidade/evento ativos nem ter participação ativa ou membership ativa.
+// @Tags         users
+// @Param        userId  path  string  true  "ID do usuário"
+// @Success      204
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/user/{userId} [delete]
+func (u *userController) DeleteUser() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userId := c.Params("userId")
+		if !uuidv7.IsValidString(userId) {
+			return c.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "userId", Message: "userId must be a valid UUID v7"}}))
+		}
+		requesterId := c.Locals(middleware.UserIdKey).(string)
+		if err := u.userService.DeleteUser(userId, requesterId); err != nil {
+			logger.Error("error: ", err)
+			return c.Status(err.Code).JSON(err)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
 	}
 }

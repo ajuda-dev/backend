@@ -17,6 +17,7 @@ type UserRepository interface {
 	GetUserByEmail(email string) (*domain.UserDomain, *rest_err.RestErr)
 	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
 	FindAll(filter UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr)
+	SoftDeleteById(id string) *rest_err.RestErr
 }
 
 type userRepository struct {
@@ -104,6 +105,9 @@ func (u *userRepository) CreateUser(user *domain.UserDomain) (*domain.UserDomain
 	if err := u.database.Create(&userEntity).Error; err != nil {
 		return &domain.UserDomain{}, rest_err.NewInternalServerError(err.Error())
 	}
+	if userEntity.Role == "" {
+		userEntity.Role = domain.UserRoleUser
+	}
 
 	return userEntity.ToDomainUser(), nil
 }
@@ -113,6 +117,17 @@ func (u *userRepository) GetUserByEmail(email string) (*domain.UserDomain, *rest
 		return handlerErrorDataBase(err)
 	}
 	return userEntity.ToDomainUser(), nil
+}
+
+func (u *userRepository) SoftDeleteById(id string) *rest_err.RestErr {
+	result := u.database.Where("id = ?", id).Delete(&entity.UserEntity{})
+	if result.Error != nil {
+		return rest_err.NewInternalServerError("Error deleting user: " + result.Error.Error())
+	}
+	if result.RowsAffected == 0 {
+		return rest_err.NewNotFoundError("User not found")
+	}
+	return nil
 }
 
 func handlerErrorDataBase(err error) (*domain.UserDomain, *rest_err.RestErr) {

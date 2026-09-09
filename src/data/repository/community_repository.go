@@ -14,6 +14,7 @@ type CommunityRepository interface {
 	FindById(id string) (*domain.CommunityDomain, *rest_err.RestErr)
 	FindAll(address_id string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
+	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
 }
 
 type communityRepository struct {
@@ -67,6 +68,16 @@ func (c *communityRepository) SoftDeleteById(id string) *rest_err.RestErr {
 		return rest_err.NewNotFoundError("community not found")
 	}
 	return nil
+}
+
+func (c *communityRepository) CountByOwnerId(userId string) (int64, *rest_err.RestErr) {
+	var count int64
+	if err := c.database.Model(&entity.CommunityEntity{}).
+		Where("owner_id = ?", userId).
+		Count(&count).Error; err != nil {
+		return 0, rest_err.NewInternalServerError("Error counting communities: " + err.Error())
+	}
+	return count, nil
 }
 
 func (c *communityRepository) FindAll(address_id string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {

@@ -15,6 +15,7 @@ type UserEntity struct {
 	Name      string         `gorm:"type:varchar(100);not null"`
 	Email     string         `gorm:"type:varchar(100);not null;uniqueIndex:idx_users_email_del,priority:1"`
 	Password  string         `gorm:"type:varchar(100);not null"`
+	Role      string         `gorm:"type:varchar(20);not null;default:('USER')"`
 }
 
 
@@ -31,6 +32,7 @@ func (u *UserEntity) ToDomainUser() *domain.UserDomain {
 		Name:     u.Name,
 		Email:    u.Email,
 		Password: u.Password,
+		Role:     u.Role,
 	}
 }
 
@@ -40,5 +42,6 @@ func FromDomainUser(user *domain.UserDomain) *UserEntity {
 		Name:     user.Name,
 		Email:    user.Email,
 		Password: user.Password,
+		Role:     user.Role,
 	}
 }

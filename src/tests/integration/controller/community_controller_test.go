@@ -118,8 +118,7 @@ func TestCreateCommunityFail(t *testing.T){
 	}
 	causes = nil
 	causes = getCauseByField("ownerId", respBody.Causes)
-	if len(causes) == 0 || causes[0] != "OwnerId is not valid" {
-		t.Errorf("esperava cause para o campo 'OwnerId', recebeu %+v", respBody.Causes)
+	if len(causes) != 0 {
+		t.Errorf("o owner agora vem do token; não esperava cause para o campo 'ownerId', recebeu %+v", respBody.Causes)
 	}
-	
 }

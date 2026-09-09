@@ -6,7 +6,9 @@ import (
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller/dto"
+	"github.com/ajuda-dev/backend/src/controller/middleware"
 	"github.com/ajuda-dev/backend/src/service"
+	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -14,6 +16,7 @@ import (
 type CommunityController interface {
 	RegisterCommunity() fiber.Handler
 	GetAllCommunities() fiber.Handler
+	DeleteCommunity() fiber.Handler
 }
 
 type communityController struct {
@@ -28,7 +31,7 @@ func NewCommunityController(communityService service.CommunityService) Community
 
 // RegisterCommunity godoc
 // @Summary      Registra uma nova comunidade
-// @Description  Cria uma nova comunidade no sistema
+// @Description  Cria uma nova comunidade no sistema. O owner é sempre o usuário autenticado (owner_id do body é ignorado)
 // @Tags         communities
 // @Accept       json
 // @Produce      json
@@ -48,7 +51,14 @@ func (c *communityController) RegisterCommunity() fiber.Handler {
 			})
 		}
 
-		address, err := c.communityService.CreateCommunity(registerCommunityDto.ToDomain())
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		community := registerCommunityDto.ToDomain()
+		community.Owner = domain.UserDomain{Id: userId}
+
+		address, err := c.communityService.CreateCommunity(community)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
@@ -90,5 +100,34 @@ func (c *communityController) GetAllCommunities() fiber.Handler {
 
 		dtoResult := dto.PageableCommunityDto{}.FromDomain(*result)
 		return cf.Status(fiber.StatusOK).JSON(dtoResult)
+	}
+}
+
+// DeleteCommunity godoc
+// @Summary      Remove comunidade (soft delete)
+// @Description  Arquiva a comunidade marcando deleted_at. Somente o owner pode deletar a própria comunidade (usuários comuns); moderadores e admins podem deletar qualquer comunidade. Comunidade com membros ativos não pode ser deletada.
+// @Tags         communities
+// @Param        id  path  string  true  "ID da comunidade"
+// @Success      204
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/community/{id} [delete]
+func (c *communityController) DeleteCommunity() fiber.Handler {
+	return func(cf *fiber.Ctx) error {
+		id := cf.Params("id")
+		if !uuidv7.IsValidString(id) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
+		}
+		requesterId := cf.Locals(middleware.UserIdKey).(string)
+		if err := c.communityService.DeleteCommunity(id, requesterId); err != nil {
+			logger.Error("error: ", err)
+			return cf.Status(err.Code).JSON(err)
+		}
+		return cf.SendStatus(fiber.StatusNoContent)
 	}
 }

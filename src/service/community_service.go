@@ -11,26 +11,28 @@ type CommunityService interface {
 	CreateCommunity(community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr)
 	GetCommunityById(id string) (*domain.CommunityDomain, *rest_err.RestErr)
 	GetAll(address_id string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
+	DeleteCommunity(id string, requesterId string) *rest_err.RestErr
 }
 
 type communityService struct {
-	userService         UserService
-	addressService      AddressService
-	communityRepository repository.CommunityRepository
-	communityValidator  validator.CommunityValidator
+	userService             UserService
+	addressService          AddressService
+	communityRepository     repository.CommunityRepository
+	communityUserRepository repository.CommunityUserRepository
+	communityValidator      validator.CommunityValidator
 }
-
-
 
 func NewCommunityService(userService UserService,
 	addressService AddressService,
 	communityRepository repository.CommunityRepository,
+	communityUserRepository repository.CommunityUserRepository,
 	communityValidator validator.CommunityValidator) CommunityService {
 	return &communityService{
-		userService:         userService,
-		addressService:      addressService,
-		communityRepository: communityRepository,
-		communityValidator:  communityValidator,
+		userService:             userService,
+		addressService:          addressService,
+		communityRepository:     communityRepository,
+		communityUserRepository: communityUserRepository,
+		communityValidator:      communityValidator,
 	}
 }
 
@@ -87,4 +89,33 @@ func (c *communityService) GetCommunityById(id string) (*domain.CommunityDomain,
 
 func (c *communityService) GetAll(address_id string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
 	return c.communityRepository.FindAll(address_id, page, limit)
+}
+
+func (c *communityService) DeleteCommunity(id string, requesterId string) *rest_err.RestErr {
+	requester, err := authenticatedUser(c.userService, requesterId)
+	if err != nil {
+		return err
+	}
+	community, err := c.GetCommunityById(id)
+	if err != nil {
+		return err
+	}
+	if !roleAtLeast(requester.Role, domain.UserRoleModerator) {
+		if community.Owner.Id != requester.Id {
+			return rest_err.NewForbiddenError("only the community owner can delete this community")
+		}
+		memberCount, countErr := c.communityUserRepository.CountByCommunity(id)
+		if countErr != nil {
+			return countErr
+		}
+		if memberCount > 0 {
+			return rest_err.NewBadRequestValidationError(
+				"Invalid delete",
+				[]rest_err.Causes{{
+					Field:   "members",
+					Message: "community has associated members; remove them before deleting",
+				}})
+		}
+	}
+	return c.communityRepository.SoftDeleteById(id)
 }

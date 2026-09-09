@@ -25,14 +25,17 @@ func InitApp() {
 	}
 	app := fiber.New()
 	userRepository := repository.NewUserRepository(db)
-	authService := service.NewAuthService(userRepository)
-	userService := initUserService(userRepository, authService)
-	addressService := initAddressService(repository.NewAddressRepository(db))
+	addressRepository := repository.NewAddressRepository(db)
 	communityRepository := repository.NewCommunityRepository(db)
 	eventRepository := repository.NewEventRepository(db)
 	eventUserRepository := repository.NewEventUserRepository(db)
 	skillRepository := repository.NewSkillRepository(db)
 	skillUserRepository := repository.NewSkillUserRepository(db)
+	communityUserRepository := repository.NewCommunityUserRepository(db)
+
+	authService := service.NewAuthService(userRepository)
+	userService := initUserService(userRepository, authService, communityRepository, eventRepository, eventUserRepository, communityUserRepository)
+	addressService := initAddressService(addressRepository)
 	eventService := service.NewEventService(
 		userService,
 		addressService,
@@ -40,10 +43,9 @@ func InitApp() {
 		eventRepository,
 		eventUserRepository,
 		validator.NewEventValidator())
-	skillService := service.NewSkillService(skillRepository, validator.NewSkillValidator())
+	skillService := service.NewSkillService(userService, skillRepository, validator.NewSkillValidator())
 	authMiddleware := middleware.VerifyJWT(authService)
-	communityService := service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator())
-	communityUserRepository := repository.NewCommunityUserRepository(db)
+	communityService := service.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, validator.NewCommunityValidator())
 	communityUserService := service.NewCommunityUserService(userService, communityService, communityUserRepository)
 	routes.SetupRoutesUser(app, initUserController(userService), initAuthController(authService), authMiddleware)
 	routes.SetupRoutesAddress(app, initAddressController(addressService), authMiddleware)
@@ -83,8 +85,14 @@ func initSkillUserController(
 	return controller.NewSkillUserController(service.NewSkillUserService(userService, skillService, skillUserRepository, validator.NewSkillUserValidator()))
 }
 
-func initUserService(userRepository repository.UserRepository, authService service.AuthService) service.UserService {
-	return service.NewUserService(userRepository, validator.NewUserValidator(), authService)
+func initUserService(userRepository repository.UserRepository,
+	authService service.AuthService,
+	communityRepository repository.CommunityRepository,
+	eventRepository repository.EventRepository,
+	eventUserRepository repository.EventUserRepository,
+	communityUserRepository repository.CommunityUserRepository) service.UserService {
+	return service.NewUserService(userRepository, validator.NewUserValidator(), authService,
+		communityRepository, eventRepository, eventUserRepository, communityUserRepository)
 }
 
 func initAddressService(addressRepository repository.AddressRepository) service.AddressService {

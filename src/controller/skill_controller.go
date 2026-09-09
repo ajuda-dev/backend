@@ -6,6 +6,7 @@ import (
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller/dto"
+	"github.com/ajuda-dev/backend/src/controller/middleware"
 	"github.com/ajuda-dev/backend/src/data/repository"
 	"github.com/ajuda-dev/backend/src/service"
 	"github.com/gofiber/fiber/v2"
@@ -163,13 +164,14 @@ func (s *skillController) UpdateSkill() fiber.Handler {
 
 // DeleteSkill godoc
 // @Summary      Remove skill (soft delete)
-// @Description  Arquiva a skill marcando deleted_at e remove as associações skill_users dela (a skill some do perfil de todos os usuários)
+// @Description  Arquiva a skill marcando deleted_at e remove as associações skill_users dela (a skill some do perfil de todos os usuários). Somente moderadores e admins podem executar.
 // @Tags         skills
 // @Param        id  path  string  true  "ID da skill"
 // @Success      204
 // @Failure      400   {object}  map[string]interface{}
-// @Failure      404   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/skill/{id} [delete]
 func (s *skillController) DeleteSkill() fiber.Handler {
@@ -180,7 +182,8 @@ func (s *skillController) DeleteSkill() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
 		}
-		err := s.skillService.DeleteSkill(id)
+		requesterId := cf.Locals(middleware.UserIdKey).(string)
+		err := s.skillService.DeleteSkill(id, requesterId)
 		if err != nil {
 			logger.Error("error: ", err)
 			return cf.Status(err.Code).JSON(err)

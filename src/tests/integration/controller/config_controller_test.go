@@ -115,17 +115,18 @@ func setupApp() *fiber.App {
 	app := fiber.New()
 	authService := service.NewAuthService(userRepository)
 	authMiddleware := middleware.VerifyJWT(authService)
-	userService := service.NewUserService(userRepository, validator.NewUserValidator(), authService)
+	userService := service.NewUserService(userRepository, validator.NewUserValidator(), authService,
+		communityRepository, eventRepository, eventUserRepository, communityUserRepository)
 	addressService := service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient())
 	routes.SetupRoutesUser(app, controller.NewUserController(userService), controller.NewAuthController(authService), authMiddleware)
 	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService), authMiddleware)
-	communityService := service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator())
+	communityService := service.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, validator.NewCommunityValidator())
 	routes.SetupRoutesCommunities(app, controller.NewCommunityController(communityService), authMiddleware)
 	routes.SetupRoutesCommunityUsers(app, controller.NewCommunityUserController(service.NewCommunityUserService(userService, communityService, communityUserRepository)), authMiddleware)
 	eventService := service.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, validator.NewEventValidator())
 	routes.SetupRoutesEvents(app, controller.NewEventController(eventService), authMiddleware)
 	routes.SetupRoutesEventUsers(app, controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator())), authMiddleware)
-	skillService := service.NewSkillService(skillRepository, validator.NewSkillValidator())
+	skillService := service.NewSkillService(userService, skillRepository, validator.NewSkillValidator())
 	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService), authMiddleware)
 	routes.SetupRoutesSkillUsers(app, controller.NewSkillUserController(service.NewSkillUserService(userService, skillService, skillUserRepository, validator.NewSkillUserValidator())), authMiddleware)
 	routes.SetupSwaggerRoute(app)
@@ -204,6 +205,23 @@ func validTokenFor(t *testing.T, userId string) string {
 		t.Fatalf("failed to create token: %v", restErr)
 	}
 	return token
+}
+
+func createUserWithRole(t *testing.T, email string, role string) *domain.UserDomain {
+	t.Helper()
+	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+		Name:     "usuario " + role,
+		Email:    email,
+		Password: "123456",
+		Role:     role,
+	})
+	if createErr != nil {
+		t.Fatalf("failed to create user with role %s: %v", role, createErr)
+	}
+	if user.Role != role {
+		t.Fatalf("esperava role %s persistida no usuário, recebeu %s", role, user.Role)
+	}
+	return user
 }
 
 func doAuthedRequest(app *fiber.App, req *http.Request, token string) (*http.Response, error) {

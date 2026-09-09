@@ -290,8 +290,9 @@ func TestDeleteSkillRemovesAssociationsAndAllowsNameReuse(t *testing.T) {
 	skill := registerSkillViaApi(t, app, "go")
 	user := createSkillUserForTest(t)
 	assignSkillViaApi(t, app, skill.Id, user.Id, domain.LevelTeach)
+	moderator := createUserWithRole(t, "mod_delete_skill@ajuda.dev", domain.UserRoleModerator)
 
-	resp, err := doAuthedRequest(app, httptest.NewRequest("DELETE", "/v1/skill/"+skill.Id, nil), validTokenFor(t, user.Id))
+	resp, err := doAuthedRequest(app, httptest.NewRequest("DELETE", "/v1/skill/"+skill.Id, nil), validTokenFor(t, moderator.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
