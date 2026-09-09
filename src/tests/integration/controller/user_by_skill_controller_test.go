@@ -11,6 +11,7 @@ import (
 	"github.com/ajuda-dev/backend/src/controller/dto"
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/gofiber/fiber/v2"
+	"github.com/samborkent/uuidv7"
 )
 
 func createUserForSkillSearch(t *testing.T, name string, email string) *domain.UserDomain {
@@ -28,7 +29,7 @@ func createUserForSkillSearch(t *testing.T, name string, email string) *domain.U
 
 func searchUsersBySkillQuery(t *testing.T, app *fiber.App, query string) dto.PageableUserDto {
 	t.Helper()
-	resp, err := app.Test(httptest.NewRequest("GET", "/v1/user"+query, nil))
+	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/user"+query, nil), validTokenFor(t, uuidv7.New().String()))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -148,7 +149,7 @@ func TestGetUsersBySkillValidation(t *testing.T) {
 
 	assertBadRequest := func(target string, expectedCause string) rest_err.RestErr {
 		t.Helper()
-		resp, err := app.Test(httptest.NewRequest("GET", target, nil))
+		resp, err := doAuthedRequest(app, httptest.NewRequest("GET", target, nil), validTokenFor(t, uuidv7.New().String()))
 		if err != nil {
 			t.Fatalf("erro ao executar requisição: %v", err)
 		}
@@ -210,7 +211,7 @@ func TestGetUsersBySkillAfterSkillSoftDelete(t *testing.T) {
 	java := createSkillForTest(t, "JAVA")
 	assignSkillViaApi(t, app, java.Id, lucas.Id, domain.LevelTeach)
 
-	resp, err := app.Test(httptest.NewRequest("DELETE", "/v1/skill/"+java.Id, nil))
+	resp, err := doAuthedRequest(app, httptest.NewRequest("DELETE", "/v1/skill/"+java.Id, nil), validTokenFor(t, lucas.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}

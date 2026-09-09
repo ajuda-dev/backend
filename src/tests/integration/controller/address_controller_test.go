@@ -17,6 +17,7 @@ import (
 func TestRegisterAddressSuccess(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	app := setupApp()
+	token := validTokenFor(t, uuidv7.New().String())
 	body := []byte(
 		`
 	 	{
@@ -25,7 +26,7 @@ func TestRegisterAddressSuccess(t *testing.T) {
 	 `)
 	req := newAddressRegisterRequest(body)
 
-	resp, err := app.Test(req)
+	resp, err := doAuthedRequest(app, req, token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -55,6 +56,7 @@ func newAddressRegisterRequest(body []byte) *http.Request {
 func TestRegisterAddressBadRequest(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	app := setupApp()
+	token := validTokenFor(t, uuidv7.New().String())
 	body := []byte(
 		`
 	 	{
@@ -65,7 +67,7 @@ func TestRegisterAddressBadRequest(t *testing.T) {
 	 `)
 	req := newAddressRegisterRequest(body)
 
-	resp, err := app.Test(req)
+	resp, err := doAuthedRequest(app, req, token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -82,6 +84,7 @@ func TestRegisterAddressBadRequest(t *testing.T) {
 func TestRegisterAddressAlreadyExist(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	app := setupApp()
+	token := validTokenFor(t, uuidv7.New().String())
 	addressRepository.CreateAddress(&domain.AddressDomain{
 		City:    "test_city",
 		State:   "test_state",
@@ -96,14 +99,14 @@ func TestRegisterAddressAlreadyExist(t *testing.T) {
 	 `)
 	req := newAddressRegisterRequest(body)
 
-	resp, err := app.Test(req)
+	resp, err := doAuthedRequest(app, req, token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
 	defer resp.Body.Close()
 
 
-	resp, err = app.Test(req)
+	resp, err = doAuthedRequest(app, req, token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}

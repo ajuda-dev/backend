@@ -21,6 +21,7 @@ func NewAuthService(userRepository repository.UserRepository) AuthService {
 type AuthService interface {
 	LoginUser(email, password string) (*domain.UserDomain, string, *rest_err.RestErr)
 	CreateToken(user *domain.UserDomain) (string, *rest_err.RestErr)
+	ValidateToken(tokenString string) (string, *rest_err.RestErr)
 }
 
 type authService struct {
@@ -70,4 +71,24 @@ func (a *authService) CreateToken(user *domain.UserDomain) (string, *rest_err.Re
 		return "", rest_err.NewInternalServerError(err.Error())
 	}
 	return tokenString, nil
+}
+
+// ValidateToken implements AuthService.
+func (a *authService) ValidateToken(tokenString string) (string, *rest_err.RestErr) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return "", rest_err.NewInternalServerError("JWT_SECRET is not configured")
+	}
+	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{},
+		func(t *jwt.Token) (interface{}, error) {
+			return []byte(secret), nil
+		}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	if err != nil || !token.Valid {
+		return "", rest_err.NewUnauthorizedError("invalid or expired token")
+	}
+	claims, ok := token.Claims.(*jwt.RegisteredClaims)
+	if !ok || claims.Subject == "" {
+		return "", rest_err.NewUnauthorizedError("invalid or expired token")
+	}
+	return claims.Subject, nil
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/ajuda-dev/backend/src/config/database"
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/controller"
+	"github.com/ajuda-dev/backend/src/controller/middleware"
 	"github.com/ajuda-dev/backend/src/controller/routes"
 	"github.com/ajuda-dev/backend/src/data/repository"
 	"github.com/ajuda-dev/backend/src/service"
@@ -40,13 +41,14 @@ func InitApp() {
 		eventUserRepository,
 		validator.NewEventValidator())
 	skillService := service.NewSkillService(skillRepository, validator.NewSkillValidator())
-	routes.SetupRoutesUser(app, initUserController(userService), initAuthController(authService))
-	routes.SetupRoutesAddress(app, initAddressController(addressService))
-	routes.SetupRoutesCommunities(app, initCommunityController(communityRepository, addressService, userService))
-	routes.SetupRoutesEvents(app, controller.NewEventController(eventService))
-	routes.SetupRoutesEventUsers(app, initEventUserController(userService, eventService, eventUserRepository))
-	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService))
-	routes.SetupRoutesSkillUsers(app, initSkillUserController(userService, skillService, skillUserRepository))
+	authMiddleware := middleware.VerifyJWT(authService)
+	routes.SetupRoutesUser(app, initUserController(userService), initAuthController(authService), authMiddleware)
+	routes.SetupRoutesAddress(app, initAddressController(addressService), authMiddleware)
+	routes.SetupRoutesCommunities(app, initCommunityController(communityRepository, addressService, userService), authMiddleware)
+	routes.SetupRoutesEvents(app, controller.NewEventController(eventService), authMiddleware)
+	routes.SetupRoutesEventUsers(app, initEventUserController(userService, eventService, eventUserRepository), authMiddleware)
+	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService), authMiddleware)
+	routes.SetupRoutesSkillUsers(app, initSkillUserController(userService, skillService, skillUserRepository), authMiddleware)
 	routes.SetupSwaggerRoute(app)
 	log.Fatal(app.Listen(":8080"))
 }

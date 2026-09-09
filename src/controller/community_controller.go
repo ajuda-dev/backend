@@ -35,6 +35,8 @@ func NewCommunityController(communityService service.CommunityService) Community
 // @Param        community  body  dto.RegisterCommunityDto  true  "Dados da comunidade"
 // @Success      201   {object}  dto.RegisterCommunityDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/community/register [post]
 func (c *communityController) RegisterCommunity() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -66,6 +68,8 @@ func (c *communityController) RegisterCommunity() fiber.Handler {
 // @Param        address_id query  string  false  "ID do endereço"
 // @Success      200   {object}  dto.PageableCommunityDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/community [get]
 func (c *communityController) GetAllCommunities() fiber.Handler {
 	return func(cf *fiber.Ctx) error {

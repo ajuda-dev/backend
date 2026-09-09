@@ -8,7 +8,7 @@ Backend of a communities/help platform (`github.com/ajuda-dev/backend`). The dom
 - **Addresses** (`addresses`): address registration, with lookup/validation via the external **ViaCEP** API (by CEP or by state + city + street).
 - **Communities** (`community`): belong to a user (owner) and are linked to an address. They support creation and paginated listing with an optional `address_id` filter.
 
-The project is in an early development stage (no auth/JWT, no middleware besides Swagger, no Makefile/CI).
+The project is in an early development stage (no Makefile/CI). All endpoints are protected by the VerifyJWT middleware (JWT Bearer token), except POST /v1/user/register and POST /v1/user/login; the Swagger UI stays public.
 
 ## Stack
 
@@ -115,4 +115,5 @@ Defined in `src/controller/routes/routes.go`:
 
 - Follow the layered architecture described above; new features should add Controller, Service, Repository, Entity, DTO, Domain and Validator following the existing pattern.
 - Business errors must be returned as `*rest_err.RestErr` with the appropriate HTTP code.
+- Every endpoint must be protected by the VerifyJWT middleware (JWT Bearer token in the Authorization header). Permanent exceptions: POST /v1/user/register, POST /v1/user/login and GET /swagger/*. New endpoints are authenticated by default; on mixed groups (public + protected under the same prefix), apply the middleware per route, never to the whole group.
 - Do not add unnecessary comments to the code.

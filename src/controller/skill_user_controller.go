@@ -36,6 +36,8 @@ func NewSkillUserController(skillUserService service.SkillUserService) SkillUser
 // @Success      201   {object}  dto.SkillUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/skill/{skillId}/users [post]
 func (s *skillUserController) AssignSkill() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -70,6 +72,8 @@ func (s *skillUserController) AssignSkill() fiber.Handler {
 // @Param        userId  path  string  true  "ID do usuário"
 // @Success      200   {array}   dto.SkillUserDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/user/{userId}/skills [get]
 func (s *skillUserController) GetUserSkills() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -99,6 +103,8 @@ func (s *skillUserController) GetUserSkills() fiber.Handler {
 // @Success      204
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/user/{userId}/skills/{skillId} [delete]
 func (s *skillUserController) RemoveSkillFromUser() fiber.Handler {
 	return func(cf *fiber.Ctx) error {

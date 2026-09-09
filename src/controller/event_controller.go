@@ -39,6 +39,8 @@ func NewEventController(eventService service.EventService) EventController {
 // @Param        event  body  dto.RegisterEventDto  true  "Dados do evento"
 // @Success      201   {object}  dto.RegisterEventDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/event/register [post]
 func (e *eventController) RegisterEvent() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -68,6 +70,8 @@ func (e *eventController) RegisterEvent() fiber.Handler {
 // @Param        id  path  string  true  "ID do evento"
 // @Success      200   {object}  dto.EventDto
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/event/{id} [get]
 func (e *eventController) GetEventById() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -105,6 +109,8 @@ func (e *eventController) GetEventById() fiber.Handler {
 // @Param        status       query  string  false  "Status da participação (com user_id)"
 // @Success      200   {object}  dto.PageableEventDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/event [get]
 func (e *eventController) GetAllEvents() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -156,6 +162,8 @@ func (e *eventController) GetAllEvents() fiber.Handler {
 // @Param        id  path  string  true  "ID do evento"
 // @Success      204
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/event/{id} [delete]
 func (e *eventController) DeleteEventById() fiber.Handler {
 	return func(cf *fiber.Ctx) error {

@@ -38,6 +38,8 @@ func NewEventUserController(eventUserService service.EventUserService) EventUser
 // @Success      201   {object}  dto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/event/{eventId}/join [post]
 func (e *eventUserController) JoinEvent() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -74,6 +76,8 @@ func (e *eventUserController) JoinEvent() fiber.Handler {
 // @Success      201   {object}  dto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/event/{eventId}/participants [post]
 func (e *eventUserController) AddParticipant() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -109,6 +113,8 @@ func (e *eventUserController) AddParticipant() fiber.Handler {
 // @Param        status   query  string  false  "Filtro por status (REQUESTED, CONFIRMED, REJECTED, CANCELLED)"
 // @Success      200   {array}   dto.EventUserDto
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/event/{eventId}/participants [get]
 func (e *eventUserController) GetParticipants() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -139,6 +145,8 @@ func (e *eventUserController) GetParticipants() fiber.Handler {
 // @Success      200   {object}  dto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/event/{eventId}/participants/{userId}/status [put]
 func (e *eventUserController) UpdateParticipantStatus() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -181,6 +189,8 @@ func (e *eventUserController) UpdateParticipantStatus() fiber.Handler {
 // @Success      200   {object}  dto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/event/{eventId}/participants/{userId} [delete]
 func (e *eventUserController) CancelParticipation() fiber.Handler {
 	return func(cf *fiber.Ctx) error {

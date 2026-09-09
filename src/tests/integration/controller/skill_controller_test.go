@@ -28,7 +28,7 @@ func registerSkillViaApi(t *testing.T, app *fiber.App, name string) dto.Register
 	if err != nil {
 		t.Fatalf("erro ao montar body: %v", err)
 	}
-	resp, err := app.Test(newSkillRegisterRequest(payload))
+	resp, err := doAuthedRequest(app, newSkillRegisterRequest(payload), validTokenFor(t, uuidv7.New().String()))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -47,7 +47,7 @@ func registerSkillViaApi(t *testing.T, app *fiber.App, name string) dto.Register
 
 func skillReqValidation(t *testing.T, app *fiber.App, body []byte) rest_err.RestErr {
 	t.Helper()
-	resp, err := app.Test(newSkillRegisterRequest(body))
+	resp, err := doAuthedRequest(app, newSkillRegisterRequest(body), validTokenFor(t, uuidv7.New().String()))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestListSkillsByPrefix(t *testing.T) {
 
 	listSkills := func(query string) dto.PageableSkillDto {
 		t.Helper()
-		resp, err := app.Test(httptest.NewRequest("GET", "/v1/skill"+query, nil))
+		resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/skill"+query, nil), validTokenFor(t, uuidv7.New().String()))
 		if err != nil {
 			t.Fatalf("erro ao executar requisição: %v", err)
 		}
@@ -186,7 +186,7 @@ func TestListSkillsPagination(t *testing.T) {
 		registerSkillViaApi(t, app, fmt.Sprintf("SKILL%02d", i))
 	}
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/v1/skill?limit=10", nil))
+	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/skill?limit=10", nil), validTokenFor(t, uuidv7.New().String()))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestListSkillsPagination(t *testing.T) {
 		t.Errorf("esperava has_next true na primeira página")
 	}
 
-	resp, err = app.Test(httptest.NewRequest("GET", "/v1/skill?page=2&limit=10", nil))
+	resp, err = doAuthedRequest(app, httptest.NewRequest("GET", "/v1/skill?page=2&limit=10", nil), validTokenFor(t, uuidv7.New().String()))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestUpdateSkillRenamesNormalized(t *testing.T) {
 	payload := []byte(`{"name": " kotlin "}`)
 	req := httptest.NewRequest("PUT", "/v1/skill/"+skill.Id, bytes.NewBuffer(payload))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := app.Test(req)
+	resp, err := doAuthedRequest(app, req, validTokenFor(t, uuidv7.New().String()))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestUpdateSkillRejectsConflictAndNotFound(t *testing.T) {
 
 	req := httptest.NewRequest("PUT", "/v1/skill/"+java.Id, bytes.NewBuffer([]byte(`{"name": "go"}`)))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := app.Test(req)
+	resp, err := doAuthedRequest(app, req, validTokenFor(t, uuidv7.New().String()))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestUpdateSkillRejectsConflictAndNotFound(t *testing.T) {
 
 	req = httptest.NewRequest("PUT", "/v1/skill/"+uuidv7.New().String(), bytes.NewBuffer([]byte(`{"name": "rust"}`)))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err = app.Test(req)
+	resp, err = doAuthedRequest(app, req, validTokenFor(t, uuidv7.New().String()))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -291,7 +291,7 @@ func TestDeleteSkillRemovesAssociationsAndAllowsNameReuse(t *testing.T) {
 	user := createSkillUserForTest(t)
 	assignSkillViaApi(t, app, skill.Id, user.Id, domain.LevelTeach)
 
-	resp, err := app.Test(httptest.NewRequest("DELETE", "/v1/skill/"+skill.Id, nil))
+	resp, err := doAuthedRequest(app, httptest.NewRequest("DELETE", "/v1/skill/"+skill.Id, nil), validTokenFor(t, user.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestDeleteSkillRemovesAssociationsAndAllowsNameReuse(t *testing.T) {
 		t.Errorf("esperava 204 no delete da skill, recebeu %d", resp.StatusCode)
 	}
 
-	resp, err = app.Test(httptest.NewRequest("GET", "/v1/skill/"+skill.Id, nil))
+	resp, err = doAuthedRequest(app, httptest.NewRequest("GET", "/v1/skill/"+skill.Id, nil), validTokenFor(t, user.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}

@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	github.com/gofiber/swagger v1.1.1
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/samborkent/uuidv7 v0.0.0-20231110121620-f2e19d87e48b
 	github.com/swaggo/swag v1.16.4
 	gorm.io/gorm v1.30.0
@@ -35,7 +36,6 @@ require (
 	github.com/go-openapi/spec v0.20.4 // indirect
 	github.com/go-openapi/swag v0.19.15 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.6.0 // indirect

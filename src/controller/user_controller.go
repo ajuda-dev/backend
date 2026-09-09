@@ -66,6 +66,8 @@ func (u *userController) RegisterUser() fiber.Handler {
 // @Param        limit  query  int     false  "Limite"
 // @Success      200   {object}  dto.PageableUserDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/user [get]
 func (u *userController) GetAllUsers() fiber.Handler {
 	return func(c *fiber.Ctx) error {

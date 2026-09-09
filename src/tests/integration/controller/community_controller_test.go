@@ -56,7 +56,7 @@ func TestCreateCommunitySuccess(t *testing.T) {
 	}
 	`)
 	req := newCommunityRegisterRequest(body)
-	resp, err := app.Test(req)
+	resp, err := doAuthedRequest(app, req, validTokenFor(t, user.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -79,11 +79,12 @@ func TestCreateCommunitySuccess(t *testing.T) {
 func TestCreateCommunityFail(t *testing.T){
 	t.Cleanup(cleanCommunityTable)
 	app := setupApp()
+	token := validTokenFor(t, uuidv7.New().String())
 	body := []byte(`
 	{	}
 	`)
 	req := newCommunityRegisterRequest(body)
-	resp, err := app.Test(req)
+	resp, err := doAuthedRequest(app, req, token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}

@@ -103,7 +103,7 @@ func TestSoftDeletedCommunityAllowsNameReuse(t *testing.T) {
 		"description": "comunidade recriada"
 	}`)
 	req := newCommunityRegisterRequest(body)
-	resp, err := app.Test(req)
+	resp, err := doAuthedRequest(app, req, validTokenFor(t, user.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}

@@ -29,6 +29,8 @@ func NewAddressController(addressService service.AddressService) AddressControll
 // @Param        address  body  dto.AddressDto  true  "Dados do endereço"
 // @Success      201   {object}  dto.AddressDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/address/register [post]
 func (a *addressController) RegisterAddress() fiber.Handler {
 	return func(c *fiber.Ctx) error {

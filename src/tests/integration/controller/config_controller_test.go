@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"testing"
 
 	client "github.com/ajuda-dev/backend/src/client/viacep"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller"
+	"github.com/ajuda-dev/backend/src/controller/middleware"
 	"github.com/ajuda-dev/backend/src/controller/routes"
 	"github.com/ajuda-dev/backend/src/data/entity"
 	"github.com/ajuda-dev/backend/src/data/repository"
@@ -110,17 +112,19 @@ func TestMain(m *testing.M) {
 func setupApp() *fiber.App {
 	app := fiber.New()
 	authService := service.NewAuthService(userRepository)
+	authMiddleware := middleware.VerifyJWT(authService)
 	userService := service.NewUserService(userRepository, validator.NewUserValidator(), authService)
 	addressService := service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient())
-	routes.SetupRoutesUser(app, controller.NewUserController(userService), controller.NewAuthController(authService))
-	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService))
-	routes.SetupRoutesCommunities(app, controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator())))
+	routes.SetupRoutesUser(app, controller.NewUserController(userService), controller.NewAuthController(authService), authMiddleware)
+	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService), authMiddleware)
+	routes.SetupRoutesCommunities(app, controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator())), authMiddleware)
 	eventService := service.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, validator.NewEventValidator())
-	routes.SetupRoutesEvents(app, controller.NewEventController(eventService))
-	routes.SetupRoutesEventUsers(app, controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator())))
+	routes.SetupRoutesEvents(app, controller.NewEventController(eventService), authMiddleware)
+	routes.SetupRoutesEventUsers(app, controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator())), authMiddleware)
 	skillService := service.NewSkillService(skillRepository, validator.NewSkillValidator())
-	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService))
-	routes.SetupRoutesSkillUsers(app, controller.NewSkillUserController(service.NewSkillUserService(userService, skillService, skillUserRepository, validator.NewSkillUserValidator())))
+	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService), authMiddleware)
+	routes.SetupRoutesSkillUsers(app, controller.NewSkillUserController(service.NewSkillUserService(userService, skillService, skillUserRepository, validator.NewSkillUserValidator())), authMiddleware)
+	routes.SetupSwaggerRoute(app)
 
 	return app
 }
@@ -182,4 +186,19 @@ func verifyCodeError(t *testing.T, respBody rest_err.RestErr) {
 	if respBody.Code != 400 {
 		t.Errorf("esperava code 400, recebeu %d", respBody.Code)
 	}
+}
+
+func validTokenFor(t *testing.T, userId string) string {
+	t.Helper()
+	token, restErr := service.NewAuthService(userRepository).
+		CreateToken(&domain.UserDomain{Id: userId})
+	if restErr != nil {
+		t.Fatalf("failed to create token: %v", restErr)
+	}
+	return token
+}
+
+func doAuthedRequest(app *fiber.App, req *http.Request, token string) (*http.Response, error) {
+	req.Header.Set("Authorization", "Bearer "+token)
+	return app.Test(req)
 }

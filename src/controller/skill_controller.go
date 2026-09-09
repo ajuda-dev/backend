@@ -39,6 +39,8 @@ func NewSkillController(skillService service.SkillService) SkillController {
 // @Param        skill  body  dto.RegisterSkillDto  true  "Dados da skill"
 // @Success      201   {object}  dto.RegisterSkillDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/skill/register [post]
 func (s *skillController) RegisterSkill() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -69,6 +71,8 @@ func (s *skillController) RegisterSkill() fiber.Handler {
 // @Success      200   {object}  dto.SkillDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/skill/{id} [get]
 func (s *skillController) GetSkillById() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -98,6 +102,8 @@ func (s *skillController) GetSkillById() fiber.Handler {
 // @Param        limit  query  int     false  "Limite"
 // @Success      200   {object}  dto.PageableSkillDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/skill [get]
 func (s *skillController) GetAllSkills() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -128,6 +134,8 @@ func (s *skillController) GetAllSkills() fiber.Handler {
 // @Success      200   {object}  dto.RegisterSkillDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/skill/{id} [put]
 func (s *skillController) UpdateSkill() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
@@ -161,6 +169,8 @@ func (s *skillController) UpdateSkill() fiber.Handler {
 // @Success      204
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /v1/skill/{id} [delete]
 func (s *skillController) DeleteSkill() fiber.Handler {
 	return func(cf *fiber.Ctx) error {

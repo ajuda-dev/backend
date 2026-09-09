@@ -48,7 +48,7 @@ func assignSkillViaApi(t *testing.T, app *fiber.App, skillId string, userId stri
 	if err != nil {
 		t.Fatalf("erro ao montar body: %v", err)
 	}
-	resp, err := app.Test(newAssignSkillRequest(skillId, payload))
+	resp, err := doAuthedRequest(app, newAssignSkillRequest(skillId, payload), validTokenFor(t, userId))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -67,7 +67,7 @@ func assignSkillViaApi(t *testing.T, app *fiber.App, skillId string, userId stri
 
 func getUserSkillsViaApi(t *testing.T, app *fiber.App, userId string) []dto.SkillUserDto {
 	t.Helper()
-	resp, err := app.Test(httptest.NewRequest("GET", "/v1/user/"+userId+"/skills", nil))
+	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/user/"+userId+"/skills", nil), validTokenFor(t, userId))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestAssignSkillRejectsDuplicate(t *testing.T) {
 	assignSkillViaApi(t, app, skill.Id, user.Id, domain.LevelTeach)
 
 	payload, _ := json.Marshal(dto.AssignSkillDto{UserId: user.Id, Level: domain.LevelLearnAndTeach})
-	resp, err := app.Test(newAssignSkillRequest(skill.Id, payload))
+	resp, err := doAuthedRequest(app, newAssignSkillRequest(skill.Id, payload), validTokenFor(t, user.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -153,9 +153,10 @@ func TestAssignSkillRejectsInvalidLevel(t *testing.T) {
 	user := createSkillUserForTest(t)
 	skill := createSkillForTest(t, "JAVA")
 
+	token := validTokenFor(t, user.Id)
 	for _, level := range []string{"", "SENIOR", "want_to_learn"} {
 		payload, _ := json.Marshal(dto.AssignSkillDto{UserId: user.Id, Level: level})
-		resp, err := app.Test(newAssignSkillRequest(skill.Id, payload))
+		resp, err := doAuthedRequest(app, newAssignSkillRequest(skill.Id, payload), token)
 		if err != nil {
 			t.Fatalf("erro ao executar requisição: %v", err)
 		}
@@ -183,7 +184,9 @@ func TestAssignSkillValidationFailures(t *testing.T) {
 	user := createSkillUserForTest(t)
 	skill := createSkillForTest(t, "JAVA")
 
-	resp, err := app.Test(newAssignSkillRequest("not-a-uuid", []byte(`{"user_id": "`+user.Id+`", "level": "TEACH"}`)))
+	token := validTokenFor(t, user.Id)
+
+	resp, err := doAuthedRequest(app, newAssignSkillRequest("not-a-uuid", []byte(`{"user_id": "`+user.Id+`", "level": "TEACH"}`)), token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -192,7 +195,7 @@ func TestAssignSkillValidationFailures(t *testing.T) {
 		t.Errorf("esperava 400 com skillId inválido, recebeu %d", resp.StatusCode)
 	}
 
-	resp, err = app.Test(newAssignSkillRequest(skill.Id, []byte(`{"user_id": "not-a-uuid", "level": "TEACH"}`)))
+	resp, err = doAuthedRequest(app, newAssignSkillRequest(skill.Id, []byte(`{"user_id": "not-a-uuid", "level": "TEACH"}`)), token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -201,7 +204,7 @@ func TestAssignSkillValidationFailures(t *testing.T) {
 		t.Errorf("esperava 400 com user_id inválido, recebeu %d", resp.StatusCode)
 	}
 
-	resp, err = app.Test(newAssignSkillRequest(uuidv7.New().String(), []byte(`{"user_id": "`+user.Id+`", "level": "TEACH"}`)))
+	resp, err = doAuthedRequest(app, newAssignSkillRequest(uuidv7.New().String(), []byte(`{"user_id": "`+user.Id+`", "level": "TEACH"}`)), token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -210,7 +213,7 @@ func TestAssignSkillValidationFailures(t *testing.T) {
 		t.Errorf("esperava 400 com skill inexistente, recebeu %d", resp.StatusCode)
 	}
 
-	resp, err = app.Test(newAssignSkillRequest(skill.Id, []byte(`{"user_id": "`+uuidv7.New().String()+`", "level": "TEACH"}`)))
+	resp, err = doAuthedRequest(app, newAssignSkillRequest(skill.Id, []byte(`{"user_id": "`+uuidv7.New().String()+`", "level": "TEACH"}`)), token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -272,8 +275,9 @@ func TestRemoveSkillFromUser(t *testing.T) {
 	assignSkillViaApi(t, app, java.Id, user.Id, domain.LevelWantToLearn)
 	assignSkillViaApi(t, app, goSkill.Id, user.Id, domain.LevelTeach)
 
+	token := validTokenFor(t, user.Id)
 	req := httptest.NewRequest("DELETE", "/v1/user/"+user.Id+"/skills/"+java.Id, nil)
-	resp, err := app.Test(req)
+	resp, err := doAuthedRequest(app, req, token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -287,7 +291,7 @@ func TestRemoveSkillFromUser(t *testing.T) {
 		t.Errorf("esperava somente [GO] após remoção, recebeu %+v", skills)
 	}
 
-	resp, err = app.Test(httptest.NewRequest("DELETE", "/v1/user/"+user.Id+"/skills/"+java.Id, nil))
+	resp, err = doAuthedRequest(app, httptest.NewRequest("DELETE", "/v1/user/"+user.Id+"/skills/"+java.Id, nil), token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}

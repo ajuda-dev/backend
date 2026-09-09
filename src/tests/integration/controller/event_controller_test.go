@@ -87,7 +87,7 @@ func registerEventViaApi(t *testing.T, app *fiber.App, body eventTestRequest) dt
 	if err != nil {
 		t.Fatalf("erro ao montar body: %v", err)
 	}
-	resp, err := app.Test(newEventRegisterRequest(payload))
+	resp, err := doAuthedRequest(app, newEventRegisterRequest(payload), validTokenFor(t, body.OwnerId))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -111,7 +111,7 @@ func eventReqValidation(t *testing.T, app *fiber.App, body eventTestRequest, exp
 	if err != nil {
 		t.Fatalf("erro ao montar body: %v", err)
 	}
-	resp, err := app.Test(newEventRegisterRequest(payload))
+	resp, err := doAuthedRequest(app, newEventRegisterRequest(payload), validTokenFor(t, body.OwnerId))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -292,6 +292,7 @@ func TestListEventsByCommunityAndUpcoming(t *testing.T) {
 
 	app := setupApp()
 	user := createEventOwner(t)
+	token := validTokenFor(t, user.Id)
 	address := createEventAddress(t, "sao paulo")
 	communityFuture := createEventCommunity(t, "Comunidade com evento futuro", user, address)
 	communityPast := createEventCommunity(t, "Comunidade com evento passado", user, address)
@@ -320,7 +321,7 @@ func TestListEventsByCommunityAndUpcoming(t *testing.T) {
 		t.Fatalf("failed to create past event: %v", createErr)
 	}
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/v1/event?community_id="+communityFuture.Id, nil))
+	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/event?community_id="+communityFuture.Id, nil), token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -339,7 +340,7 @@ func TestListEventsByCommunityAndUpcoming(t *testing.T) {
 		t.Errorf("esperava has_next false, recebeu true")
 	}
 
-	resp, err = app.Test(httptest.NewRequest("GET", "/v1/event?upcoming=true", nil))
+	resp, err = doAuthedRequest(app, httptest.NewRequest("GET", "/v1/event?upcoming=true", nil), token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -355,7 +356,7 @@ func TestListEventsByCommunityAndUpcoming(t *testing.T) {
 		t.Errorf("esperava somente o evento futuro na listagem upcoming, recebeu %+v", page.Data)
 	}
 
-	resp, err = app.Test(httptest.NewRequest("GET", "/v1/event?community_id="+communityPast.Id, nil))
+	resp, err = doAuthedRequest(app, httptest.NewRequest("GET", "/v1/event?community_id="+communityPast.Id, nil), token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -410,7 +411,7 @@ func TestListEventsByCity(t *testing.T) {
 		DurationMin: 60,
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/v1/event?city=sao%20paulo", nil))
+	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/event?city=sao%20paulo", nil), validTokenFor(t, user.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -435,6 +436,7 @@ func TestDeleteEventSoftDelete(t *testing.T) {
 
 	app := setupApp()
 	user := createEventOwner(t)
+	token := validTokenFor(t, user.Id)
 	created := registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     user.Id,
 		Category:    domain.CategoryCommunityEvent,
@@ -446,7 +448,7 @@ func TestDeleteEventSoftDelete(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("DELETE", "/v1/event/"+created.Id, nil)
-	resp, err := app.Test(req)
+	resp, err := doAuthedRequest(app, req, token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -455,7 +457,7 @@ func TestDeleteEventSoftDelete(t *testing.T) {
 		t.Errorf("esperava 204, recebeu %d", resp.StatusCode)
 	}
 
-	resp, err = app.Test(httptest.NewRequest("GET", "/v1/event/"+created.Id, nil))
+	resp, err = doAuthedRequest(app, httptest.NewRequest("GET", "/v1/event/"+created.Id, nil), token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}

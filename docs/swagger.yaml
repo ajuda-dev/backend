@@ -1,12 +1,12 @@
 definitions:
-  github_com_ajuda-dev_backend_src_controller_dto.AddParticipantDto:
+  dto.AddParticipantDto:
     properties:
       role:
         type: string
       user_id:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.AddressDto:
+  dto.AddressDto:
     properties:
       city:
         type: string
@@ -19,17 +19,17 @@ definitions:
       zip_code:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.AssignSkillDto:
+  dto.AssignSkillDto:
     properties:
       level:
         type: string
       user_id:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.CommunityDto:
+  dto.CommunityDto:
     properties:
       address:
-        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AddressDto'
+        $ref: '#/definitions/dto.AddressDto'
       description:
         type: string
       id:
@@ -37,16 +37,16 @@ definitions:
       name:
         type: string
       owner:
-        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UserDtoOut'
+        $ref: '#/definitions/dto.UserDtoOut'
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.EventDto:
+  dto.EventDto:
     properties:
       address:
-        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AddressDto'
+        $ref: '#/definitions/dto.AddressDto'
       category:
         type: string
       community:
-        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.CommunityDto'
+        $ref: '#/definitions/dto.CommunityDto'
       description:
         type: string
       duration_min:
@@ -58,7 +58,7 @@ definitions:
       meeting_link:
         type: string
       owner:
-        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UserDtoOut'
+        $ref: '#/definitions/dto.UserDtoOut'
       start_at:
         type: string
       title:
@@ -66,7 +66,7 @@ definitions:
       type:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.EventUserDto:
+  dto.EventUserDto:
     properties:
       event_id:
         type: string
@@ -77,23 +77,23 @@ definitions:
       status:
         type: string
       user:
-        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UserDtoOut'
+        $ref: '#/definitions/dto.UserDtoOut'
       user_id:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.JoinEventDto:
+  dto.JoinEventDto:
     properties:
       user_id:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.LoginUserDtoIn:
+  dto.LoginUserDtoIn:
     properties:
       email:
         type: string
       password:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.LoginUserDtoOut:
+  dto.LoginUserDtoOut:
     properties:
       email:
         type: string
@@ -104,43 +104,43 @@ definitions:
       token:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.PageableCommunityDto:
+  dto.PageableCommunityDto:
     properties:
       data:
         items:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.CommunityDto'
+          $ref: '#/definitions/dto.CommunityDto'
         type: array
       has_next:
         type: boolean
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.PageableEventDto:
+  dto.PageableEventDto:
     properties:
       data:
         items:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventDto'
+          $ref: '#/definitions/dto.EventDto'
         type: array
       has_next:
         type: boolean
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.PageableSkillDto:
+  dto.PageableSkillDto:
     properties:
       data:
         items:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillDto'
+          $ref: '#/definitions/dto.SkillDto'
         type: array
       has_next:
         type: boolean
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.PageableUserDto:
+  dto.PageableUserDto:
     properties:
       data:
         items:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UserSkillDto'
+          $ref: '#/definitions/dto.UserSkillDto'
         type: array
       has_next:
         type: boolean
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.RegisterCommunityDto:
+  dto.RegisterCommunityDto:
     properties:
       address_id:
         type: string
@@ -153,7 +153,7 @@ definitions:
       owner_id:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.RegisterEventDto:
+  dto.RegisterEventDto:
     properties:
       address_id:
         type: string
@@ -180,14 +180,14 @@ definitions:
       type:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.RegisterSkillDto:
+  dto.RegisterSkillDto:
     properties:
       id:
         type: string
       name:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.RegisterUserDtoIn:
+  dto.RegisterUserDtoIn:
     properties:
       email:
         type: string
@@ -196,37 +196,37 @@ definitions:
       password:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.SkillDto:
+  dto.SkillDto:
     properties:
       id:
         type: string
       name:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.SkillUserDto:
+  dto.SkillUserDto:
     properties:
       id:
         type: string
       level:
         type: string
       skill:
-        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillDto'
+        $ref: '#/definitions/dto.SkillDto'
       skill_id:
         type: string
       user_id:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.UpdateParticipantStatusDto:
+  dto.UpdateParticipantStatusDto:
     properties:
       status:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.UpdateSkillDto:
+  dto.UpdateSkillDto:
     properties:
       name:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.UserDtoOut:
+  dto.UserDtoOut:
     properties:
       email:
         type: string
@@ -237,7 +237,7 @@ definitions:
       token:
         type: string
     type: object
-  github_com_ajuda-dev_backend_src_controller_dto.UserSkillDto:
+  dto.UserSkillDto:
     properties:
       email:
         type: string
@@ -247,11 +247,13 @@ definitions:
         type: string
       skills:
         items:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillDto'
+          $ref: '#/definitions/dto.SkillDto'
         type: array
     type: object
 info:
   contact: {}
+  title: AjudaDev Backend API
+  version: "1.0"
 paths:
   /v1/address/register:
     post:
@@ -264,19 +266,26 @@ paths:
         name: address
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AddressDto'
+          $ref: '#/definitions/dto.AddressDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AddressDto'
+            $ref: '#/definitions/dto.AddressDto'
         "400":
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
       summary: Registra um novo endereço
       tags:
       - addresses
@@ -304,12 +313,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.PageableCommunityDto'
+            $ref: '#/definitions/dto.PageableCommunityDto'
         "400":
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
       summary: Lista comunidades
       tags:
       - communities
@@ -324,19 +340,26 @@ paths:
         name: community
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterCommunityDto'
+          $ref: '#/definitions/dto.RegisterCommunityDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterCommunityDto'
+            $ref: '#/definitions/dto.RegisterCommunityDto'
         "400":
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
       summary: Registra uma nova comunidade
       tags:
       - communities
@@ -397,12 +420,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.PageableEventDto'
+            $ref: '#/definitions/dto.PageableEventDto'
         "400":
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
       summary: Lista eventos
       tags:
       - events
@@ -424,16 +454,21 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.JoinEventDto'
+          $ref: '#/definitions/dto.JoinEventDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventUserDto'
+            $ref: '#/definitions/dto.EventUserDto'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
           schema:
             additionalProperties: true
             type: object
@@ -442,6 +477,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Auto-inscreve um participante
       tags:
       - event_users
@@ -468,13 +505,20 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventUserDto'
+              $ref: '#/definitions/dto.EventUserDto'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Lista participantes do evento
       tags:
       - event_users
@@ -494,16 +538,21 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AddParticipantDto'
+          $ref: '#/definitions/dto.AddParticipantDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventUserDto'
+            $ref: '#/definitions/dto.EventUserDto'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
           schema:
             additionalProperties: true
             type: object
@@ -512,6 +561,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Adiciona participante (MENTEE ou SPEAKER)
       tags:
       - event_users
@@ -538,9 +589,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventUserDto'
+            $ref: '#/definitions/dto.EventUserDto'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
           schema:
             additionalProperties: true
             type: object
@@ -549,6 +605,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Cancela participação (desistência)
       tags:
       - event_users
@@ -574,16 +632,21 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UpdateParticipantStatusDto'
+          $ref: '#/definitions/dto.UpdateParticipantStatusDto'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventUserDto'
+            $ref: '#/definitions/dto.EventUserDto'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
           schema:
             additionalProperties: true
             type: object
@@ -592,6 +655,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Atualiza status do participante
       tags:
       - event_users
@@ -607,11 +672,18 @@ paths:
       responses:
         "204":
           description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Remove evento (soft delete)
       tags:
       - events
@@ -631,12 +703,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventDto'
+            $ref: '#/definitions/dto.EventDto'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Busca evento por id
       tags:
       - events
@@ -652,19 +731,26 @@ paths:
         name: event
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterEventDto'
+          $ref: '#/definitions/dto.RegisterEventDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterEventDto'
+            $ref: '#/definitions/dto.RegisterEventDto'
         "400":
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
       summary: Registra um novo evento
       tags:
       - events
@@ -693,12 +779,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.PageableSkillDto'
+            $ref: '#/definitions/dto.PageableSkillDto'
         "400":
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
       summary: Lista skills do catálogo
       tags:
       - skills
@@ -720,11 +813,18 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Remove skill (soft delete)
       tags:
       - skills
@@ -744,9 +844,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillDto'
+            $ref: '#/definitions/dto.SkillDto'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
           schema:
             additionalProperties: true
             type: object
@@ -755,6 +860,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Busca skill por id
       tags:
       - skills
@@ -774,16 +881,21 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UpdateSkillDto'
+          $ref: '#/definitions/dto.UpdateSkillDto'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterSkillDto'
+            $ref: '#/definitions/dto.RegisterSkillDto'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
           schema:
             additionalProperties: true
             type: object
@@ -792,6 +904,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Renomeia uma skill
       tags:
       - skills
@@ -813,16 +927,21 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AssignSkillDto'
+          $ref: '#/definitions/dto.AssignSkillDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillUserDto'
+            $ref: '#/definitions/dto.SkillUserDto'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
           schema:
             additionalProperties: true
             type: object
@@ -831,6 +950,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Adiciona skill ao perfil do usuário
       tags:
       - skill_users
@@ -846,19 +967,26 @@ paths:
         name: skill
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterSkillDto'
+          $ref: '#/definitions/dto.RegisterSkillDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterSkillDto'
+            $ref: '#/definitions/dto.RegisterSkillDto'
         "400":
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
       summary: Registra uma nova skill
       tags:
       - skills
@@ -889,12 +1017,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.PageableUserDto'
+            $ref: '#/definitions/dto.PageableUserDto'
         "400":
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
       summary: Busca usuários por skill
       tags:
       - users
@@ -917,13 +1052,20 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillUserDto'
+              $ref: '#/definitions/dto.SkillUserDto'
             type: array
         "400":
           description: Bad Request
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
       summary: Lista skills do perfil do usuário
       tags:
       - skill_users
@@ -953,11 +1095,18 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Remove skill do perfil do usuário
       tags:
       - skill_users
@@ -972,14 +1121,14 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.LoginUserDtoIn'
+          $ref: '#/definitions/dto.LoginUserDtoIn'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.LoginUserDtoOut'
+            $ref: '#/definitions/dto.LoginUserDtoOut'
         "400":
           description: Bad Request
           schema:
@@ -1004,14 +1153,14 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterUserDtoIn'
+          $ref: '#/definitions/dto.RegisterUserDtoIn'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UserDtoOut'
+            $ref: '#/definitions/dto.UserDtoOut'
         "400":
           description: Bad Request
           schema:
@@ -1020,4 +1169,9 @@ paths:
       summary: Registra um novo usuário
       tags:
       - users
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
