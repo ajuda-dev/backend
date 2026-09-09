@@ -39,6 +39,15 @@ definitions:
       owner:
         $ref: '#/definitions/dto.UserDtoOut'
     type: object
+  dto.CommunityUserDto:
+    properties:
+      community_id:
+        type: string
+      id:
+        type: string
+      user_id:
+        type: string
+    type: object
   dto.EventDto:
     properties:
       address:
@@ -329,6 +338,84 @@ paths:
       summary: Lista comunidades
       tags:
       - communities
+  /v1/community/{id}/join:
+    post:
+      consumes:
+      - application/json
+      description: 'Associa o usuário autenticado (do token) à comunidade como membro.
+        A linha é única por (comunidade, usuário): tentar entrar de novo gera erro.
+        O owner não possui linha própria de membership.'
+      parameters:
+      - description: ID da comunidade
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.CommunityUserDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Entra em uma comunidade
+      tags:
+      - community_users
+  /v1/community/{id}/leave:
+    delete:
+      consumes:
+      - application/json
+      description: 'Remove fisicamente a linha de membership do usuário autenticado
+        na comunidade. O owner não é membro da própria comunidade: tentar sair dela
+        retorna 404.'
+      parameters:
+      - description: ID da comunidade
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Sai de uma comunidade
+      tags:
+      - community_users
   /v1/community/register:
     post:
       consumes:

@@ -9,6 +9,7 @@ import (
 
 type CommunityService interface {
 	CreateCommunity(community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr)
+	GetCommunityById(id string) (*domain.CommunityDomain, *rest_err.RestErr)
 	GetAll(address_id string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
 }
 
@@ -79,6 +80,10 @@ func (c *communityService) CreateCommunity(community *domain.CommunityDomain) (*
 }
 
 
+
+func (c *communityService) GetCommunityById(id string) (*domain.CommunityDomain, *rest_err.RestErr) {
+	return c.communityRepository.FindById(id)
+}
 
 func (c *communityService) GetAll(address_id string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
 	return c.communityRepository.FindAll(address_id, page, limit)

@@ -1,0 +1,52 @@
+package service
+
+import (
+	"github.com/ajuda-dev/backend/src/config/rest_err"
+	"github.com/ajuda-dev/backend/src/data/repository"
+	"github.com/ajuda-dev/backend/src/service/domain"
+)
+
+type CommunityUserService interface {
+	JoinCommunity(communityId string, userId string) (*domain.CommunityUserDomain, *rest_err.RestErr)
+	LeaveCommunity(communityId string, userId string) *rest_err.RestErr
+}
+
+type communityUserService struct {
+	userService             UserService
+	communityService        CommunityService
+	communityUserRepository repository.CommunityUserRepository
+}
+
+func NewCommunityUserService(
+	userService UserService,
+	communityService CommunityService,
+	communityUserRepository repository.CommunityUserRepository) CommunityUserService {
+	return &communityUserService{
+		userService:             userService,
+		communityService:        communityService,
+		communityUserRepository: communityUserRepository,
+	}
+}
+
+func (c *communityUserService) JoinCommunity(communityId string, userId string) (*domain.CommunityUserDomain, *rest_err.RestErr) {
+	if _, err := c.communityService.GetCommunityById(communityId); err != nil {
+		return nil, err
+	}
+	if _, err := c.userService.FindById(userId); err != nil {
+		if err.Code == rest_err.NOT_FOUND {
+			return nil, rest_err.NewUnauthorizedError("invalid authenticated user")
+		}
+		return nil, err
+	}
+	return c.communityUserRepository.Create(&domain.CommunityUserDomain{
+		CommunityId: communityId,
+		UserId:      userId,
+	})
+}
+
+func (c *communityUserService) LeaveCommunity(communityId string, userId string) *rest_err.RestErr {
+	if _, err := c.communityService.GetCommunityById(communityId); err != nil {
+		return err
+	}
+	return c.communityUserRepository.DeleteByCommunityAndUser(communityId, userId)
+}

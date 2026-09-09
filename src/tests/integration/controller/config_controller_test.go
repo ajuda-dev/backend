@@ -35,6 +35,7 @@ var (
 	eventUserRepository repository.EventUserRepository
 	skillRepository     repository.SkillRepository
 	skillUserRepository repository.SkillUserRepository
+	communityUserRepository repository.CommunityUserRepository
 	testEmail           = "teste@ajuda.dev"
 )
 
@@ -82,7 +83,7 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 			log.Printf("Erro ao parar o container: %v", err)
 		}
 	}
-	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{})
+	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{})
 
 	return db, cleanup, nil
 }
@@ -104,6 +105,7 @@ func TestMain(m *testing.M) {
 	eventUserRepository = repository.NewEventUserRepository(db)
 	skillRepository = repository.NewSkillRepository(db)
 	skillUserRepository = repository.NewSkillUserRepository(db)
+	communityUserRepository = repository.NewCommunityUserRepository(db)
 	code := m.Run()
 	cleanupDB()
 	os.Exit(code)
@@ -117,7 +119,9 @@ func setupApp() *fiber.App {
 	addressService := service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient())
 	routes.SetupRoutesUser(app, controller.NewUserController(userService), controller.NewAuthController(authService), authMiddleware)
 	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService), authMiddleware)
-	routes.SetupRoutesCommunities(app, controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator())), authMiddleware)
+	communityService := service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator())
+	routes.SetupRoutesCommunities(app, controller.NewCommunityController(communityService), authMiddleware)
+	routes.SetupRoutesCommunityUsers(app, controller.NewCommunityUserController(service.NewCommunityUserService(userService, communityService, communityUserRepository)), authMiddleware)
 	eventService := service.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, validator.NewEventValidator())
 	routes.SetupRoutesEvents(app, controller.NewEventController(eventService), authMiddleware)
 	routes.SetupRoutesEventUsers(app, controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator())), authMiddleware)
@@ -155,6 +159,10 @@ func cleanSkillsTable() {
 
 func cleanSkillUsersTable() {
 	db.Exec("DELETE FROM skill_users")
+}
+
+func cleanCommunityUsersTable() {
+	db.Exec("DELETE FROM community_users")
 }
 
 type addressSearchClientMock struct {

@@ -174,6 +174,119 @@
                 }
             }
         },
+        "/v1/community/{id}/join": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Associa o usuário autenticado (do token) à comunidade como membro. A linha é única por (comunidade, usuário): tentar entrar de novo gera erro. O owner não possui linha própria de membership.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "community_users"
+                ],
+                "summary": "Entra em uma comunidade",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da comunidade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.CommunityUserDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/community/{id}/leave": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Remove fisicamente a linha de membership do usuário autenticado na comunidade. O owner não é membro da própria comunidade: tentar sair dela retorna 404.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "community_users"
+                ],
+                "summary": "Sai de uma comunidade",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da comunidade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/event": {
             "get": {
                 "security": [
@@ -1440,6 +1553,20 @@
                 },
                 "owner": {
                     "$ref": "#/definitions/dto.UserDtoOut"
+                }
+            }
+        },
+        "dto.CommunityUserDto": {
+            "type": "object",
+            "properties": {
+                "community_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
                 }
             }
         },

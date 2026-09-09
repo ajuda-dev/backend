@@ -42,9 +42,13 @@ func InitApp() {
 		validator.NewEventValidator())
 	skillService := service.NewSkillService(skillRepository, validator.NewSkillValidator())
 	authMiddleware := middleware.VerifyJWT(authService)
+	communityService := service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator())
+	communityUserRepository := repository.NewCommunityUserRepository(db)
+	communityUserService := service.NewCommunityUserService(userService, communityService, communityUserRepository)
 	routes.SetupRoutesUser(app, initUserController(userService), initAuthController(authService), authMiddleware)
 	routes.SetupRoutesAddress(app, initAddressController(addressService), authMiddleware)
-	routes.SetupRoutesCommunities(app, initCommunityController(communityRepository, addressService, userService), authMiddleware)
+	routes.SetupRoutesCommunities(app, controller.NewCommunityController(communityService), authMiddleware)
+	routes.SetupRoutesCommunityUsers(app, controller.NewCommunityUserController(communityUserService), authMiddleware)
 	routes.SetupRoutesEvents(app, controller.NewEventController(eventService), authMiddleware)
 	routes.SetupRoutesEventUsers(app, initEventUserController(userService, eventService, eventUserRepository), authMiddleware)
 	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService), authMiddleware)
@@ -63,13 +67,6 @@ func initAuthController(authService service.AuthService) controller.AuthControll
 
 func initAddressController(addressService service.AddressService) controller.AddressController {
 	return controller.NewAddressController(addressService)
-}
-
-func initCommunityController(
-	communityRepository repository.CommunityRepository,
-	addressService service.AddressService,
-	userService service.UserService) controller.CommunityController {
-	return controller.NewCommunityController(service.NewCommunityService(userService, addressService, communityRepository, validator.NewCommunityValidator()))
 }
 
 func initEventUserController(
