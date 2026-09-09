@@ -8,10 +8,15 @@ import (
 	"gorm.io/gorm"
 )
 
+type UserFilter struct {
+	SkillName string
+}
+
 type UserRepository interface {
 	CreateUser(user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
 	GetUserByEmail(email string) (*domain.UserDomain, *rest_err.RestErr)
 	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
+	FindAll(filter UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr)
 }
 
 type userRepository struct {
@@ -21,10 +26,69 @@ type userRepository struct {
 // FindById implements UserRepository.
 func (u *userRepository) FindById(id string) (*domain.UserDomain, *rest_err.RestErr) {
 	var userEntity entity.UserEntity
-	if err := u.database.Where("id = ?", id).First(&userEntity).Error ; err != nil {
+	if err := u.database.Where("id = ?", id).First(&userEntity).Error; err != nil {
 		return handlerErrorDataBase(err)
 	}
 	return userEntity.ToDomainUser(), nil
+}
+
+func (u *userRepository) FindAll(filter UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr) {
+	var users []entity.UserEntity
+	query := u.database.Model(&entity.UserEntity{})
+	query = query.Joins("JOIN skill_users ON skill_users.user_id = users.id").
+		Joins("JOIN skills ON skills.id = skill_users.skill_id").
+		Where("skills.name = ? AND skills.deleted_at IS NULL", filter.SkillName)
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+	result := query.Order("users.name").Offset(offset).Limit(limit + 1).Find(&users)
+	if result.Error != nil {
+		return nil, rest_err.NewInternalServerError(result.Error.Error())
+	}
+
+	hasNext := len(users) > limit
+	if hasNext {
+		users = users[:limit]
+	}
+
+	pageable := &domain.PageableUser{
+		HasNext: hasNext,
+		Data:    make([]*domain.UserDomain, 0, len(users)),
+	}
+	if len(users) == 0 {
+		return pageable, nil
+	}
+
+	ids := make([]string, len(users))
+	for i := range users {
+		ids[i] = users[i].Id
+	}
+	var skillUsers []entity.SkillUserEntity
+	if err := u.database.Preload("Skill").
+		Joins("JOIN skills ON skills.id = skill_users.skill_id").
+		Where("skill_users.user_id IN ?", ids).
+		Order("skills.name").
+		Find(&skillUsers).Error; err != nil {
+		return nil, rest_err.NewInternalServerError(err.Error())
+	}
+
+	skillsByUser := make(map[string][]domain.SkillDomain, len(users))
+	for _, skillUser := range entity.ToSkillUserDomainList(skillUsers) {
+		if skillUser.Skill != nil {
+			skillsByUser[skillUser.UserId] = append(skillsByUser[skillUser.UserId], *skillUser.Skill)
+		}
+	}
+	for i := range users {
+		userDomain := users[i].ToDomainUser()
+		userDomain.Skills = skillsByUser[users[i].Id]
+		pageable.Data = append(pageable.Data, userDomain)
+	}
+	return pageable, nil
 }
 
 func NewUserRepository(db *gorm.DB) UserRepository {

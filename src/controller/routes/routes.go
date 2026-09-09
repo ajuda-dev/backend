@@ -12,6 +12,7 @@ func SetupRoutesUser(app *fiber.App, userController controller.UserController, a
 	user := app.Group("/v1/user")
 	user.Post("/register", userController.RegisterUser())
 	user.Post("/login", authController.LoginUser())
+	user.Get("", userController.GetAllUsers())
 }
 
 func SetupRoutesAddress(app *fiber.App, addressController controller.AddressController) {

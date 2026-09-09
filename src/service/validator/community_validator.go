@@ -12,14 +12,9 @@ type CommunityValidator interface {
 
 type communityValidator struct{}
 
-
 func NewCommunityValidator() CommunityValidator {
 	return &communityValidator{}
 }
-
-
-
-
 
 func (c *communityValidator) ValidatorRegisterCommunity(community domain.CommunityDomain) *rest_err.RestErr {
 	causes := []rest_err.Causes{}
@@ -29,7 +24,7 @@ func (c *communityValidator) ValidatorRegisterCommunity(community domain.Communi
 			Message: "Name is not valid",
 		})
 	}
-	if community.Description == ""{
+	if community.Description == "" {
 		causes = append(causes, rest_err.Causes{
 			Field:   "description",
 			Message: "Description is not valid",
@@ -42,13 +37,12 @@ func (c *communityValidator) ValidatorRegisterCommunity(community domain.Communi
 		})
 	}
 
-	if community.Owner == (domain.UserDomain{}) || community.Owner.Id == "" || !uuidv7.IsValidString(community.Owner.Id){
+	if community.Owner.Id == "" || !uuidv7.IsValidString(community.Owner.Id) {
 		causes = append(causes, rest_err.Causes{
 			Field:   "ownerId",
 			Message: "OwnerId is not valid",
 		})
 	}
-
 
 	if len(causes) > 0 {
 		return rest_err.NewBadRequestValidationError(

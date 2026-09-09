@@ -29,12 +29,12 @@ func NewSkillService(skillRepository repository.SkillRepository, skillValidator 
 	}
 }
 
-func (s *skillService) normalizeName(name string) string {
-	return strings.ToUpper(strings.TrimSpace(name))
+func normalizeSkillName(raw string) string {
+	return strings.ToUpper(strings.TrimSpace(raw))
 }
 
 func (s *skillService) CreateSkill(skill *domain.SkillDomain) (*domain.SkillDomain, *rest_err.RestErr) {
-	skill.Name = s.normalizeName(skill.Name)
+	skill.Name = normalizeSkillName(skill.Name)
 	if err := s.skillValidator.ValidateSkillName(skill.Name); err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (s *skillService) GetSkillById(id string) (*domain.SkillDomain, *rest_err.R
 }
 
 func (s *skillService) GetAll(filter repository.SkillFilter, page int, limit int) (*domain.PageableSkill, *rest_err.RestErr) {
-	filter.Name = s.normalizeName(filter.Name)
+	filter.Name = normalizeSkillName(filter.Name)
 	return s.skillRepository.FindAll(filter, page, limit)
 }
 
@@ -66,7 +66,7 @@ func (s *skillService) UpdateSkill(id string, name string) (*domain.SkillDomain,
 	if err := s.skillValidator.ValidateSkillId(id); err != nil {
 		return nil, err
 	}
-	name = s.normalizeName(name)
+	name = normalizeSkillName(name)
 	if err := s.skillValidator.ValidateSkillName(name); err != nil {
 		return nil, err
 	}

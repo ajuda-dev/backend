@@ -1,12 +1,12 @@
 definitions:
-  dto.AddParticipantDto:
+  github_com_ajuda-dev_backend_src_controller_dto.AddParticipantDto:
     properties:
       role:
         type: string
       user_id:
         type: string
     type: object
-  dto.AddressDto:
+  github_com_ajuda-dev_backend_src_controller_dto.AddressDto:
     properties:
       city:
         type: string
@@ -19,17 +19,17 @@ definitions:
       zip_code:
         type: string
     type: object
-  dto.AssignSkillDto:
+  github_com_ajuda-dev_backend_src_controller_dto.AssignSkillDto:
     properties:
       level:
         type: string
       user_id:
         type: string
     type: object
-  dto.CommunityDto:
+  github_com_ajuda-dev_backend_src_controller_dto.CommunityDto:
     properties:
       address:
-        $ref: '#/definitions/dto.AddressDto'
+        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AddressDto'
       description:
         type: string
       id:
@@ -37,16 +37,16 @@ definitions:
       name:
         type: string
       owner:
-        $ref: '#/definitions/dto.UserDtoOut'
+        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UserDtoOut'
     type: object
-  dto.EventDto:
+  github_com_ajuda-dev_backend_src_controller_dto.EventDto:
     properties:
       address:
-        $ref: '#/definitions/dto.AddressDto'
+        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AddressDto'
       category:
         type: string
       community:
-        $ref: '#/definitions/dto.CommunityDto'
+        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.CommunityDto'
       description:
         type: string
       duration_min:
@@ -58,7 +58,7 @@ definitions:
       meeting_link:
         type: string
       owner:
-        $ref: '#/definitions/dto.UserDtoOut'
+        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UserDtoOut'
       start_at:
         type: string
       title:
@@ -66,7 +66,7 @@ definitions:
       type:
         type: string
     type: object
-  dto.EventUserDto:
+  github_com_ajuda-dev_backend_src_controller_dto.EventUserDto:
     properties:
       event_id:
         type: string
@@ -77,23 +77,23 @@ definitions:
       status:
         type: string
       user:
-        $ref: '#/definitions/dto.UserDtoOut'
+        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UserDtoOut'
       user_id:
         type: string
     type: object
-  dto.JoinEventDto:
+  github_com_ajuda-dev_backend_src_controller_dto.JoinEventDto:
     properties:
       user_id:
         type: string
     type: object
-  dto.LoginUserDtoIn:
+  github_com_ajuda-dev_backend_src_controller_dto.LoginUserDtoIn:
     properties:
       email:
         type: string
       password:
         type: string
     type: object
-  dto.LoginUserDtoOut:
+  github_com_ajuda-dev_backend_src_controller_dto.LoginUserDtoOut:
     properties:
       email:
         type: string
@@ -104,34 +104,43 @@ definitions:
       token:
         type: string
     type: object
-  dto.PageableCommunityDto:
+  github_com_ajuda-dev_backend_src_controller_dto.PageableCommunityDto:
     properties:
       data:
         items:
-          $ref: '#/definitions/dto.CommunityDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.CommunityDto'
         type: array
       has_next:
         type: boolean
     type: object
-  dto.PageableEventDto:
+  github_com_ajuda-dev_backend_src_controller_dto.PageableEventDto:
     properties:
       data:
         items:
-          $ref: '#/definitions/dto.EventDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventDto'
         type: array
       has_next:
         type: boolean
     type: object
-  dto.PageableSkillDto:
+  github_com_ajuda-dev_backend_src_controller_dto.PageableSkillDto:
     properties:
       data:
         items:
-          $ref: '#/definitions/dto.SkillDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillDto'
         type: array
       has_next:
         type: boolean
     type: object
-  dto.RegisterCommunityDto:
+  github_com_ajuda-dev_backend_src_controller_dto.PageableUserDto:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UserSkillDto'
+        type: array
+      has_next:
+        type: boolean
+    type: object
+  github_com_ajuda-dev_backend_src_controller_dto.RegisterCommunityDto:
     properties:
       address_id:
         type: string
@@ -144,7 +153,7 @@ definitions:
       owner_id:
         type: string
     type: object
-  dto.RegisterEventDto:
+  github_com_ajuda-dev_backend_src_controller_dto.RegisterEventDto:
     properties:
       address_id:
         type: string
@@ -171,14 +180,14 @@ definitions:
       type:
         type: string
     type: object
-  dto.RegisterSkillDto:
+  github_com_ajuda-dev_backend_src_controller_dto.RegisterSkillDto:
     properties:
       id:
         type: string
       name:
         type: string
     type: object
-  dto.RegisterUserDtoIn:
+  github_com_ajuda-dev_backend_src_controller_dto.RegisterUserDtoIn:
     properties:
       email:
         type: string
@@ -187,37 +196,37 @@ definitions:
       password:
         type: string
     type: object
-  dto.SkillDto:
+  github_com_ajuda-dev_backend_src_controller_dto.SkillDto:
     properties:
       id:
         type: string
       name:
         type: string
     type: object
-  dto.SkillUserDto:
+  github_com_ajuda-dev_backend_src_controller_dto.SkillUserDto:
     properties:
       id:
         type: string
       level:
         type: string
       skill:
-        $ref: '#/definitions/dto.SkillDto'
+        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillDto'
       skill_id:
         type: string
       user_id:
         type: string
     type: object
-  dto.UpdateParticipantStatusDto:
+  github_com_ajuda-dev_backend_src_controller_dto.UpdateParticipantStatusDto:
     properties:
       status:
         type: string
     type: object
-  dto.UpdateSkillDto:
+  github_com_ajuda-dev_backend_src_controller_dto.UpdateSkillDto:
     properties:
       name:
         type: string
     type: object
-  dto.UserDtoOut:
+  github_com_ajuda-dev_backend_src_controller_dto.UserDtoOut:
     properties:
       email:
         type: string
@@ -227,6 +236,19 @@ definitions:
         type: string
       token:
         type: string
+    type: object
+  github_com_ajuda-dev_backend_src_controller_dto.UserSkillDto:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      skills:
+        items:
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillDto'
+        type: array
     type: object
 info:
   contact: {}
@@ -242,14 +264,14 @@ paths:
         name: address
         required: true
         schema:
-          $ref: '#/definitions/dto.AddressDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AddressDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.AddressDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AddressDto'
         "400":
           description: Bad Request
           schema:
@@ -282,7 +304,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PageableCommunityDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.PageableCommunityDto'
         "400":
           description: Bad Request
           schema:
@@ -302,14 +324,14 @@ paths:
         name: community
         required: true
         schema:
-          $ref: '#/definitions/dto.RegisterCommunityDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterCommunityDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.RegisterCommunityDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterCommunityDto'
         "400":
           description: Bad Request
           schema:
@@ -375,7 +397,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PageableEventDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.PageableEventDto'
         "400":
           description: Bad Request
           schema:
@@ -402,14 +424,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/dto.JoinEventDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.JoinEventDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.EventUserDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventUserDto'
         "400":
           description: Bad Request
           schema:
@@ -446,7 +468,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/dto.EventUserDto'
+              $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventUserDto'
             type: array
         "404":
           description: Not Found
@@ -472,14 +494,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/dto.AddParticipantDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AddParticipantDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.EventUserDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventUserDto'
         "400":
           description: Bad Request
           schema:
@@ -516,7 +538,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.EventUserDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventUserDto'
         "400":
           description: Bad Request
           schema:
@@ -552,14 +574,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/dto.UpdateParticipantStatusDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UpdateParticipantStatusDto'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.EventUserDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventUserDto'
         "400":
           description: Bad Request
           schema:
@@ -609,7 +631,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.EventDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.EventDto'
         "404":
           description: Not Found
           schema:
@@ -630,14 +652,14 @@ paths:
         name: event
         required: true
         schema:
-          $ref: '#/definitions/dto.RegisterEventDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterEventDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.RegisterEventDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterEventDto'
         "400":
           description: Bad Request
           schema:
@@ -671,7 +693,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PageableSkillDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.PageableSkillDto'
         "400":
           description: Bad Request
           schema:
@@ -722,7 +744,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SkillDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillDto'
         "400":
           description: Bad Request
           schema:
@@ -752,14 +774,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/dto.UpdateSkillDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UpdateSkillDto'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.RegisterSkillDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterSkillDto'
         "400":
           description: Bad Request
           schema:
@@ -791,14 +813,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/dto.AssignSkillDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.AssignSkillDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.SkillUserDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillUserDto'
         "400":
           description: Bad Request
           schema:
@@ -824,14 +846,14 @@ paths:
         name: skill
         required: true
         schema:
-          $ref: '#/definitions/dto.RegisterSkillDto'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterSkillDto'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.RegisterSkillDto'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterSkillDto'
         "400":
           description: Bad Request
           schema:
@@ -840,6 +862,42 @@ paths:
       summary: Registra uma nova skill
       tags:
       - skills
+  /v1/user:
+    get:
+      consumes:
+      - application/json
+      description: Retorna os usuários ativos que possuem a skill informada (match
+        exato do nome, normalizado para caixa alta) com as skills do perfil de cada
+        um. O parâmetro skill é obrigatório.
+      parameters:
+      - description: Nome da skill (normalizado para caixa alta)
+        in: query
+        name: skill
+        required: true
+        type: string
+      - description: Página
+        in: query
+        name: page
+        type: integer
+      - description: Limite
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.PageableUserDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Busca usuários por skill
+      tags:
+      - users
   /v1/user/{userId}/skills:
     get:
       consumes:
@@ -859,7 +917,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/dto.SkillUserDto'
+              $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.SkillUserDto'
             type: array
         "400":
           description: Bad Request
@@ -914,14 +972,14 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/dto.LoginUserDtoIn'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.LoginUserDtoIn'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.LoginUserDtoOut'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.LoginUserDtoOut'
         "400":
           description: Bad Request
           schema:
@@ -946,14 +1004,14 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/dto.RegisterUserDtoIn'
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.RegisterUserDtoIn'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.UserDtoOut'
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_dto.UserDtoOut'
         "400":
           description: Bad Request
           schema:
