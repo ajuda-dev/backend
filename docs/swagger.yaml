@@ -390,6 +390,43 @@ paths:
       summary: Remove comunidade (soft delete)
       tags:
       - communities
+    get:
+      consumes:
+      - application/json
+      description: Retorna o detalhe da comunidade com owner e endereço (preloads)
+      parameters:
+      - description: ID da comunidade
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CommunityDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Busca comunidade por id
+      tags:
+      - communities
   /v1/community/{id}/join:
     post:
       consumes:
@@ -487,7 +524,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.RegisterCommunityDto'
+            $ref: '#/definitions/dto.CommunityDto'
         "400":
           description: Bad Request
           schema:

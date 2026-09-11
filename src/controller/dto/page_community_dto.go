@@ -25,13 +25,17 @@ func (pc PageableCommunityDto) FromDomain(domain domain.PageableCommunity) *Page
 func toCommunityDtoSlice(domains []*domain.CommunityDomain) []CommunityDto {
 	dtos := make([]CommunityDto, len(domains))
 	for i, d := range domains {
-		dtos[i] = CommunityDto{
-			Id:          d.Id,
-			Name:        d.Name,
-			Description: d.Description,
-			Address:     (&AddressDto{}).FromDomain(&d.Address),
-			Owner:       (&UserDtoOut{}).FromDomainUser(&d.Owner),
-		}
+		dtos[i] = CommunityDto{}.FromDomain(d)
 	}
 	return dtos
+}
+
+func (c CommunityDto) FromDomain(community *domain.CommunityDomain) CommunityDto {
+	return CommunityDto{
+		Id:          community.Id,
+		Name:        community.Name,
+		Description: community.Description,
+		Address:     (&AddressDto{}).FromDomain(&community.Address),
+		Owner:       (&UserDtoOut{}).FromDomainUser(&community.Owner),
+	}
 }

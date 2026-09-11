@@ -491,13 +491,13 @@ func TestCommunityRegisterUsesAuthenticatedUserAsOwner(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 no register com owner_id de outro usuário, recebeu %d", resp.StatusCode)
 	}
-	var respDto dto.RegisterCommunityDto
+	var respDto dto.CommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	resp.Body.Close()
-	if respDto.OwnerId != userA.Id {
-		t.Errorf("esperava owner_id '%s' (do token), recebeu '%s'", userA.Id, respDto.OwnerId)
+	if respDto.Owner == nil || respDto.Owner.Id != userA.Id {
+		t.Errorf("esperava owner.id '%s' (do token), recebeu %+v", userA.Id, respDto.Owner)
 	}
 
 	body = []byte(`{
@@ -513,13 +513,13 @@ func TestCommunityRegisterUsesAuthenticatedUserAsOwner(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 no register sem owner_id, recebeu %d", resp.StatusCode)
 	}
-	respDto = dto.RegisterCommunityDto{}
+	respDto = dto.CommunityDto{}
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	resp.Body.Close()
-	if respDto.OwnerId != userA.Id {
-		t.Errorf("esperava owner_id '%s' (do token), recebeu '%s'", userA.Id, respDto.OwnerId)
+	if respDto.Owner == nil || respDto.Owner.Id != userA.Id {
+		t.Errorf("esperava owner.id '%s' (do token), recebeu %+v", userA.Id, respDto.Owner)
 	}
 }
 

@@ -3,8 +3,10 @@ package controller_test
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
@@ -66,12 +68,47 @@ func TestCreateCommunitySuccess(t *testing.T) {
 		t.Errorf("esperava 201, recebeu %d", resp.StatusCode)
 	}
 
-	var respDto dto.RegisterCommunityDto
-	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
+	rawBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("erro ao ler body: %v", err)
+	}
+	var respDto dto.CommunityDto
+	if err := json.Unmarshal(rawBody, &respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	var decodedBody map[string]interface{}
+	if err := json.Unmarshal(rawBody, &decodedBody); err != nil {
+		t.Fatalf("erro ao decodificar body como map: %v", err)
 	}
 	if !uuidv7.IsValidString(respDto.Id) {
 		t.Errorf("esperava id uuid v7 válido, recebeu '%s'", respDto.Id)
+	}
+	if respDto.Name != "Dev Mode Community" {
+		t.Errorf("esperava name 'Dev Mode Community', recebeu '%s'", respDto.Name)
+	}
+	if respDto.Description != "comunidade de desenvolvedores de campos" {
+		t.Errorf("esperava a description enviada, recebeu '%s'", respDto.Description)
+	}
+	if respDto.Address == nil || respDto.Address.Id != address.Id {
+		t.Fatalf("esperava address.id '%s' no 201, recebeu %+v", address.Id, respDto.Address)
+	}
+	if respDto.Address.City != "test_city" {
+		t.Errorf("esperava address.city 'test_city' no 201, recebeu '%s'", respDto.Address.City)
+	}
+	if respDto.Owner == nil || respDto.Owner.Id != user.Id {
+		t.Fatalf("esperava owner.id '%s' no 201, recebeu %+v", user.Id, respDto.Owner)
+	}
+	if respDto.Owner.Name != "teste" || respDto.Owner.Email != testEmail || respDto.Owner.Role != "USER" {
+		t.Errorf("esperava owner completo no 201, recebeu %+v", respDto.Owner)
+	}
+	if respDto.Owner.Token != "" {
+		t.Errorf("esperava owner.token vazio no 201, recebeu '%s'", respDto.Owner.Token)
+	}
+	if _, ok := decodedBody["owner_id"]; ok {
+		t.Errorf("o 201 não deve expor owner_id (contrato novo), recebeu %v", decodedBody)
+	}
+	if _, ok := decodedBody["address_id"]; ok {
+		t.Errorf("o 201 não deve expor address_id (contrato novo), recebeu %v", decodedBody)
 	}
 }
 
@@ -167,7 +204,7 @@ func registerCommunityViaApi(t *testing.T, app *fiber.App, token string, address
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Fatalf("esperava 201 ao criar comunidade '%s', recebeu %d", name, resp.StatusCode)
 	}
-	var created dto.RegisterCommunityDto
+	var created dto.CommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -452,5 +489,182 @@ func TestListCommunitiesByCityAccentNotNormalized(t *testing.T) {
 	page := listCommunitiesByCity(t, app, token, "city=sao")
 	if len(page.Data) != 0 {
 		t.Errorf("acentos não são normalizados: esperava 0 resultados para 'sao', recebeu %+v", page.Data)
+	}
+}
+
+func registerCommunityReturningBody(t *testing.T, app *fiber.App, token string, addressId string, name string) dto.CommunityDto {
+	t.Helper()
+	body := []byte(`{
+	"address_id": "` + addressId + `",
+	"name": "` + name + `",
+	"description": "comunidade de teste"
+	}
+	`)
+	req := newCommunityRegisterRequest(body)
+	resp, err := doAuthedRequest(app, req, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 ao criar comunidade '%s', recebeu %d", name, resp.StatusCode)
+	}
+	var created dto.CommunityDto
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	return created
+}
+
+func getCommunityByIdRequest(t *testing.T, app *fiber.App, token string, id string) *http.Response {
+	t.Helper()
+	req := httptest.NewRequest("GET", "/v1/community/"+id, nil)
+	resp, err := doAuthedRequest(app, req, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	return resp
+}
+
+func TestGetCommunityById(t *testing.T) {
+	t.Cleanup(cleanCommunityUsersTable)
+	t.Cleanup(cleanCommunityTable)
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	address := createCommunityAddress(t, "sao paulo")
+	created := registerCommunityReturningBody(t, app, token, address.Id, "Comunidade Detalhe")
+
+	resp := getCommunityByIdRequest(t, app, token, created.Id)
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no GET por id, recebeu %d", resp.StatusCode)
+	}
+	var detail dto.CommunityDto
+	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if !reflect.DeepEqual(created, detail) {
+		t.Errorf("esperava o mesmo corpo do 201 no GET\n201:  %+v\nGET:  %+v", created, detail)
+	}
+}
+
+func TestGetCommunityByIdInvalidId(t *testing.T) {
+	app := setupApp()
+	token := validTokenFor(t, uuidv7.New().String())
+
+	for _, id := range []string{"abc", "123", "not-a-uuid"} {
+		resp := getCommunityByIdRequest(t, app, token, id)
+		if resp.StatusCode != fiber.StatusBadRequest {
+			resp.Body.Close()
+			t.Errorf("id %q: esperava 400, recebeu %d", id, resp.StatusCode)
+			continue
+		}
+		var respBody rest_err.RestErr
+		if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+			resp.Body.Close()
+			t.Fatalf("id %q: erro ao decodificar body: %v", id, err)
+		}
+		resp.Body.Close()
+		causes := getCauseByField("id", respBody.Causes)
+		if len(causes) == 0 || causes[0] != "id must be a valid UUID v7" {
+			t.Errorf("id %q: esperava cause do campo 'id', recebeu %+v", id, respBody.Causes)
+		}
+	}
+}
+
+func TestGetCommunityByIdNotFound(t *testing.T) {
+	app := setupApp()
+	token := validTokenFor(t, uuidv7.New().String())
+
+	resp := getCommunityByIdRequest(t, app, token, uuidv7.New().String())
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusNotFound {
+		t.Fatalf("esperava 404 para id inexistente, recebeu %d", resp.StatusCode)
+	}
+	var respBody rest_err.RestErr
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if respBody.Message != "community not found" {
+		t.Errorf("esperava message 'community not found', recebeu '%s'", respBody.Message)
+	}
+}
+
+func TestGetCommunityByIdWithoutToken(t *testing.T) {
+	app := setupApp()
+
+	req := httptest.NewRequest("GET", "/v1/community/"+uuidv7.New().String(), nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401 sem token, recebeu %d", resp.StatusCode)
+	}
+}
+
+func TestGetCommunityByIdSoftDeleted(t *testing.T) {
+	t.Cleanup(cleanCommunityUsersTable)
+	t.Cleanup(cleanCommunityTable)
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	address := createCommunityAddress(t, "sao paulo")
+	created := registerCommunityReturningBody(t, app, token, address.Id, "Comunidade Removida")
+
+	deleteReq := httptest.NewRequest("DELETE", "/v1/community/"+created.Id, nil)
+	deleteResp, err := doAuthedRequest(app, deleteReq, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	deleteResp.Body.Close()
+	if deleteResp.StatusCode != fiber.StatusNoContent {
+		t.Fatalf("esperava 204 no delete, recebeu %d", deleteResp.StatusCode)
+	}
+
+	resp := getCommunityByIdRequest(t, app, token, created.Id)
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusNotFound {
+		t.Fatalf("esperava 404 para comunidade arquivada, recebeu %d", resp.StatusCode)
+	}
+	var respBody rest_err.RestErr
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if respBody.Message != "community not found" {
+		t.Errorf("esperava message 'community not found', recebeu '%s'", respBody.Message)
+	}
+}
+
+func TestGetCommunityByIdOtherOwner(t *testing.T) {
+	t.Cleanup(cleanCommunityTable)
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	owner := createCommunityUser(t)
+	address := createCommunityAddress(t, "sao paulo")
+	created := registerCommunityReturningBody(t, app, validTokenFor(t, owner.Id), address.Id, "Comunidade de Outro Dono")
+
+	other := createUserWithRole(t, "outro.dono.comunidade@ajuda.dev", domain.UserRoleUser)
+	resp := getCommunityByIdRequest(t, app, validTokenFor(t, other.Id), created.Id)
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("leitura não é restrita por owner: esperava 200, recebeu %d", resp.StatusCode)
+	}
+	var detail dto.CommunityDto
+	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if detail.Id != created.Id || detail.Owner == nil || detail.Owner.Id != owner.Id {
+		t.Errorf("esperava a comunidade %s com owner %s, recebeu %+v", created.Id, owner.Id, detail)
 	}
 }

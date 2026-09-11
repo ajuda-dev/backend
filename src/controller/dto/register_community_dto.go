@@ -12,16 +12,6 @@ type RegisterCommunityDto struct {
 	AddressId   string `json:"address_id"`
 }
 
-func (r RegisterCommunityDto) FromDomain(domain *domain.CommunityDomain) interface{} {
-	return &RegisterCommunityDto{
-		Id: domain.Id,
-		Name: domain.Name,
-		Description: domain.Description,
-		OwnerId: domain.Owner.Id,
-		AddressId: domain.Address.Id,
-	}
-}
-
 func (r *RegisterCommunityDto) ToDomain() *domain.CommunityDomain {
 	return &domain.CommunityDomain{
 		Name:        r.Name,

@@ -24,6 +24,7 @@ func SetupRoutesAddress(app *fiber.App, addressController controller.AddressCont
 func SetupRoutesCommunities(app *fiber.App, communityController controller.CommunityController, auth fiber.Handler) {
 	communities := app.Group("/v1/community", auth)
 	communities.Post("/register", communityController.RegisterCommunity())
+	communities.Get("/:id", communityController.GetCommunityById())
 	communities.Get("", communityController.GetAllCommunities())
 	communities.Delete("/:id", communityController.DeleteCommunity())
 }

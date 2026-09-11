@@ -99,7 +99,8 @@ Defined in `src/controller/routes/routes.go`:
 |---|---|---|---|
 | POST | `/v1/user/register` | `RegisterUser` | Creates a user (201) |
 | POST | `/v1/address/register` | `RegisterAddress` | Creates an address (201) |
-| POST | `/v1/community/register` | `RegisterCommunity` | Creates a community (201) |
+| POST | `/v1/community/register` | `RegisterCommunity` | Creates a community (201, returns the full `dto.CommunityDto`: `address` + `owner`) |
+| GET | `/v1/community/:id` | `GetCommunityById` | Community detail with `address` + `owner`; `400` id not a UUID v7; `404` not found/soft-deleted (200) |
 | GET | `/v1/community` | `GetAllCommunities` | Paginated community listing; query params `page`, `limit`, `address_id`, `city` (partial, case-insensitive match) (200) |
 | GET | `/swagger/*` | `swagger.HandlerDefault` | Swagger UI documentation |
 
