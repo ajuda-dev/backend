@@ -100,9 +100,11 @@ func (c *communityRepository) FindAll(filter CommunityFilter, page int, limit in
 	if filter.AddressId != "" {
 		query = query.Where("address_id = ?", filter.AddressId)
 	}
-	if filter.City != "" {
+	city := strings.ToLower(strings.TrimSpace(filter.City))
+	if city != "" {
+		search := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(city)
 		query = query.Joins("JOIN addresses ON addresses.id = community.address_id").
-			Where("addresses.city = ?", strings.ToLower(filter.City))
+			Where("addresses.city LIKE ?", "%"+search+"%")
 	}
 
 	offset := (page - 1) * limit

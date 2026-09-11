@@ -70,14 +70,14 @@ func (c *communityController) RegisterCommunity() fiber.Handler {
 
 // GetAllCommunities godoc
 // @Summary      Lista comunidades
-// @Description  Retorna todas as comunidades, com paginação e filtros por endereço e cidade
+// @Description  Retorna todas as comunidades, com paginação e filtros por endereço e cidade (busca parcial por cidade, case-insensitive)
 // @Tags         communities
 // @Accept       json
 // @Produce      json
 // @Param        page      query   int     false  "Página"
 // @Param        limit     query   int     false  "Limite"
 // @Param        address_id query  string  false  "ID do endereço"
-// @Param        city      query  string  false  "Cidade do endereço da comunidade"
+// @Param        city      query  string  false  "Cidade do endereço da comunidade (busca parcial, case-insensitive)"
 // @Success      200   {object}  dto.PageableCommunityDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}

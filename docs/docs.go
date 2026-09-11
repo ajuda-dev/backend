@@ -75,7 +75,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna todas as comunidades, com paginação e filtros por endereço e cidade",
+                "description": "Retorna todas as comunidades, com paginação e filtros por endereço e cidade (busca parcial por cidade, case-insensitive)",
                 "consumes": [
                     "application/json"
                 ],
@@ -107,7 +107,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cidade do endereço da comunidade",
+                        "description": "Cidade do endereço da comunidade (busca parcial, case-insensitive)",
                         "name": "city",
                         "in": "query"
                     }

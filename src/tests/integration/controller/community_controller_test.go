@@ -300,3 +300,157 @@ func TestListCommunitiesByCityPagination(t *testing.T) {
 		t.Errorf("esperava 1 item com has_next false, recebeu %d itens, has_next=%v", len(pageTwo.Data), pageTwo.HasNext)
 	}
 }
+
+func TestListCommunitiesByCitySubstring(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	addressSaoPaulo := createCommunityAddress(t, "sao paulo")
+	addressCampinas := createCommunityAddress(t, "campinas")
+
+	spCommunity := registerCommunityViaApi(t, app, token, addressSaoPaulo.Id, "Comunidade Sao Paulo")
+	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
+
+	queries := []string{"city=paulo", "city=sao", "city=o%20pa", "city=PaUlO"}
+	for _, query := range queries {
+		page := listCommunitiesByCity(t, app, token, query)
+		if len(page.Data) != 1 || page.Data[0].Id != spCommunity {
+			t.Errorf("query %q: esperava somente a comunidade de sao paulo, recebeu %+v", query, page.Data)
+		}
+	}
+}
+
+func TestListCommunitiesByCitySubstringMatchesMultipleCities(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+
+	saoPauloCommunity := registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo")
+	pauloAfonsoCommunity := registerCommunityViaApi(t, app, token, createCommunityAddress(t, "paulo afonso").Id, "Comunidade Paulo Afonso")
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "campinas").Id, "Comunidade Campinas")
+
+	page := listCommunitiesByCity(t, app, token, "city=paulo")
+	if len(page.Data) != 2 {
+		t.Fatalf("esperava 2 comunidades contendo 'paulo', recebeu %d: %+v", len(page.Data), page.Data)
+	}
+	found := map[string]bool{}
+	for _, item := range page.Data {
+		found[item.Id] = true
+	}
+	if !found[saoPauloCommunity] || !found[pauloAfonsoCommunity] {
+		t.Errorf("esperava as comunidades %s e %s, recebeu %+v", saoPauloCommunity, pauloAfonsoCommunity, page.Data)
+	}
+}
+
+func TestListCommunitiesByCitySubstringAndAddressId(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	addressSaoPaulo1 := createCommunityAddress(t, "sao paulo")
+	addressSaoPaulo2 := createCommunityAddress(t, "sao paulo")
+	addressCampinas := createCommunityAddress(t, "campinas")
+
+	firstCommunity := registerCommunityViaApi(t, app, token, addressSaoPaulo1.Id, "Comunidade Paulista Primeira")
+	registerCommunityViaApi(t, app, token, addressSaoPaulo2.Id, "Comunidade Paulista Segunda")
+	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
+
+	page := listCommunitiesByCity(t, app, token, "city=sao&address_id="+addressSaoPaulo1.Id)
+	if len(page.Data) != 1 || page.Data[0].Id != firstCommunity {
+		t.Errorf("esperava somente a comunidade do endereço 1 em sao paulo, recebeu %+v", page.Data)
+	}
+}
+
+func TestListCommunitiesByCityWildcardEscape(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo")
+
+	wildcardPage := listCommunitiesByCity(t, app, token, "city=%25")
+	if len(wildcardPage.Data) != 0 {
+		t.Errorf("esperava 0 resultados para '%%' literal, recebeu %+v", wildcardPage.Data)
+	}
+
+	underscorePage := listCommunitiesByCity(t, app, token, "city=sao_paulo")
+	if len(underscorePage.Data) != 0 {
+		t.Errorf("esperava 0 resultados para 'sao_paulo' (underscore literal), recebeu %+v", underscorePage.Data)
+	}
+}
+
+func TestListCommunitiesByCityWhitespaceOnly(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo")
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "campinas").Id, "Comunidade Campinas")
+
+	page := listCommunitiesByCity(t, app, token, "city=%20%20")
+	if len(page.Data) != 2 || page.HasNext {
+		t.Errorf("esperava a lista completa (2 itens) sem filtro, recebeu %d itens, has_next=%v", len(page.Data), page.HasNext)
+	}
+
+	trimmedPage := listCommunitiesByCity(t, app, token, "city=%20paulo")
+	if len(trimmedPage.Data) != 1 || trimmedPage.Data[0].Address == nil || trimmedPage.Data[0].Address.City != "sao paulo" {
+		t.Errorf("esperava 1 resultado para ' paulo' (com trim), recebeu %+v", trimmedPage.Data)
+	}
+}
+
+func TestListCommunitiesByCitySubstringPagination(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo Um")
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo Dois")
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo Tres")
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "campinas").Id, "Comunidade Campinas")
+
+	pageOne := listCommunitiesByCity(t, app, token, "city=sao&limit=2")
+	if len(pageOne.Data) != 2 || !pageOne.HasNext {
+		t.Errorf("esperava 2 itens com has_next true, recebeu %d itens, has_next=%v", len(pageOne.Data), pageOne.HasNext)
+	}
+
+	pageTwo := listCommunitiesByCity(t, app, token, "city=sao&limit=2&page=2")
+	if len(pageTwo.Data) != 1 || pageTwo.HasNext {
+		t.Errorf("esperava 1 item com has_next false, recebeu %d itens, has_next=%v", len(pageTwo.Data), pageTwo.HasNext)
+	}
+}
+
+func TestListCommunitiesByCityAccentNotNormalized(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "são paulo").Id, "Comunidade São Paulo")
+
+	page := listCommunitiesByCity(t, app, token, "city=sao")
+	if len(page.Data) != 0 {
+		t.Errorf("acentos não são normalizados: esperava 0 resultados para 'sao', recebeu %+v", page.Data)
+	}
+}
