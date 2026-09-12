@@ -126,7 +126,7 @@ func (s *skillController) GetAllSkills() fiber.Handler {
 
 // UpdateSkill godoc
 // @Summary      Renomeia uma skill
-// @Description  Atualiza o nome da skill (normalizado para caixa alta). Nome já usado por outra skill ativa gera conflito.
+// @Description  Atualiza o nome da skill (normalizado para caixa alta). Nome já usado por outra skill ativa gera conflito. Somente moderadores e admins podem executar.
 // @Tags         skills
 // @Accept       json
 // @Produce      json
@@ -134,8 +134,9 @@ func (s *skillController) GetAllSkills() fiber.Handler {
 // @Param        body  body  dto.UpdateSkillDto  true  "Novo nome da skill"
 // @Success      200   {object}  dto.RegisterSkillDto
 // @Failure      400   {object}  map[string]interface{}
-// @Failure      404   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/skill/{id} [put]
 func (s *skillController) UpdateSkill() fiber.Handler {
@@ -153,7 +154,8 @@ func (s *skillController) UpdateSkill() fiber.Handler {
 				"error": "Não foi possível processar o corpo da requisição",
 			})
 		}
-		skill, err := s.skillService.UpdateSkill(id, updateSkillDto.Name)
+		requesterId := cf.Locals(middleware.UserIdKey).(string)
+		skill, err := s.skillService.UpdateSkill(id, updateSkillDto.Name, requesterId)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)

@@ -1183,7 +1183,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Atualiza o nome da skill (normalizado para caixa alta). Nome já usado por outra skill ativa gera conflito.",
+                "description": "Atualiza o nome da skill (normalizado para caixa alta). Nome já usado por outra skill ativa gera conflito. Somente moderadores e admins podem executar.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1228,6 +1228,13 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true

@@ -1058,7 +1058,8 @@ paths:
       consumes:
       - application/json
       description: Atualiza o nome da skill (normalizado para caixa alta). Nome já
-        usado por outra skill ativa gera conflito.
+        usado por outra skill ativa gera conflito. Somente moderadores e admins podem
+        executar.
       parameters:
       - description: ID da skill
         in: path
@@ -1085,6 +1086,11 @@ paths:
             type: object
         "401":
           description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
           schema:
             additionalProperties: true
             type: object

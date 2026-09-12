@@ -1,6 +1,7 @@
 package controller_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -134,6 +135,132 @@ func TestDeleteSkillAuthorization(t *testing.T) {
 	}
 }
 
+func doPutSkill(t *testing.T, app *fiber.App, url string, body []byte, token string) *http.Response {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPut, url, bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	return resp
+}
+
+func getSkillNameViaApi(t *testing.T, app *fiber.App, id string, token string) string {
+	t.Helper()
+	resp, err := doAuthedRequest(app, httptest.NewRequest(http.MethodGet, "/v1/skill/"+id, nil), token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no GET da skill, recebeu %d", resp.StatusCode)
+	}
+	var skillDto dto.SkillDto
+	if err := json.NewDecoder(resp.Body).Decode(&skillDto); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	return skillDto.Name
+}
+
+func TestUpdateSkillAuthorization(t *testing.T) {
+	t.Cleanup(skillCleanups)
+
+	app := setupApp()
+	common := createUserWithRole(t, "upd_auth_user@ajuda.dev", domain.UserRoleUser)
+	moderator := createUserWithRole(t, "upd_auth_mod@ajuda.dev", domain.UserRoleModerator)
+	admin := createUserWithRole(t, "upd_auth_admin@ajuda.dev", domain.UserRoleAdmin)
+
+	skill := registerSkillViaApi(t, app, "go")
+
+	resp := doPutSkill(t, app, "/v1/skill/"+skill.Id, []byte(`{"name": "golang"}`), validTokenFor(t, common.Id))
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 no update de skill por USER, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if respBody.Message != "only moderators and admins can update skills" {
+		t.Errorf("esperava message 'only moderators and admins can update skills', recebeu '%s'", respBody.Message)
+	}
+	if name := getSkillNameViaApi(t, app, skill.Id, validTokenFor(t, common.Id)); name != "GO" {
+		t.Errorf("esperava nome 'GO' preservado após 403, recebeu '%s'", name)
+	}
+
+	resp = doPutSkill(t, app, "/v1/skill/"+uuidv7.New().String(), []byte(`{"name": "rust"}`), validTokenFor(t, common.Id))
+	resp.Body.Close()
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 no update de skill inexistente por USER (autorização vem antes do 404), recebeu %d", resp.StatusCode)
+	}
+
+	resp = doPutSkill(t, app, "/v1/skill/"+skill.Id, []byte(`{"name": " kotlin "}`), validTokenFor(t, moderator.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Errorf("esperava 200 no update de skill por MODERATOR, recebeu %d", resp.StatusCode)
+	}
+	var respDto dto.RegisterSkillDto
+	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	resp.Body.Close()
+	if respDto.Id != skill.Id || respDto.Name != "KOTLIN" {
+		t.Errorf("esperava skill renomeada para KOTLIN pelo MODERATOR, recebeu %+v", respDto)
+	}
+
+	resp = doPutSkill(t, app, "/v1/skill/"+skill.Id, []byte(`{"name": "elixir"}`), validTokenFor(t, admin.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Errorf("esperava 200 no update de skill por ADMIN, recebeu %d", resp.StatusCode)
+	}
+	respDto = dto.RegisterSkillDto{}
+	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	resp.Body.Close()
+	if respDto.Name != "ELIXIR" {
+		t.Errorf("esperava skill renomeada para ELIXIR pelo ADMIN, recebeu %+v", respDto)
+	}
+
+	resp = doPutSkill(t, app, "/v1/skill/"+skill.Id, []byte(`{"name": "scala"}`), "")
+	resp.Body.Close()
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401 no update de skill sem token, recebeu %d", resp.StatusCode)
+	}
+
+	resp = doPutSkill(t, app, "/v1/skill/"+skill.Id, []byte(`{"name": "scala"}`), validTokenFor(t, uuidv7.New().String()))
+	resp.Body.Close()
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401 no update de skill com usuário do token inexistente no banco, recebeu %d", resp.StatusCode)
+	}
+
+	resp = doPutSkill(t, app, "/v1/skill/"+uuidv7.New().String(), []byte(`{"name": "rust"}`), validTokenFor(t, moderator.Id))
+	resp.Body.Close()
+	if resp.StatusCode != fiber.StatusNotFound {
+		t.Errorf("esperava 404 no update de skill inexistente por MODERATOR, recebeu %d", resp.StatusCode)
+	}
+
+	registerSkillViaApi(t, app, "go")
+
+	resp = doPutSkill(t, app, "/v1/skill/"+skill.Id, []byte(`{"name": "go"}`), validTokenFor(t, moderator.Id))
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("esperava 400 no conflito de nome, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	causes := getCauseByField("name", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "Skill already exists" {
+		t.Errorf("esperava cause 'Skill already exists', recebeu %+v", respBody.Causes)
+	}
+
+	resp = doPutSkill(t, app, "/v1/skill/"+skill.Id, []byte(`{"name": "GO LANG!"}`), validTokenFor(t, moderator.Id))
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("esperava 400 no nome inválido, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	causes = getCauseByField("name", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "Name is not valid" {
+		t.Errorf("esperava cause 'Name is not valid', recebeu %+v", respBody.Causes)
+	}
+}
+
 func TestDeleteCommunityOnlyOwnerOrStaff(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
@@ -173,7 +300,7 @@ func TestDeleteCommunityOnlyOwnerOrStaff(t *testing.T) {
 	resp = doDelete(t, app, "/v1/community/"+softDeletedId, validTokenFor(t, owner.Id))
 	resp.Body.Close()
 	if resp.StatusCode != fiber.StatusNotFound {
-		t.Errorf("esperava 404 no delete de comunidade soft-deletada, recebeu %d", resp.StatusCode)
+		t.Errorf("esperava 404 no delete de comunidade soft-deleted, recebeu %d", resp.StatusCode)
 	}
 
 	resp = doDelete(t, app, "/v1/community/abc", validTokenFor(t, stranger.Id))

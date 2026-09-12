@@ -220,15 +220,16 @@ func TestListSkillsPagination(t *testing.T) {
 }
 
 func TestUpdateSkillRenamesNormalized(t *testing.T) {
-	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(skillCleanups)
 
 	app := setupApp()
+	moderator := createUserWithRole(t, "upd_skill_mod@ajuda.dev", domain.UserRoleModerator)
 	skill := registerSkillViaApi(t, app, "java")
 
 	payload := []byte(`{"name": " kotlin "}`)
 	req := httptest.NewRequest("PUT", "/v1/skill/"+skill.Id, bytes.NewBuffer(payload))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := doAuthedRequest(app, req, validTokenFor(t, uuidv7.New().String()))
+	resp, err := doAuthedRequest(app, req, validTokenFor(t, moderator.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -246,15 +247,16 @@ func TestUpdateSkillRenamesNormalized(t *testing.T) {
 }
 
 func TestUpdateSkillRejectsConflictAndNotFound(t *testing.T) {
-	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(skillCleanups)
 
 	app := setupApp()
+	moderator := createUserWithRole(t, "upd_skill_conflict_mod@ajuda.dev", domain.UserRoleModerator)
 	java := registerSkillViaApi(t, app, "java")
 	registerSkillViaApi(t, app, "go")
 
 	req := httptest.NewRequest("PUT", "/v1/skill/"+java.Id, bytes.NewBuffer([]byte(`{"name": "go"}`)))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := doAuthedRequest(app, req, validTokenFor(t, uuidv7.New().String()))
+	resp, err := doAuthedRequest(app, req, validTokenFor(t, moderator.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -273,7 +275,7 @@ func TestUpdateSkillRejectsConflictAndNotFound(t *testing.T) {
 
 	req = httptest.NewRequest("PUT", "/v1/skill/"+uuidv7.New().String(), bytes.NewBuffer([]byte(`{"name": "rust"}`)))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err = doAuthedRequest(app, req, validTokenFor(t, uuidv7.New().String()))
+	resp, err = doAuthedRequest(app, req, validTokenFor(t, moderator.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}

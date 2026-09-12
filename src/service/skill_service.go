@@ -13,12 +13,12 @@ type SkillService interface {
 	CreateSkill(skill *domain.SkillDomain) (*domain.SkillDomain, *rest_err.RestErr)
 	GetSkillById(id string) (*domain.SkillDomain, *rest_err.RestErr)
 	GetAll(filter repository.SkillFilter, page int, limit int) (*domain.PageableSkill, *rest_err.RestErr)
-	UpdateSkill(id string, name string) (*domain.SkillDomain, *rest_err.RestErr)
+	UpdateSkill(id string, name string, requesterId string) (*domain.SkillDomain, *rest_err.RestErr)
 	DeleteSkill(id string, requesterId string) *rest_err.RestErr
 }
 
 type skillService struct {
-	userService    UserService
+	userService     UserService
 	skillRepository repository.SkillRepository
 	skillValidator  validator.SkillValidator
 }
@@ -64,10 +64,18 @@ func (s *skillService) GetAll(filter repository.SkillFilter, page int, limit int
 	return s.skillRepository.FindAll(filter, page, limit)
 }
 
-func (s *skillService) UpdateSkill(id string, name string) (*domain.SkillDomain, *rest_err.RestErr) {
+func (s *skillService) UpdateSkill(id string, name string, requesterId string) (*domain.SkillDomain, *rest_err.RestErr) {
 	if err := s.skillValidator.ValidateSkillId(id); err != nil {
 		return nil, err
 	}
+	requester, err := authenticatedUser(s.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	if !roleAtLeast(requester.Role, domain.UserRoleModerator) {
+		return nil, rest_err.NewForbiddenError("only moderators and admins can update skills")
+	}
+
 	name = normalizeSkillName(name)
 	if err := s.skillValidator.ValidateSkillName(name); err != nil {
 		return nil, err
