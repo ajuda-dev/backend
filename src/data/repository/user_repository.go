@@ -17,6 +17,7 @@ type UserRepository interface {
 	GetUserByEmail(email string) (*domain.UserDomain, *rest_err.RestErr)
 	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
 	FindAll(filter UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr)
+	Update(id string, user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
 }
 
@@ -117,6 +118,23 @@ func (u *userRepository) GetUserByEmail(email string) (*domain.UserDomain, *rest
 		return handlerErrorDataBase(err)
 	}
 	return userEntity.ToDomainUser(), nil
+}
+
+func (u *userRepository) Update(id string, user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr) {
+	// map (e não struct) porque `Updates` com struct ignora campos zero, e aqui
+	// "vazio" significa "não alterar". Hoje só o nome é atualizável; o padrão
+	// fica pronto para o plano de troca de e-mail/senha sem reescrita.
+	fields := map[string]interface{}{}
+	if user.Name != "" {
+		fields["name"] = user.Name
+	}
+	result := u.database.Model(&entity.UserEntity{}).
+		Where("id = ? AND deleted_at IS NULL", id).
+		Updates(fields)
+	if result.Error != nil {
+		return nil, rest_err.NewInternalServerError("Error updating user: " + result.Error.Error())
+	}
+	return u.FindById(id)
 }
 
 func (u *userRepository) SoftDeleteById(id string) *rest_err.RestErr {

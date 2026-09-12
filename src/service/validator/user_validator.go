@@ -1,12 +1,15 @@
 package validator
 
 import (
+	"strings"
+
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/service/domain"
 )
 
 type UserValidator interface {
 	ValidateRegisterUser(registerUser domain.UserDomain) *rest_err.RestErr
+	ValidateUpdateUser(user domain.UserDomain) *rest_err.RestErr
 }
 
 type userValidator struct{}
@@ -55,6 +58,28 @@ func (u *userValidator) ValidateRegisterUser(registerUser domain.UserDomain) *re
 			"Invalid user data",
 			causes,
 		)
+	}
+	return nil
+}
+
+func (u *userValidator) ValidateUpdateUser(user domain.UserDomain) *rest_err.RestErr {
+	causes := []rest_err.Causes{}
+
+	name := strings.TrimSpace(user.Name)
+	if name == "" {
+		causes = append(causes, rest_err.Causes{
+			Field:   "body",
+			Message: "provide at least one field to update",
+		})
+	} else if !isValidName(user.Name, false) {
+		causes = append(causes, rest_err.Causes{
+			Field:   "name",
+			Message: "Name is not valid",
+		})
+	}
+
+	if len(causes) > 0 {
+		return rest_err.NewBadRequestValidationError("Invalid user data", causes)
 	}
 	return nil
 }

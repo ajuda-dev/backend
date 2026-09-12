@@ -241,6 +241,11 @@ definitions:
       name:
         type: string
     type: object
+  dto.UpdateUserDtoIn:
+    properties:
+      name:
+        type: string
+    type: object
   dto.UserDtoOut:
     properties:
       email:
@@ -1265,6 +1270,55 @@ paths:
       security:
       - BearerAuth: []
       summary: Remove usuário (soft delete)
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Atualiza o nome do perfil. E-mail e senha não são alteráveis por
+        este endpoint. Somente o próprio usuário (id do token) ou um admin podem executar.
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Nome a alterar
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateUserDtoIn'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserDtoOut'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Altera o nome de um usuário
       tags:
       - users
   /v1/user/{userId}/skills:

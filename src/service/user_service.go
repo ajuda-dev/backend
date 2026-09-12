@@ -28,6 +28,7 @@ type UserService interface {
 	CreateUser(user *domain.UserDomain) (*domain.UserDomain, string, *rest_err.RestErr)
 	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
 	GetAllUsers(filter repository.UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr)
+	UpdateUser(targetId string, requesterId string, changes *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
 	DeleteUser(targetId string, requesterId string) *rest_err.RestErr
 }
 
@@ -103,6 +104,24 @@ func (u *userService) CreateUser(user *domain.UserDomain) (*domain.UserDomain, s
 		return nil, "", err
 	}
 	return user, token, nil
+}
+
+// UpdateUser implements UserService.
+func (u *userService) UpdateUser(targetId string, requesterId string, changes *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr) {
+	requester, err := authenticatedUser(u, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	if requester.Id != targetId && requester.Role != domain.UserRoleAdmin {
+		return nil, rest_err.NewForbiddenError("only the user themselves or an admin can update this user")
+	}
+	if _, err := u.userRepository.FindById(targetId); err != nil {
+		return nil, err
+	}
+	if err := u.validator.ValidateUpdateUser(*changes); err != nil {
+		return nil, err
+	}
+	return u.userRepository.Update(targetId, changes)
 }
 
 // DeleteUser implements UserService.

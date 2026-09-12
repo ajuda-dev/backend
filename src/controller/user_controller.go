@@ -22,6 +22,7 @@ func NewUserController(userService service.UserService) UserController {
 type UserController interface {
 	RegisterUser() fiber.Handler
 	GetAllUsers() fiber.Handler
+	UpdateUser() fiber.Handler
 	DeleteUser() fiber.Handler
 }
 
@@ -88,6 +89,47 @@ func (u *userController) GetAllUsers() fiber.Handler {
 
 		dtoResult := dto.PageableUserDto{}.FromDomain(*result)
 		return c.Status(fiber.StatusOK).JSON(dtoResult)
+	}
+}
+
+// UpdateUser godoc
+// @Summary      Altera o nome de um usuário
+// @Description  Atualiza o nome do perfil. E-mail e senha não são alteráveis por este endpoint. Somente o próprio usuário (id do token) ou um admin podem executar.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        userId  path  string  true  "ID do usuário"
+// @Param        user    body  dto.UpdateUserDtoIn  true  "Nome a alterar"
+// @Success      200   {object}  dto.UserDtoOut
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/user/{userId} [put]
+func (u *userController) UpdateUser() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userId := c.Params("userId")
+		if !uuidv7.IsValidString(userId) {
+			return c.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "userId", Message: "userId must be a valid UUID v7"}}))
+		}
+		var updateUserDto dto.UpdateUserDtoIn
+		if err := c.BodyParser(&updateUserDto); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		requesterId := c.Locals(middleware.UserIdKey).(string)
+		updated, err := u.userService.UpdateUser(userId, requesterId, updateUserDto.ToDomain())
+		if err != nil {
+			logger.Error("error: ", err)
+			return c.Status(err.Code).JSON(err)
+		}
+		var updateUserDtoOut dto.UserDtoOut
+		updateUserDtoOut = *updateUserDtoOut.FromDomainUser(updated)
+		return c.Status(fiber.StatusOK).JSON(updateUserDtoOut)
 	}
 }
 
