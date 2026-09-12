@@ -102,6 +102,38 @@ func TestRegisterAddressBadRequest(t *testing.T) {
 
 }
 
+func TestRegisterAddressWithoutSearchDataCauseField(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	app := setupApp()
+	token := validTokenFor(t, uuidv7.New().String())
+	body := []byte(`{"number": "123"}`)
+	req := newAddressRegisterRequest(body)
+
+	resp, err := doAuthedRequest(app, req, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("esperava 400, recebeu %d", resp.StatusCode)
+	}
+
+	var respBody rest_err.RestErr
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if len(respBody.Causes) == 0 {
+		t.Fatalf("esperava ao menos uma cause, recebeu %+v", respBody.Causes)
+	}
+	if respBody.Causes[0].Field != "address" {
+		t.Errorf("esperava field 'address', recebeu '%s'", respBody.Causes[0].Field)
+	}
+	if respBody.Causes[0].Message != "pass at least zipCode or city, state and street to search for an address" {
+		t.Errorf("esperava a mensagem de busca sem dados, recebeu '%s'", respBody.Causes[0].Message)
+	}
+}
+
 func TestRegisterAddressAlreadyExist(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	app := setupApp()

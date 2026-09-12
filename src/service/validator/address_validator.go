@@ -22,7 +22,7 @@ func (a *addressValidator) ValidatorSearchAddress(address domain.AddressDomain) 
 
 	if address.ZipCode == "" && address.City == "" && address.State == "" && address.Street == "" {
 		causes = append(causes, rest_err.Causes{
-			Field:   "invalid search address data",
+			Field:   "address",
 			Message: "pass at least zipCode or city, state and street to search for an address",
 		})
 	}

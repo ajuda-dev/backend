@@ -66,7 +66,12 @@ func (u *userValidator) ValidateUpdateUser(user domain.UserDomain) *rest_err.Res
 	causes := []rest_err.Causes{}
 
 	name := strings.TrimSpace(user.Name)
-	if name == "" {
+	if user.Email != "" || user.Password != "" {
+		causes = append(causes, rest_err.Causes{
+			Field:   "body",
+			Message: "email and password cannot be changed by this endpoint",
+		})
+	} else if name == "" {
 		causes = append(causes, rest_err.Causes{
 			Field:   "body",
 			Message: "provide at least one field to update",

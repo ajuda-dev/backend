@@ -352,8 +352,8 @@ func TestUpdateUserRejectsEmail(t *testing.T) {
 	}
 	respBody := decodeRestErr(t, resp)
 	causes := getCauseByField("body", respBody.Causes)
-	if len(causes) == 0 || causes[0] != "provide at least one field to update" {
-		t.Errorf("esperava cause 'provide at least one field to update', recebeu %+v", respBody.Causes)
+	if len(causes) != 1 || causes[0] != "email and password cannot be changed by this endpoint" {
+		t.Errorf("esperava a única cause 'email and password cannot be changed by this endpoint', recebeu %+v", respBody.Causes)
 	}
 
 	persisted, findErr := userRepository.FindById(user.Id)
@@ -381,8 +381,8 @@ func TestUpdateUserRejectsPassword(t *testing.T) {
 	}
 	respBody := decodeRestErr(t, resp)
 	causes := getCauseByField("body", respBody.Causes)
-	if len(causes) == 0 || causes[0] != "provide at least one field to update" {
-		t.Errorf("esperava cause 'provide at least one field to update', recebeu %+v", respBody.Causes)
+	if len(causes) != 1 || causes[0] != "email and password cannot be changed by this endpoint" {
+		t.Errorf("esperava a única cause 'email and password cannot be changed by this endpoint', recebeu %+v", respBody.Causes)
 	}
 
 	after, findErr := userRepository.FindById(user.Id)
@@ -404,6 +404,34 @@ func TestUpdateUserRejectsPassword(t *testing.T) {
 	defer respLogin.Body.Close()
 	if respLogin.StatusCode != fiber.StatusOK {
 		t.Errorf("esperava 200 no login com a senha antiga, recebeu %d", respLogin.StatusCode)
+	}
+}
+
+func TestUpdateUserRejectsEmailWithName(t *testing.T) {
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	user := createUserWithRole(t, "upd_email_name@ajuda.dev", domain.UserRoleUser)
+
+	resp := doPutUser(t, app, user.Id, []byte(`{"email": "novo@ajudadev.dev", "name": "Nome Novo"}`), validTokenFor(t, user.Id))
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("esperava 400 no body com email e name, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	causes := getCauseByField("body", respBody.Causes)
+	if len(causes) != 1 || causes[0] != "email and password cannot be changed by this endpoint" {
+		t.Errorf("esperava a única cause 'email and password cannot be changed by this endpoint', recebeu %+v", respBody.Causes)
+	}
+
+	persisted, findErr := userRepository.FindById(user.Id)
+	if findErr != nil {
+		t.Fatalf("failed to find user after rejected email with name: %v", findErr)
+	}
+	if persisted.Name != user.Name {
+		t.Errorf("esperava nome '%s' preservado após 400, recebeu '%s'", user.Name, persisted.Name)
+	}
+	if persisted.Email != user.Email {
+		t.Errorf("esperava email '%s' preservado após 400, recebeu '%s'", user.Email, persisted.Email)
 	}
 }
 
