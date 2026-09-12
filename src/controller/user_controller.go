@@ -93,13 +93,13 @@ func (u *userController) GetAllUsers() fiber.Handler {
 }
 
 // UpdateUser godoc
-// @Summary      Altera o nome de um usuário
-// @Description  Atualiza o nome do perfil. E-mail e senha não são alteráveis por este endpoint. Somente o próprio usuário (id do token) ou um admin podem executar.
+// @Summary      Altera o perfil de um usuário
+// @Description  Atualiza nome, resumo (description) e a configuração de visibilidade (configVisibility) do perfil. E-mail e senha não são alteráveis por este endpoint; o value da chave email da configVisibility é gerenciado pelo sistema. Somente o próprio usuário (id do token) ou um admin podem executar.
 // @Tags         users
 // @Accept       json
 // @Produce      json
 // @Param        userId  path  string  true  "ID do usuário"
-// @Param        user    body  dto.UpdateUserDtoIn  true  "Nome a alterar"
+// @Param        user    body  dto.UpdateUserDtoIn  true  "Campos do perfil a alterar"
 // @Success      200   {object}  dto.UserDtoOut
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
@@ -128,7 +128,7 @@ func (u *userController) UpdateUser() fiber.Handler {
 			return c.Status(err.Code).JSON(err)
 		}
 		var updateUserDtoOut dto.UserDtoOut
-		updateUserDtoOut = *updateUserDtoOut.FromDomainUser(updated)
+		updateUserDtoOut = *updateUserDtoOut.FromDomainUserWithProfile(updated)
 		return c.Status(fiber.StatusOK).JSON(updateUserDtoOut)
 	}
 }

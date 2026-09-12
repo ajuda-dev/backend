@@ -1676,7 +1676,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Atualiza o nome do perfil. E-mail e senha não são alteráveis por este endpoint. Somente o próprio usuário (id do token) ou um admin podem executar.",
+                "description": "Atualiza nome, resumo (description) e a configuração de visibilidade (configVisibility) do perfil. E-mail e senha não são alteráveis por este endpoint; o value da chave email da configVisibility é gerenciado pelo sistema. Somente o próprio usuário (id do token) ou um admin podem executar.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1686,7 +1686,7 @@ const docTemplate = `{
                 "tags": [
                     "users"
                 ],
-                "summary": "Altera o nome de um usuário",
+                "summary": "Altera o perfil de um usuário",
                 "parameters": [
                     {
                         "type": "string",
@@ -1696,7 +1696,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Nome a alterar",
+                        "description": "Campos do perfil a alterar",
                         "name": "user",
                         "in": "body",
                         "required": true,
@@ -1995,6 +1995,12 @@ const docTemplate = `{
                 "user_id": {
                     "type": "string"
                 }
+            }
+        },
+        "dto.ConfigVisibilityDto": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/definitions/dto.VisibilityConfigDto"
             }
         },
         "dto.EventDto": {
@@ -2320,7 +2326,19 @@ const docTemplate = `{
         "dto.UpdateUserDtoIn": {
             "type": "object",
             "properties": {
+                "configVisibility": {
+                    "$ref": "#/definitions/dto.ConfigVisibilityDto"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
                 "name": {
+                    "type": "string"
+                },
+                "password": {
                     "type": "string"
                 }
             }
@@ -2328,6 +2346,12 @@ const docTemplate = `{
         "dto.UserDtoOut": {
             "type": "object",
             "properties": {
+                "configVisibility": {
+                    "$ref": "#/definitions/dto.ConfigVisibilityDto"
+                },
+                "description": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -2362,6 +2386,17 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/dto.SkillDto"
                     }
+                }
+            }
+        },
+        "dto.VisibilityConfigDto": {
+            "type": "object",
+            "properties": {
+                "shareWithCommunity": {
+                    "type": "boolean"
+                },
+                "value": {
+                    "type": "string"
                 }
             }
         }

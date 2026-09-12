@@ -90,6 +90,7 @@ Controller (HTTP/Fiber) → Service (business rules) → Repository (GORM) → P
 - **Variables:** `DB_HOST` (host:porta, ex. `localhost:5432`), `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL_MODE` (default `disable`), `DB_TIME_ZONE`, `PURGE_ENABLED` (default `false`), `PURGE_OLDER_THAN_DAYS` (default `30`), `PURGE_INTERVAL_HOURS` (default `24`).
 - **Connection:** `src/config/database/database_connect.go` builds the DSN and opens it with `gorm.Open(postgres.Open(dsn))`.
 - **Migration:** automatic `AutoMigrate` of the `UserEntity`, `AddressEntity`, `CommunityEntity` entities on startup.
+- **User profile columns:** `users.description` (`varchar(500)`) and `users.config_visibility` (`jsonb`, nullable, no default) — written only by `PUT /v1/user/:userId`. The jsonb holds `{ "value": "...", "shareWithCommunity": true|false }` per key (`github`, `linkedin`, `otherlink`, `photo`, `phone`, `email`); the `email` key's `value` is system-managed (mirrored from the `email` column on every read, never accepted from the client). The entity type `entity.UserConfigVisibility` is an explicit struct with one field per allowed key (implementing `driver.Valuer`/`sql.Scanner`, no `gorm.io/datatypes` dependency): keys outside that list are rejected with 400 by the validator and dropped by `Value`/`Scan`, so they can never be persisted.
 - **Extension:** `CREATE EXTENSION IF NOT EXISTS unaccent` runs on boot (before `AutoMigrate`) and in the integration test setup; the community `name`/`city` searches depend on it, so a failure aborts startup with an explicit error.
 
 ## Endpoints
@@ -98,7 +99,8 @@ Defined in `src/controller/routes/routes.go`:
 
 | Method | Route | Handler | Description |
 |---|---|---|---|
-| POST | `/v1/user/register` | `RegisterUser` | Creates a user (201) |
+| POST | `/v1/user/register` | `RegisterUser` | Creates a user (201); minimal signup — `description`/`configVisibility` are ignored and never returned |
+| PUT | `/v1/user/:userId` | `UpdateUser` | Updates `name`, `description` and `configVisibility` (partial merge per key); `email`/`password` rejected; only the user themselves or an `ADMIN` (200, returns `dto.UserDtoOut` with `description` + `configVisibility`) |
 | POST | `/v1/address/register` | `RegisterAddress` | Creates an address (201) |
 | POST | `/v1/community/register` | `RegisterCommunity` | Creates a community (201, returns the full `dto.CommunityDto`: `address` + `owner`) |
 | GET | `/v1/community/:id` | `GetCommunityById` | Community detail with `address` + `owner`; `400` id not a UUID v7; `404` not found/soft-deleted (200) |

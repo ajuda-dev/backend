@@ -128,6 +128,12 @@ func (u *userRepository) Update(id string, user *domain.UserDomain) (*domain.Use
 	if user.Name != "" {
 		fields["name"] = user.Name
 	}
+	if user.Description != "" {
+		fields["description"] = user.Description
+	}
+	if user.ConfigVisibility != nil {
+		fields["config_visibility"] = entity.UserConfigVisibilityFromDomain(user.ConfigVisibility)
+	}
 	result := u.database.Model(&entity.UserEntity{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Updates(fields)

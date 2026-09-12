@@ -1,6 +1,8 @@
 package service
 
 import (
+	"strings"
+
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/data/repository"
 	"github.com/ajuda-dev/backend/src/service/domain"
@@ -115,11 +117,26 @@ func (u *userService) UpdateUser(targetId string, requesterId string, changes *d
 	if requester.Id != targetId && requester.Role != domain.UserRoleAdmin {
 		return nil, rest_err.NewForbiddenError("only the user themselves or an admin can update this user")
 	}
-	if _, err := u.userRepository.FindById(targetId); err != nil {
+	current, err := u.userRepository.FindById(targetId)
+	if err != nil {
 		return nil, err
 	}
 	if err := u.validator.ValidateUpdateUser(*changes); err != nil {
 		return nil, err
+	}
+	if changes.ConfigVisibility != nil {
+		merged := current.ConfigVisibility
+		for key, item := range changes.ConfigVisibility {
+			merged[key] = item
+		}
+		merged[domain.VisibilityKeyEmail] = domain.VisibilityConfig{
+			Value:              current.Email,
+			ShareWithCommunity: merged[domain.VisibilityKeyEmail].ShareWithCommunity,
+		}
+		changes.ConfigVisibility = merged
+	}
+	if changes.Description != "" {
+		changes.Description = strings.TrimSpace(changes.Description)
 	}
 	return u.userRepository.Update(targetId, changes)
 }

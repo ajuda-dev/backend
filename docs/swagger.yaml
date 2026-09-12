@@ -52,6 +52,10 @@ definitions:
       user_id:
         type: string
     type: object
+  dto.ConfigVisibilityDto:
+    additionalProperties:
+      $ref: '#/definitions/dto.VisibilityConfigDto'
+    type: object
   dto.EventDto:
     properties:
       address:
@@ -261,11 +265,23 @@ definitions:
     type: object
   dto.UpdateUserDtoIn:
     properties:
+      configVisibility:
+        $ref: '#/definitions/dto.ConfigVisibilityDto'
+      description:
+        type: string
+      email:
+        type: string
       name:
+        type: string
+      password:
         type: string
     type: object
   dto.UserDtoOut:
     properties:
+      configVisibility:
+        $ref: '#/definitions/dto.ConfigVisibilityDto'
+      description:
+        type: string
       email:
         type: string
       id:
@@ -289,6 +305,13 @@ definitions:
         items:
           $ref: '#/definitions/dto.SkillDto'
         type: array
+    type: object
+  dto.VisibilityConfigDto:
+    properties:
+      shareWithCommunity:
+        type: boolean
+      value:
+        type: string
     type: object
 info:
   contact: {}
@@ -1392,15 +1415,17 @@ paths:
     put:
       consumes:
       - application/json
-      description: Atualiza o nome do perfil. E-mail e senha não são alteráveis por
-        este endpoint. Somente o próprio usuário (id do token) ou um admin podem executar.
+      description: Atualiza nome, resumo (description) e a configuração de visibilidade
+        (configVisibility) do perfil. E-mail e senha não são alteráveis por este endpoint;
+        o value da chave email da configVisibility é gerenciado pelo sistema. Somente
+        o próprio usuário (id do token) ou um admin podem executar.
       parameters:
       - description: ID do usuário
         in: path
         name: userId
         required: true
         type: string
-      - description: Nome a alterar
+      - description: Campos do perfil a alterar
         in: body
         name: user
         required: true
@@ -1435,7 +1460,7 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Altera o nome de um usuário
+      summary: Altera o perfil de um usuário
       tags:
       - users
   /v1/user/{userId}/skills:
