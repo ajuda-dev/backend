@@ -293,6 +293,19 @@ definitions:
       token:
         type: string
     type: object
+  dto.UserProfileDtoOut:
+    properties:
+      configVisibility:
+        $ref: '#/definitions/dto.ConfigVisibilityDto'
+      description:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
   dto.UserSkillDto:
     properties:
       email:
@@ -1410,6 +1423,44 @@ paths:
       security:
       - BearerAuth: []
       summary: Remove usuário (soft delete)
+      tags:
+      - users
+    get:
+      description: Retorna id, name, description, email (quando visível) e configVisibility.
+        O próprio usuário e ADMIN recebem o perfil completo; os demais recebem somente
+        as entradas com shareWithCommunity=true e o email só se estiver compartilhado.
+        A senha nunca é retornada.
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserProfileDtoOut'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Busca o perfil de um usuário por id
       tags:
       - users
     put:

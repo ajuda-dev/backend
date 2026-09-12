@@ -22,6 +22,7 @@ func NewUserController(userService service.UserService) UserController {
 type UserController interface {
 	RegisterUser() fiber.Handler
 	GetAllUsers() fiber.Handler
+	GetUserById() fiber.Handler
 	UpdateUser() fiber.Handler
 	DeleteUser() fiber.Handler
 }
@@ -89,6 +90,36 @@ func (u *userController) GetAllUsers() fiber.Handler {
 
 		dtoResult := dto.PageableUserDto{}.FromDomain(*result)
 		return c.Status(fiber.StatusOK).JSON(dtoResult)
+	}
+}
+
+// GetUserById godoc
+// @Summary      Busca o perfil de um usuário por id
+// @Description  Retorna id, name, description, email (quando visível) e configVisibility. O próprio usuário e ADMIN recebem o perfil completo; os demais recebem somente as entradas com shareWithCommunity=true e o email só se estiver compartilhado. A senha nunca é retornada.
+// @Tags         users
+// @Produce      json
+// @Param        userId  path  string  true  "ID do usuário"
+// @Success      200   {object}  dto.UserProfileDtoOut
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/user/{userId} [get]
+func (u *userController) GetUserById() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userId := c.Params("userId")
+		if !uuidv7.IsValidString(userId) {
+			return c.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "userId", Message: "userId must be a valid UUID v7"}}))
+		}
+		requesterId := c.Locals(middleware.UserIdKey).(string)
+		user, err := u.userService.GetUserById(userId, requesterId)
+		if err != nil {
+			logger.Error("error: ", err)
+			return c.Status(err.Code).JSON(err)
+		}
+		return c.Status(fiber.StatusOK).JSON(dto.UserProfileDtoOut{}.FromDomain(user))
 	}
 }
 

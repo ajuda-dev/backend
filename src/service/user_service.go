@@ -29,6 +29,7 @@ func NewUserService(userRepository repository.UserRepository, validator validato
 type UserService interface {
 	CreateUser(user *domain.UserDomain) (*domain.UserDomain, string, *rest_err.RestErr)
 	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
+	GetUserById(targetId string, requesterId string) (*domain.UserDomain, *rest_err.RestErr)
 	GetAllUsers(filter repository.UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr)
 	UpdateUser(targetId string, requesterId string, changes *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
 	DeleteUser(targetId string, requesterId string) *rest_err.RestErr
@@ -47,6 +48,27 @@ type userService struct {
 // FindById implements UserService.
 func (u *userService) FindById(id string) (*domain.UserDomain, *rest_err.RestErr) {
 	return u.userRepository.FindById(id)
+}
+
+// GetUserById implements UserService.
+func (u *userService) GetUserById(targetId string, requesterId string) (*domain.UserDomain, *rest_err.RestErr) {
+	requester, err := authenticatedUser(u, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	target, err := u.userRepository.FindById(targetId)
+	if err != nil {
+		return nil, err
+	}
+	if requester.Id == target.Id || requester.Role == domain.UserRoleAdmin {
+		return target, nil
+	}
+	visible := target.ConfigVisibility.VisibleToOthers()
+	if _, shared := visible[domain.VisibilityKeyEmail]; !shared {
+		target.Email = ""
+	}
+	target.ConfigVisibility = visible
+	return target, nil
 }
 
 // GetAllUsers implements UserService.

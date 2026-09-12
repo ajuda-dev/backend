@@ -101,6 +101,7 @@ Defined in `src/controller/routes/routes.go`:
 |---|---|---|---|
 | POST | `/v1/user/register` | `RegisterUser` | Creates a user (201); minimal signup — `description`/`configVisibility` are ignored and never returned |
 | PUT | `/v1/user/:userId` | `UpdateUser` | Updates `name`, `description` and `configVisibility` (partial merge per key); `email`/`password` rejected; only the user themselves or an `ADMIN` (200, returns `dto.UserDtoOut` with `description` + `configVisibility`) |
+| GET | `/v1/user/:userId` | `GetUserById` | User profile read (200, returns `dto.UserProfileDtoOut`: `id`, `name`, `description`, `email` when visible, `configVisibility`); the user themselves or an `ADMIN` get the full profile, everyone else only the entries with `shareWithCommunity: true` (top-level `email` only when the `email` key is shared); `400` id not a UUID v7, `401` invalid requester, `404` not found/soft-deleted; the password is never returned |
 | POST | `/v1/address/register` | `RegisterAddress` | Creates an address (201) |
 | POST | `/v1/community/register` | `RegisterCommunity` | Creates a community (201, returns the full `dto.CommunityDto`: `address` + `owner`) |
 | GET | `/v1/community/:id` | `GetCommunityById` | Community detail with `address` + `owner`; `400` id not a UUID v7; `404` not found/soft-deleted (200) |

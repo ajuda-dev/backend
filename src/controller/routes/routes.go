@@ -13,6 +13,7 @@ func SetupRoutesUser(app *fiber.App, userController controller.UserController, a
 	user.Post("/register", userController.RegisterUser())
 	user.Post("/login", authController.LoginUser())
 	user.Get("", auth, userController.GetAllUsers())
+	user.Get("/:userId", auth, userController.GetUserById())
 	user.Put("/:userId", auth, userController.UpdateUser())
 	user.Delete("/:userId", auth, userController.DeleteUser())
 }

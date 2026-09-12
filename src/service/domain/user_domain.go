@@ -22,6 +22,18 @@ type VisibilityConfig struct {
 
 type ConfigVisibility map[string]VisibilityConfig
 
+// VisibleToOthers devolve uma CÓPIA com apenas as entradas compartilhadas
+// (shareWithCommunity == true). Entradas não compartilhadas são removidas.
+func (c ConfigVisibility) VisibleToOthers() ConfigVisibility {
+	visible := make(ConfigVisibility, len(c))
+	for key, item := range c {
+		if item.ShareWithCommunity {
+			visible[key] = item
+		}
+	}
+	return visible
+}
+
 type UserDomain struct {
 	Id               string
 	Name             string
