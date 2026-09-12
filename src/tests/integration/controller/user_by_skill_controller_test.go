@@ -1,4 +1,4 @@
-package controller_test
+﻿package controller_test
 
 import (
 	"encoding/json"
@@ -27,7 +27,7 @@ func createUserForSkillSearch(t *testing.T, name string, email string) *domain.U
 	return user
 }
 
-func searchUsersBySkillQuery(t *testing.T, app *fiber.App, query string) dto.PageableUserDto {
+func searchUsersQuery(t *testing.T, app *fiber.App, query string) dto.PageableUserDto {
 	t.Helper()
 	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/user"+query, nil), validTokenFor(t, uuidv7.New().String()))
 	if err != nil {
@@ -35,7 +35,7 @@ func searchUsersBySkillQuery(t *testing.T, app *fiber.App, query string) dto.Pag
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != fiber.StatusOK {
-		t.Fatalf("esperava 200 na busca por skill, recebeu %d", resp.StatusCode)
+		t.Fatalf("esperava 200 na busca de usuários, recebeu %d", resp.StatusCode)
 	}
 	var page dto.PageableUserDto
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
@@ -67,7 +67,7 @@ func TestGetUsersBySkillReturnsMatchingUsersWithProfile(t *testing.T) {
 	assignSkillViaApi(t, app, goSkill.Id, lucas.Id, domain.LevelLearnAndTeach)
 	assignSkillViaApi(t, app, spring.Id, maria.Id, domain.LevelWantToLearn)
 
-	page := searchUsersBySkillQuery(t, app, "?skill=JAVA")
+	page := searchUsersQuery(t, app, "?skill=JAVA")
 	if page.HasNext {
 		t.Error("esperava has_next false, recebeu true")
 	}
@@ -80,9 +80,6 @@ func TestGetUsersBySkillReturnsMatchingUsersWithProfile(t *testing.T) {
 	}
 	if user.Name != "lucas.darocha" {
 		t.Errorf("esperava name 'lucas.darocha', recebeu '%s'", user.Name)
-	}
-	if user.Email != "lucas@ajuda.dev" {
-		t.Errorf("esperava email 'lucas@ajuda.dev', recebeu '%s'", user.Email)
 	}
 	skills := make([]string, len(user.Skills))
 	for i, s := range user.Skills {
@@ -110,7 +107,7 @@ func TestGetUsersBySkillNormalizesCase(t *testing.T) {
 		"?skill=java",
 		"?skill=" + url.QueryEscape(" JaVa "),
 	} {
-		page := searchUsersBySkillQuery(t, app, query)
+		page := searchUsersQuery(t, app, query)
 		if len(page.Data) != 2 {
 			t.Fatalf("busca '%s': esperava 2 usuários, recebeu %d", query, len(page.Data))
 		}
@@ -131,7 +128,7 @@ func TestGetUsersBySkillNonexistentSkillReturnsEmpty(t *testing.T) {
 	java := createSkillForTest(t, "JAVA")
 	assignSkillViaApi(t, app, java.Id, lucas.Id, domain.LevelTeach)
 
-	page := searchUsersBySkillQuery(t, app, "?skill=RUST")
+	page := searchUsersQuery(t, app, "?skill=RUST")
 	if len(page.Data) != 0 {
 		t.Errorf("esperava data vazio para skill sem donos, recebeu %+v", page.Data)
 	}
@@ -140,39 +137,31 @@ func TestGetUsersBySkillNonexistentSkillReturnsEmpty(t *testing.T) {
 	}
 }
 
-func TestGetUsersBySkillValidation(t *testing.T) {
+func TestGetUsersBySkillLengthValidation(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanSkillsTable)
 	t.Cleanup(cleanSkillUsersTable)
 
 	app := setupApp()
 
-	assertBadRequest := func(target string, expectedCause string) rest_err.RestErr {
-		t.Helper()
-		resp, err := doAuthedRequest(app, httptest.NewRequest("GET", target, nil), validTokenFor(t, uuidv7.New().String()))
-		if err != nil {
-			t.Fatalf("erro ao executar requisição: %v", err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != fiber.StatusBadRequest {
-			t.Fatalf("esperava 400 para '%s', recebeu %d", target, resp.StatusCode)
-		}
-		var respBody rest_err.RestErr
-		if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
-			t.Fatalf("erro ao decodificar body: %v", err)
-		}
-		verifyCodeError(t, respBody)
-		causes := getCauseByField("skill", respBody.Causes)
-		if len(causes) == 0 || causes[0] != expectedCause {
-			t.Errorf("esperava cause '%s' para o campo 'skill', recebeu %+v", expectedCause, respBody.Causes)
-		}
-		return respBody
+	target := "/v1/user?skill=" + strings.Repeat("A", 51)
+	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", target, nil), validTokenFor(t, uuidv7.New().String()))
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
 	}
-
-	assertBadRequest("/v1/user", "query param skill is required")
-	assertBadRequest("/v1/user?skill=", "query param skill is required")
-	assertBadRequest("/v1/user?skill=%20%20", "query param skill is required")
-	assertBadRequest("/v1/user?skill="+strings.Repeat("A", 51), "Skill name is not valid")
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 para '%s', recebeu %d", target, resp.StatusCode)
+	}
+	var respBody rest_err.RestErr
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	verifyCodeError(t, respBody)
+	causes := getCauseByField("skill", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "Skill name is not valid" {
+		t.Errorf("esperava cause 'Skill name is not valid' para o campo 'skill', recebeu %+v", respBody.Causes)
+	}
 }
 
 func TestGetUsersBySkillExactMatch(t *testing.T) {
@@ -188,13 +177,13 @@ func TestGetUsersBySkillExactMatch(t *testing.T) {
 	assignSkillViaApi(t, app, java.Id, lucas.Id, domain.LevelTeach)
 	assignSkillViaApi(t, app, javaScript.Id, maria.Id, domain.LevelWantToLearn)
 
-	page := searchUsersBySkillQuery(t, app, "?skill=JAVA")
+	page := searchUsersQuery(t, app, "?skill=JAVA")
 	ids := userSearchIds(page)
 	if len(ids) != 1 || ids[0] != lucas.Id {
 		t.Errorf("busca por JAVA não deve retornar quem tem JAVASCRIPT; recebeu %+v", page.Data)
 	}
 
-	page = searchUsersBySkillQuery(t, app, "?skill=JAVASCRIPT")
+	page = searchUsersQuery(t, app, "?skill=JAVASCRIPT")
 	ids = userSearchIds(page)
 	if len(ids) != 1 || ids[0] != maria.Id {
 		t.Errorf("busca por JAVASCRIPT deve retornar só a maria; recebeu %+v", page.Data)
@@ -221,7 +210,7 @@ func TestGetUsersBySkillAfterSkillSoftDelete(t *testing.T) {
 		t.Errorf("esperava 204 no soft delete da skill, recebeu %d", resp.StatusCode)
 	}
 
-	page := searchUsersBySkillQuery(t, app, "?skill=JAVA")
+	page := searchUsersQuery(t, app, "?skill=JAVA")
 	if len(page.Data) != 0 {
 		t.Errorf("esperava ninguém após soft delete da skill, recebeu %+v", page.Data)
 	}
@@ -257,7 +246,7 @@ func TestGetUsersBySkillPagination(t *testing.T) {
 		return names
 	}
 
-	firstPage := searchUsersBySkillQuery(t, app, "?skill=JAVA&limit=2")
+	firstPage := searchUsersQuery(t, app, "?skill=JAVA&limit=2")
 	if len(firstPage.Data) != 2 {
 		t.Fatalf("esperava 2 usuários na primeira página, recebeu %d", len(firstPage.Data))
 	}
@@ -277,7 +266,7 @@ func TestGetUsersBySkillPagination(t *testing.T) {
 		t.Errorf("esperava skills de bravo [JAVA, SPRING], recebeu %+v", bravoSkills)
 	}
 
-	secondPage := searchUsersBySkillQuery(t, app, "?skill=JAVA&page=2&limit=2")
+	secondPage := searchUsersQuery(t, app, "?skill=JAVA&page=2&limit=2")
 	if len(secondPage.Data) != 1 {
 		t.Fatalf("esperava 1 usuário na segunda página, recebeu %d", len(secondPage.Data))
 	}

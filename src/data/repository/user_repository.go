@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"strings"
+
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/data/entity"
 	"github.com/ajuda-dev/backend/src/service/domain"
@@ -10,6 +12,8 @@ import (
 
 type UserFilter struct {
 	SkillName string
+	Name      string
+	Email     string
 }
 
 type UserRepository interface {
@@ -37,9 +41,27 @@ func (u *userRepository) FindById(id string) (*domain.UserDomain, *rest_err.Rest
 func (u *userRepository) FindAll(filter UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr) {
 	var users []entity.UserEntity
 	query := u.database.Model(&entity.UserEntity{})
-	query = query.Joins("JOIN skill_users ON skill_users.user_id = users.id").
-		Joins("JOIN skills ON skills.id = skill_users.skill_id").
-		Where("skills.name = ? AND skills.deleted_at IS NULL", filter.SkillName)
+
+	// Caminho A (com skill): mantém o mecanismo atual — join + match exato do nome.
+	if filter.SkillName != "" {
+		query = query.Joins("JOIN skill_users ON skill_users.user_id = users.id").
+			Joins("JOIN skills ON skills.id = skill_users.skill_id").
+			Where("skills.name = ? AND skills.deleted_at IS NULL", filter.SkillName)
+	}
+	// Caminho B (sem skill): sem join — lista todos os usuários ativos (soft delete já
+	// vem do Model(&UserEntity{})); quem não tem skill aparece com "skills": [].
+
+	name := strings.ToLower(strings.TrimSpace(filter.Name))
+	if name != "" {
+		search := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(name)
+		// unaccent nos DOIS lados (padrão do community): quem digita "josé" acha "jose" e vice-versa.
+		query = query.Where("unaccent(LOWER(users.name)) LIKE unaccent(?)", "%"+search+"%")
+	}
+	email := strings.ToLower(strings.TrimSpace(filter.Email))
+	if email != "" {
+		// match exato e case-insensitive; e-mail é ASCII por validação (common_validator.go).
+		query = query.Where("LOWER(users.email) = ?", email)
+	}
 
 	if page <= 0 {
 		page = 1

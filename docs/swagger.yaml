@@ -308,8 +308,6 @@ definitions:
     type: object
   dto.UserSkillDto:
     properties:
-      email:
-        type: string
       id:
         type: string
       name:
@@ -1347,14 +1345,24 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retorna os usuários ativos que possuem a skill informada (match
-        exato do nome, normalizado para caixa alta) com as skills do perfil de cada
-        um. O parâmetro skill é obrigatório.
+      description: 'Retorna usuários ativos com as skills do perfil, em ordem alfabética
+        por nome. Filtros opcionais e combináveis (AND): skill (match exato do nome,
+        normalizado para caixa alta, máx. 50), name (busca parcial, case-insensitive,
+        ignora acentos) e email (match exato, case-insensitive). Sem filtros, retorna
+        todos os usuários ativos paginados. O e-mail não é exposto no response.'
       parameters:
-      - description: Nome da skill (normalizado para caixa alta)
+      - description: Nome da skill (match exato, normalizado para caixa alta, máx.
+          50)
         in: query
         name: skill
-        required: true
+        type: string
+      - description: Nome do usuário (busca parcial, case-insensitive, ignora acentos)
+        in: query
+        name: name
+        type: string
+      - description: E-mail do usuário (match exato, case-insensitive)
+        in: query
+        name: email
         type: string
       - description: Página
         in: query
@@ -1383,7 +1391,7 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Busca usuários por skill
+      summary: Lista/busca usuários
       tags:
       - users
   /v1/user/{userId}:

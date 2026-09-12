@@ -74,14 +74,6 @@ func (u *userService) GetUserById(targetId string, requesterId string) (*domain.
 // GetAllUsers implements UserService.
 func (u *userService) GetAllUsers(filter repository.UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr) {
 	skillName := normalizeSkillName(filter.SkillName)
-	if skillName == "" {
-		return nil, rest_err.NewBadRequestValidationError(
-			"Invalid query params",
-			[]rest_err.Causes{{
-				Field:   "skill",
-				Message: "query param skill is required",
-			}})
-	}
 	if len(skillName) > 50 {
 		return nil, rest_err.NewBadRequestValidationError(
 			"Invalid query params",
@@ -90,7 +82,11 @@ func (u *userService) GetAllUsers(filter repository.UserFilter, page int, limit 
 				Message: "Skill name is not valid",
 			}})
 	}
-	return u.userRepository.FindAll(repository.UserFilter{SkillName: skillName}, page, limit)
+	return u.userRepository.FindAll(repository.UserFilter{
+		SkillName: skillName,
+		Name:      filter.Name,
+		Email:     filter.Email,
+	}, page, limit)
 }
 
 // CreateUser implements UserService.

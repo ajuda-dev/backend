@@ -62,12 +62,14 @@ func (u *userController) RegisterUser() fiber.Handler {
 }
 
 // GetAllUsers godoc
-// @Summary      Busca usuários por skill
-// @Description  Retorna os usuários ativos que possuem a skill informada (match exato do nome, normalizado para caixa alta) com as skills do perfil de cada um. O parâmetro skill é obrigatório.
+// @Summary      Lista/busca usuários
+// @Description  Retorna usuários ativos com as skills do perfil, em ordem alfabética por nome. Filtros opcionais e combináveis (AND): skill (match exato do nome, normalizado para caixa alta, máx. 50), name (busca parcial, case-insensitive, ignora acentos) e email (match exato, case-insensitive). Sem filtros, retorna todos os usuários ativos paginados. O e-mail não é exposto no response.
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        skill  query  string  true  "Nome da skill (normalizado para caixa alta)"
+// @Param        skill  query  string  false  "Nome da skill (match exato, normalizado para caixa alta, máx. 50)"
+// @Param        name   query  string  false  "Nome do usuário (busca parcial, case-insensitive, ignora acentos)"
+// @Param        email  query  string  false  "E-mail do usuário (match exato, case-insensitive)"
 // @Param        page   query  int     false  "Página"
 // @Param        limit  query  int     false  "Limite"
 // @Success      200   {object}  dto.PageableUserDto
@@ -82,6 +84,8 @@ func (u *userController) GetAllUsers() fiber.Handler {
 
 		result, e := u.userService.GetAllUsers(repository.UserFilter{
 			SkillName: c.Query("skill"),
+			Name:      c.Query("name"),
+			Email:     c.Query("email"),
 		}, page, limit)
 		if e != nil {
 			logger.Error("error: ", e)

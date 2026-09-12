@@ -12,7 +12,6 @@ type PageableUserDto struct {
 type UserSkillDto struct {
 	Id     string     `json:"id"`
 	Name   string     `json:"name"`
-	Email  string     `json:"email"`
 	Skills []SkillDto `json:"skills"`
 }
 
@@ -24,7 +23,6 @@ func (u UserSkillDto) FromDomain(user *domain.UserDomain) UserSkillDto {
 	return UserSkillDto{
 		Id:     user.Id,
 		Name:   user.Name,
-		Email:  user.Email,
 		Skills: skills,
 	}
 }
