@@ -12,6 +12,7 @@ type AddressService interface {
 	CreateAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
 	GetAddressById(id string) (*domain.AddressDomain, *rest_err.RestErr)
 	SearchAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
+	GetAll(filter repository.AddressFilter, page int, limit int) (*domain.PageableAddress, *rest_err.RestErr)
 }
 
 type addressService struct {
@@ -69,6 +70,10 @@ func (a *addressService) SearchAddress(address *domain.AddressDomain) (*domain.A
 		return nil, err
 	}
 	return a.addressRepository.SearchAddress(address)
+}
+
+func (a *addressService) GetAll(filter repository.AddressFilter, page int, limit int) (*domain.PageableAddress, *rest_err.RestErr) {
+	return a.addressRepository.FindAll(filter, page, limit)
 }
 
 func NewAddressService(

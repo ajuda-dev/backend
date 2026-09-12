@@ -9,3 +9,8 @@ type AddressDomain struct {
 	Number     string
 	Complement string
 }
+
+type PageableAddress struct {
+	HasNext bool
+	Data    []*AddressDomain
+}

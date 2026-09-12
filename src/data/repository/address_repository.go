@@ -10,10 +10,17 @@ import (
 	"gorm.io/gorm"
 )
 
+type AddressFilter struct {
+	City    string
+	State   string
+	ZipCode string
+}
+
 type AddressRepository interface {
 	CreateAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
 	GetAddressById(id string) (*domain.AddressDomain, *rest_err.RestErr)
 	SearchAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
+	FindAll(filter AddressFilter, page int, limit int) (*domain.PageableAddress, *rest_err.RestErr)
 }
 
 type addressRepository struct {
@@ -74,6 +81,62 @@ func (a *addressRepository) GetAddressById(id string) (*domain.AddressDomain, *r
 		return nil, rest_err.NewInternalServerError("Error getting address: " + err.Error())
 	}
 	return addressEntity.ToDomainAddress(), nil
+}
+
+func (a *addressRepository) FindAll(filter AddressFilter, page int, limit int) (*domain.PageableAddress, *rest_err.RestErr) {
+	var addresses []entity.AddressEntity
+	query := a.database.Model(&entity.AddressEntity{})
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	city := strings.ToLower(strings.TrimSpace(filter.City))
+	if city != "" {
+		search := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(city)
+		// addresses.city é gravada em minúsculas, mas preserva acento: sem unaccent nos
+		// DOIS lados, quem digita "belém" não acha a base "belem" e vice-versa (plano 16).
+		query = query.Where("unaccent(addresses.city) LIKE unaccent(?)", "%"+search+"%")
+	}
+	if state := strings.ToUpper(strings.TrimSpace(filter.State)); state != "" {
+		query = query.Where("addresses.state = ?", state)
+	}
+	if zip := onlyDigits(filter.ZipCode); zip != "" {
+		// a coluna guarda o CEP do ViaCEP ("12345-678"); comparar por dígito aceita
+		// com e sem hífen e não depende do formato gravado.
+		// A barra dupla é do literal Go: o SQL recebe '\D'.
+		query = query.Where("regexp_replace(addresses.zip_code, '\\D', '', 'g') = ?", zip)
+	}
+
+	offset := (page - 1) * limit
+	result := query.
+		Order("addresses.city, addresses.street, addresses.number, addresses.id").
+		Offset(offset).Limit(limit + 1).Find(&addresses)
+	if result.Error != nil {
+		return nil, rest_err.NewInternalServerError("Error listing addresses: " + result.Error.Error())
+	}
+
+	hasNext := len(addresses) > limit
+	if hasNext {
+		addresses = addresses[:limit]
+	}
+	return &domain.PageableAddress{
+		HasNext: hasNext,
+		Data:    entity.ToAddressDomainList(addresses),
+	}, nil
+}
+
+// onlyDigits reduz "12345-678", "12345 678" e "12345678" a "12345678".
+func onlyDigits(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, value)
 }
 
 func NewAddressRepository(db *gorm.DB) AddressRepository {

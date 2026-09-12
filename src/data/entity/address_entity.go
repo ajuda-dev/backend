@@ -48,3 +48,11 @@ func (a *AddressEntity) FromDomainAddress(address *domain.AddressDomain) *Addres
 		Complement: strings.ToLower(strings.TrimSpace(address.Complement)),
 	}
 }
+
+func ToAddressDomainList(entities []AddressEntity) []*domain.AddressDomain {
+	addresses := make([]*domain.AddressDomain, len(entities))
+	for i, e := range entities {
+		addresses[i] = e.ToDomainAddress()
+	}
+	return addresses
+}

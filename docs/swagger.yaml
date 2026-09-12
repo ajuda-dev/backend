@@ -119,6 +119,15 @@ definitions:
       token:
         type: string
     type: object
+  dto.PageableAddressDto:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.AddressDto'
+        type: array
+      has_next:
+        type: boolean
+    type: object
   dto.PageableCommunityDto:
     properties:
       data:
@@ -286,6 +295,56 @@ info:
   title: AjudaDev Backend API
   version: "1.0"
 paths:
+  /v1/address:
+    get:
+      consumes:
+      - application/json
+      description: Retorna os endereços com paginação e filtros opcionais por cidade
+        (busca parcial, case-insensitive e accent-insensitive), estado (UF exata)
+        e CEP (igualdade pelos dígitos, aceita com ou sem hífen)
+      parameters:
+      - description: Página
+        in: query
+        name: page
+        type: integer
+      - description: Limite
+        in: query
+        name: limit
+        type: integer
+      - description: Cidade (busca parcial, case-insensitive, ignora acentos)
+        in: query
+        name: city
+        type: string
+      - description: UF (igualdade exata, ex. SP)
+        in: query
+        name: state
+        type: string
+      - description: CEP (igualdade pelos dígitos, aceita com ou sem hífen)
+        in: query
+        name: zip_code
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PageableAddressDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lista endereços
+      tags:
+      - addresses
   /v1/address/register:
     post:
       consumes:

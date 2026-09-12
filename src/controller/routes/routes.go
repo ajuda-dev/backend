@@ -20,6 +20,7 @@ func SetupRoutesUser(app *fiber.App, userController controller.UserController, a
 func SetupRoutesAddress(app *fiber.App, addressController controller.AddressController, auth fiber.Handler) {
 	address := app.Group("/v1/address", auth)
 	address.Post("/register", addressController.RegisterAddress())
+	address.Get("", addressController.GetAllAddresses())
 }
 
 func SetupRoutesCommunities(app *fiber.App, communityController controller.CommunityController, auth fiber.Handler) {
