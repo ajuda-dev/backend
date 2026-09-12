@@ -21,6 +21,7 @@ type CommunityRepository interface {
 	FindByName(name string) (*domain.CommunityDomain, *rest_err.RestErr)
 	FindById(id string) (*domain.CommunityDomain, *rest_err.RestErr)
 	FindAll(filter CommunityFilter, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
+	Update(id string, community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
 	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
 }
@@ -65,6 +66,28 @@ func (c *communityRepository) FindById(id string) (*domain.CommunityDomain, *res
 		return nil, rest_err.NewInternalServerError("Error getting community: " + err.Error())
 	}
 	return communityEntity.ToDomain(), nil
+}
+
+func (c *communityRepository) Update(id string, community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr) {
+	// map (e não struct): `Updates` com struct ignora campos zero, e aqui "vazio"
+	// significa "não alterar" — só entram as chaves efetivamente informadas.
+	fields := map[string]interface{}{}
+	if community.Name != "" {
+		fields["name"] = community.Name
+	}
+	if community.Description != "" {
+		fields["description"] = community.Description
+	}
+	if community.Address.Id != "" {
+		fields["address_id"] = community.Address.Id
+	}
+	result := c.database.Model(&entity.CommunityEntity{}).
+		Where("id = ? AND deleted_at IS NULL", id).
+		Updates(fields)
+	if result.Error != nil {
+		return nil, rest_err.NewInternalServerError("Error updating community: " + result.Error.Error())
+	}
+	return c.FindById(id)
 }
 
 func (c *communityRepository) SoftDeleteById(id string) *rest_err.RestErr {

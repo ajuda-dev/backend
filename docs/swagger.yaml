@@ -231,6 +231,15 @@ definitions:
       user_id:
         type: string
     type: object
+  dto.UpdateCommunityDto:
+    properties:
+      address_id:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+    type: object
   dto.UpdateParticipantStatusDto:
     properties:
       status:
@@ -435,6 +444,55 @@ paths:
       security:
       - BearerAuth: []
       summary: Busca comunidade por id
+      tags:
+      - communities
+    put:
+      consumes:
+      - application/json
+      description: Atualiza nome, descrição e/ou endereço (campos vazios são ignorados).
+        Somente o dono da comunidade, moderadores e admins.
+      parameters:
+      - description: ID da comunidade
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Campos a alterar
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateCommunityDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.CommunityDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Altera uma comunidade
       tags:
       - communities
   /v1/community/{id}/join:

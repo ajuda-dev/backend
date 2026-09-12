@@ -18,6 +18,7 @@ type CommunityController interface {
 	RegisterCommunity() fiber.Handler
 	GetCommunityById() fiber.Handler
 	GetAllCommunities() fiber.Handler
+	UpdateCommunity() fiber.Handler
 	DeleteCommunity() fiber.Handler
 }
 
@@ -138,6 +139,46 @@ func (c *communityController) GetAllCommunities() fiber.Handler {
 
 		dtoResult := dto.PageableCommunityDto{}.FromDomain(*result)
 		return cf.Status(fiber.StatusOK).JSON(dtoResult)
+	}
+}
+
+// UpdateCommunity godoc
+// @Summary      Altera uma comunidade
+// @Description  Atualiza nome, descrição e/ou endereço (campos vazios são ignorados). Somente o dono da comunidade, moderadores e admins.
+// @Tags         communities
+// @Accept       json
+// @Produce      json
+// @Param        id    path  string  true  "ID da comunidade"
+// @Param        body  body  dto.UpdateCommunityDto  true  "Campos a alterar"
+// @Success      200   {object}  dto.CommunityDto
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/community/{id} [put]
+func (c *communityController) UpdateCommunity() fiber.Handler {
+	return func(cf *fiber.Ctx) error {
+		id := cf.Params("id")
+		if !uuidv7.IsValidString(id) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
+		}
+		var updateCommunityDto dto.UpdateCommunityDto
+		if err := cf.BodyParser(&updateCommunityDto); err != nil {
+			logger.Error("erro body request", err)
+			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		requesterId := cf.Locals(middleware.UserIdKey).(string)
+		community, err := c.communityService.UpdateCommunity(id, requesterId, updateCommunityDto.ToDomain())
+		if err != nil {
+			logger.Error("error: ", err)
+			return cf.Status(err.Code).JSON(err)
+		}
+		return cf.Status(fiber.StatusOK).JSON(dto.CommunityDto{}.FromDomain(community))
 	}
 }
 

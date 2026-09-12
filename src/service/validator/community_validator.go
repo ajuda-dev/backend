@@ -1,6 +1,8 @@
 package validator
 
 import (
+	"strings"
+
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/samborkent/uuidv7"
@@ -8,6 +10,7 @@ import (
 
 type CommunityValidator interface {
 	ValidatorRegisterCommunity(community domain.CommunityDomain) *rest_err.RestErr
+	ValidateUpdateCommunity(community domain.CommunityDomain) *rest_err.RestErr
 }
 
 type communityValidator struct{}
@@ -49,6 +52,37 @@ func (c *communityValidator) ValidatorRegisterCommunity(community domain.Communi
 			"Invalid community data",
 			causes,
 		)
+	}
+	return nil
+}
+
+func (c *communityValidator) ValidateUpdateCommunity(community domain.CommunityDomain) *rest_err.RestErr {
+	causes := []rest_err.Causes{}
+
+	name := strings.TrimSpace(community.Name)
+	description := strings.TrimSpace(community.Description)
+	addressId := strings.TrimSpace(community.Address.Id)
+
+	if name == "" && description == "" && addressId == "" {
+		causes = append(causes, rest_err.Causes{
+			Field:   "body",
+			Message: "provide at least one field to update",
+		})
+	}
+	if name != "" && !isValidName(community.Name, true) {
+		causes = append(causes, rest_err.Causes{
+			Field:   "name",
+			Message: "Name is not valid",
+		})
+	}
+	if addressId != "" && !uuidv7.IsValidString(addressId) {
+		causes = append(causes, rest_err.Causes{
+			Field:   "address_id",
+			Message: "AddressId is not valid",
+		})
+	}
+	if len(causes) > 0 {
+		return rest_err.NewBadRequestValidationError("Invalid community data", causes)
 	}
 	return nil
 }
