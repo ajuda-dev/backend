@@ -101,14 +101,15 @@ func (c *communityController) GetCommunityById() fiber.Handler {
 
 // GetAllCommunities godoc
 // @Summary      Lista comunidades
-// @Description  Retorna todas as comunidades, com paginação e filtros por endereço e cidade (busca parcial por cidade, case-insensitive)
+// @Description  Retorna todas as comunidades, com paginação e filtros por dono, nome e cidade (buscas parciais e case-insensitive)
 // @Tags         communities
 // @Accept       json
 // @Produce      json
 // @Param        page      query   int     false  "Página"
 // @Param        limit     query   int     false  "Limite"
-// @Param        address_id query  string  false  "ID do endereço"
-// @Param        city      query  string  false  "Cidade do endereço da comunidade (busca parcial, case-insensitive)"
+// @Param        owner_id  query   string  false  "ID do dono da comunidade (uuid v7)"
+// @Param        name      query   string  false  "Nome da comunidade (busca parcial, case-insensitive)"
+// @Param        city      query   string  false  "Cidade do endereço da comunidade (busca parcial, case-insensitive)"
 // @Success      200   {object}  dto.PageableCommunityDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
@@ -120,13 +121,14 @@ func (c *communityController) GetAllCommunities() fiber.Handler {
 		limit, _ := strconv.Atoi(cf.Query("limit", "10"))
 
 		filter := repository.CommunityFilter{
-			AddressId: cf.Query("address_id"),
-			City:      cf.Query("city"),
+			OwnerId: cf.Query("owner_id"),
+			Name:    cf.Query("name"),
+			City:    cf.Query("city"),
 		}
-		if filter.AddressId != "" && !uuidv7.IsValidString(filter.AddressId) {
+		if filter.OwnerId != "" && !uuidv7.IsValidString(filter.OwnerId) {
 			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
 				"Invalid query params",
-				[]rest_err.Causes{{Field: "address_id", Message: "address_id must be a valid UUID v7"}}))
+				[]rest_err.Causes{{Field: "owner_id", Message: "owner_id must be a valid UUID v7"}}))
 		}
 		result, e := c.communityService.GetAll(filter, page, limit)
 		if e != nil {

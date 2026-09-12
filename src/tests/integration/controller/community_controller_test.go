@@ -173,6 +173,19 @@ func createCommunityUser(t *testing.T) *domain.UserDomain {
 	return user
 }
 
+func createCommunityOwner(t *testing.T, email string) *domain.UserDomain {
+	t.Helper()
+	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+		Name:     "owner",
+		Email:    email,
+		Password: "123456",
+	})
+	if createErr != nil {
+		t.Fatalf("failed to create owner: %v", createErr)
+	}
+	return user
+}
+
 func createCommunityAddress(t *testing.T, city string) *domain.AddressDomain {
 	t.Helper()
 	address, aErr := addressRepository.CreateAddress(&domain.AddressDomain{
@@ -211,7 +224,31 @@ func registerCommunityViaApi(t *testing.T, app *fiber.App, token string, address
 	return created.Id
 }
 
-func listCommunitiesByCity(t *testing.T, app *fiber.App, token string, query string) dto.PageableCommunityDto {
+func registerCommunityForOwner(t *testing.T, app *fiber.App, token string, addressId string, name string) string {
+	t.Helper()
+	body := []byte(`{
+	"address_id": "` + addressId + `",
+	"name": "` + name + `",
+	"description": "comunidade de teste"
+	}
+	`)
+	req := newCommunityRegisterRequest(body)
+	resp, err := doAuthedRequest(app, req, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 ao criar comunidade '%s', recebeu %d", name, resp.StatusCode)
+	}
+	var created dto.CommunityDto
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	return created.Id
+}
+
+func listCommunities(t *testing.T, app *fiber.App, token string, query string) dto.PageableCommunityDto {
 	t.Helper()
 	req := httptest.NewRequest("GET", "/v1/community?"+query, nil)
 	resp, err := doAuthedRequest(app, req, token)
@@ -243,7 +280,7 @@ func TestListCommunitiesByCity(t *testing.T) {
 	spCommunity := registerCommunityViaApi(t, app, token, addressSaoPaulo.Id, "Comunidade Sao Paulo")
 	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
 
-	page := listCommunitiesByCity(t, app, token, "city=sao%20paulo")
+	page := listCommunities(t, app, token, "city=sao%20paulo")
 	if len(page.Data) != 1 || page.Data[0].Id != spCommunity {
 		t.Errorf("esperava somente a comunidade de sao paulo, recebeu %+v", page.Data)
 	}
@@ -252,7 +289,7 @@ func TestListCommunitiesByCity(t *testing.T) {
 	}
 }
 
-func TestListCommunitiesByCityCaseInsensitive(t *testing.T) {
+func TestListCommunitiesCaseInsensitive(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanCommunityTable)
@@ -266,35 +303,13 @@ func TestListCommunitiesByCityCaseInsensitive(t *testing.T) {
 	spCommunity := registerCommunityViaApi(t, app, token, addressSaoPaulo.Id, "Comunidade Sao Paulo")
 	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
 
-	page := listCommunitiesByCity(t, app, token, "city=SAO%20PAULO")
+	page := listCommunities(t, app, token, "city=SAO%20PAULO")
 	if len(page.Data) != 1 || page.Data[0].Id != spCommunity {
 		t.Errorf("esperava somente a comunidade de sao paulo (case-insensitive), recebeu %+v", page.Data)
 	}
 }
 
-func TestListCommunitiesByCityAndAddressId(t *testing.T) {
-	t.Cleanup(cleanAddressesTable)
-	t.Cleanup(cleanUsersTable)
-	t.Cleanup(cleanCommunityTable)
-
-	app := setupApp()
-	user := createCommunityUser(t)
-	token := validTokenFor(t, user.Id)
-	addressSaoPaulo1 := createCommunityAddress(t, "sao paulo")
-	addressSaoPaulo2 := createCommunityAddress(t, "sao paulo")
-	addressCampinas := createCommunityAddress(t, "campinas")
-
-	firstCommunity := registerCommunityViaApi(t, app, token, addressSaoPaulo1.Id, "Comunidade Paulista Primeira")
-	registerCommunityViaApi(t, app, token, addressSaoPaulo2.Id, "Comunidade Paulista Segunda")
-	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
-
-	page := listCommunitiesByCity(t, app, token, "city=sao%20paulo&address_id="+addressSaoPaulo1.Id)
-	if len(page.Data) != 1 || page.Data[0].Id != firstCommunity {
-		t.Errorf("esperava somente a comunidade do endereço 1 em sao paulo, recebeu %+v", page.Data)
-	}
-}
-
-func TestListCommunitiesByCityNoMatch(t *testing.T) {
+func TestListCommunitiesNoMatch(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanCommunityTable)
@@ -308,13 +323,13 @@ func TestListCommunitiesByCityNoMatch(t *testing.T) {
 	registerCommunityViaApi(t, app, token, addressSaoPaulo.Id, "Comunidade Sao Paulo")
 	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
 
-	page := listCommunitiesByCity(t, app, token, "city=nao%20existe")
+	page := listCommunities(t, app, token, "city=nao%20existe")
 	if len(page.Data) != 0 || page.HasNext {
 		t.Errorf("esperava lista vazia com has_next false, recebeu %d itens, has_next=%v", len(page.Data), page.HasNext)
 	}
 }
 
-func TestListCommunitiesByCityPagination(t *testing.T) {
+func TestListCommunitiesPagination(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanCommunityTable)
@@ -327,18 +342,18 @@ func TestListCommunitiesByCityPagination(t *testing.T) {
 	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo Tres")
 	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "campinas").Id, "Comunidade Campinas")
 
-	pageOne := listCommunitiesByCity(t, app, token, "city=sao%20paulo&limit=2")
+	pageOne := listCommunities(t, app, token, "city=sao%20paulo&limit=2")
 	if len(pageOne.Data) != 2 || !pageOne.HasNext {
 		t.Errorf("esperava 2 itens com has_next true, recebeu %d itens, has_next=%v", len(pageOne.Data), pageOne.HasNext)
 	}
 
-	pageTwo := listCommunitiesByCity(t, app, token, "city=sao%20paulo&limit=2&page=2")
+	pageTwo := listCommunities(t, app, token, "city=sao%20paulo&limit=2&page=2")
 	if len(pageTwo.Data) != 1 || pageTwo.HasNext {
 		t.Errorf("esperava 1 item com has_next false, recebeu %d itens, has_next=%v", len(pageTwo.Data), pageTwo.HasNext)
 	}
 }
 
-func TestListCommunitiesByCitySubstring(t *testing.T) {
+func TestListCommunitiesSubstring(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanCommunityTable)
@@ -354,14 +369,14 @@ func TestListCommunitiesByCitySubstring(t *testing.T) {
 
 	queries := []string{"city=paulo", "city=sao", "city=o%20pa", "city=PaUlO"}
 	for _, query := range queries {
-		page := listCommunitiesByCity(t, app, token, query)
+		page := listCommunities(t, app, token, query)
 		if len(page.Data) != 1 || page.Data[0].Id != spCommunity {
 			t.Errorf("query %q: esperava somente a comunidade de sao paulo, recebeu %+v", query, page.Data)
 		}
 	}
 }
 
-func TestListCommunitiesByCitySubstringMatchesMultipleCities(t *testing.T) {
+func TestListCommunitiesSubstringMatchesMultipleCities(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanCommunityTable)
@@ -374,7 +389,7 @@ func TestListCommunitiesByCitySubstringMatchesMultipleCities(t *testing.T) {
 	pauloAfonsoCommunity := registerCommunityViaApi(t, app, token, createCommunityAddress(t, "paulo afonso").Id, "Comunidade Paulo Afonso")
 	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "campinas").Id, "Comunidade Campinas")
 
-	page := listCommunitiesByCity(t, app, token, "city=paulo")
+	page := listCommunities(t, app, token, "city=paulo")
 	if len(page.Data) != 2 {
 		t.Fatalf("esperava 2 comunidades contendo 'paulo', recebeu %d: %+v", len(page.Data), page.Data)
 	}
@@ -387,29 +402,7 @@ func TestListCommunitiesByCitySubstringMatchesMultipleCities(t *testing.T) {
 	}
 }
 
-func TestListCommunitiesByCitySubstringAndAddressId(t *testing.T) {
-	t.Cleanup(cleanAddressesTable)
-	t.Cleanup(cleanUsersTable)
-	t.Cleanup(cleanCommunityTable)
-
-	app := setupApp()
-	user := createCommunityUser(t)
-	token := validTokenFor(t, user.Id)
-	addressSaoPaulo1 := createCommunityAddress(t, "sao paulo")
-	addressSaoPaulo2 := createCommunityAddress(t, "sao paulo")
-	addressCampinas := createCommunityAddress(t, "campinas")
-
-	firstCommunity := registerCommunityViaApi(t, app, token, addressSaoPaulo1.Id, "Comunidade Paulista Primeira")
-	registerCommunityViaApi(t, app, token, addressSaoPaulo2.Id, "Comunidade Paulista Segunda")
-	registerCommunityViaApi(t, app, token, addressCampinas.Id, "Comunidade Campinas")
-
-	page := listCommunitiesByCity(t, app, token, "city=sao&address_id="+addressSaoPaulo1.Id)
-	if len(page.Data) != 1 || page.Data[0].Id != firstCommunity {
-		t.Errorf("esperava somente a comunidade do endereço 1 em sao paulo, recebeu %+v", page.Data)
-	}
-}
-
-func TestListCommunitiesByCityWildcardEscape(t *testing.T) {
+func TestListCommunitiesWildcardEscape(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanCommunityTable)
@@ -419,18 +412,18 @@ func TestListCommunitiesByCityWildcardEscape(t *testing.T) {
 	token := validTokenFor(t, user.Id)
 	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo")
 
-	wildcardPage := listCommunitiesByCity(t, app, token, "city=%25")
+	wildcardPage := listCommunities(t, app, token, "city=%25")
 	if len(wildcardPage.Data) != 0 {
 		t.Errorf("esperava 0 resultados para '%%' literal, recebeu %+v", wildcardPage.Data)
 	}
 
-	underscorePage := listCommunitiesByCity(t, app, token, "city=sao_paulo")
+	underscorePage := listCommunities(t, app, token, "city=sao_paulo")
 	if len(underscorePage.Data) != 0 {
 		t.Errorf("esperava 0 resultados para 'sao_paulo' (underscore literal), recebeu %+v", underscorePage.Data)
 	}
 }
 
-func TestListCommunitiesByCityWhitespaceOnly(t *testing.T) {
+func TestListCommunitiesWhitespaceOnly(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanCommunityTable)
@@ -441,18 +434,18 @@ func TestListCommunitiesByCityWhitespaceOnly(t *testing.T) {
 	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo")
 	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "campinas").Id, "Comunidade Campinas")
 
-	page := listCommunitiesByCity(t, app, token, "city=%20%20")
+	page := listCommunities(t, app, token, "city=%20%20")
 	if len(page.Data) != 2 || page.HasNext {
 		t.Errorf("esperava a lista completa (2 itens) sem filtro, recebeu %d itens, has_next=%v", len(page.Data), page.HasNext)
 	}
 
-	trimmedPage := listCommunitiesByCity(t, app, token, "city=%20paulo")
+	trimmedPage := listCommunities(t, app, token, "city=%20paulo")
 	if len(trimmedPage.Data) != 1 || trimmedPage.Data[0].Address == nil || trimmedPage.Data[0].Address.City != "sao paulo" {
 		t.Errorf("esperava 1 resultado para ' paulo' (com trim), recebeu %+v", trimmedPage.Data)
 	}
 }
 
-func TestListCommunitiesByCitySubstringPagination(t *testing.T) {
+func TestListCommunitiesSubstringPagination(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanCommunityTable)
@@ -465,18 +458,18 @@ func TestListCommunitiesByCitySubstringPagination(t *testing.T) {
 	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo Tres")
 	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "campinas").Id, "Comunidade Campinas")
 
-	pageOne := listCommunitiesByCity(t, app, token, "city=sao&limit=2")
+	pageOne := listCommunities(t, app, token, "city=sao&limit=2")
 	if len(pageOne.Data) != 2 || !pageOne.HasNext {
 		t.Errorf("esperava 2 itens com has_next true, recebeu %d itens, has_next=%v", len(pageOne.Data), pageOne.HasNext)
 	}
 
-	pageTwo := listCommunitiesByCity(t, app, token, "city=sao&limit=2&page=2")
+	pageTwo := listCommunities(t, app, token, "city=sao&limit=2&page=2")
 	if len(pageTwo.Data) != 1 || pageTwo.HasNext {
 		t.Errorf("esperava 1 item com has_next false, recebeu %d itens, has_next=%v", len(pageTwo.Data), pageTwo.HasNext)
 	}
 }
 
-func TestListCommunitiesByCityAccentNotNormalized(t *testing.T) {
+func TestListCommunitiesAccentNotNormalized(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanCommunityTable)
@@ -486,7 +479,7 @@ func TestListCommunitiesByCityAccentNotNormalized(t *testing.T) {
 	token := validTokenFor(t, user.Id)
 	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "são paulo").Id, "Comunidade São Paulo")
 
-	page := listCommunitiesByCity(t, app, token, "city=sao")
+	page := listCommunities(t, app, token, "city=sao")
 	if len(page.Data) != 0 {
 		t.Errorf("acentos não são normalizados: esperava 0 resultados para 'sao', recebeu %+v", page.Data)
 	}
@@ -666,5 +659,291 @@ func TestGetCommunityByIdOtherOwner(t *testing.T) {
 	}
 	if detail.Id != created.Id || detail.Owner == nil || detail.Owner.Id != owner.Id {
 		t.Errorf("esperava a comunidade %s com owner %s, recebeu %+v", created.Id, owner.Id, detail)
+	}
+}
+
+func TestListCommunitiesByOwnerId(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	ownerA := createCommunityOwner(t, "owner.a.ownerid@ajuda.dev")
+	ownerB := createCommunityOwner(t, "owner.b.ownerid@ajuda.dev")
+	tokenA := validTokenFor(t, ownerA.Id)
+	tokenB := validTokenFor(t, ownerB.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	communityA1 := registerCommunityForOwner(t, app, tokenA, address.Id, "Comunidade Owner A Um")
+	communityA2 := registerCommunityForOwner(t, app, tokenA, address.Id, "Comunidade Owner A Dois")
+	registerCommunityForOwner(t, app, tokenB, address.Id, "Comunidade Owner B Um")
+	registerCommunityForOwner(t, app, tokenB, address.Id, "Comunidade Owner B Dois")
+
+	page := listCommunities(t, app, tokenA, "owner_id="+ownerA.Id)
+	if len(page.Data) != 2 || page.HasNext {
+		t.Fatalf("esperava 2 comunidades do owner A, recebeu %d itens, has_next=%v: %+v", len(page.Data), page.HasNext, page.Data)
+	}
+	found := map[string]bool{}
+	for _, item := range page.Data {
+		found[item.Id] = true
+		if item.Owner == nil || item.Owner.Id != ownerA.Id {
+			t.Errorf("esperava owner.id '%s' no item, recebeu %+v", ownerA.Id, item.Owner)
+		}
+	}
+	if !found[communityA1] || !found[communityA2] {
+		t.Errorf("esperava as comunidades %s e %s, recebeu %+v", communityA1, communityA2, page.Data)
+	}
+}
+
+func TestListCommunitiesByOwnerIdAndCity(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	ownerA := createCommunityOwner(t, "owner.a.ownercity@ajuda.dev")
+	ownerB := createCommunityOwner(t, "owner.b.ownercity@ajuda.dev")
+	tokenA := validTokenFor(t, ownerA.Id)
+	tokenB := validTokenFor(t, ownerB.Id)
+
+	communityA := registerCommunityForOwner(t, app, tokenA, createCommunityAddress(t, "sao paulo").Id, "Comunidade Owner A Sao Paulo")
+	registerCommunityForOwner(t, app, tokenA, createCommunityAddress(t, "campinas").Id, "Comunidade Owner A Campinas")
+	registerCommunityForOwner(t, app, tokenB, createCommunityAddress(t, "sao paulo").Id, "Comunidade Owner B Sao Paulo")
+
+	page := listCommunities(t, app, tokenA, "city=sao&owner_id="+ownerA.Id)
+	if len(page.Data) != 1 || page.Data[0].Id != communityA {
+		t.Errorf("esperava somente a comunidade do owner A em sao paulo, recebeu %+v", page.Data)
+	}
+}
+
+func TestListCommunitiesByOwnerIdInvalidUuid(t *testing.T) {
+	app := setupApp()
+	token := validTokenFor(t, uuidv7.New().String())
+
+	for _, ownerId := range []string{"abc", "123"} {
+		req := httptest.NewRequest("GET", "/v1/community?owner_id="+ownerId, nil)
+		resp, err := doAuthedRequest(app, req, token)
+		if err != nil {
+			t.Fatalf("owner_id %q: erro ao executar requisição: %v", ownerId, err)
+		}
+		if resp.StatusCode != fiber.StatusBadRequest {
+			resp.Body.Close()
+			t.Errorf("owner_id %q: esperava 400, recebeu %d", ownerId, resp.StatusCode)
+			continue
+		}
+		var respBody rest_err.RestErr
+		if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+			resp.Body.Close()
+			t.Fatalf("owner_id %q: erro ao decodificar body: %v", ownerId, err)
+		}
+		resp.Body.Close()
+		if respBody.Message != "Invalid query params" {
+			t.Errorf("owner_id %q: esperava message 'Invalid query params', recebeu '%s'", ownerId, respBody.Message)
+		}
+		causes := getCauseByField("owner_id", respBody.Causes)
+		if len(causes) == 0 || causes[0] != "owner_id must be a valid UUID v7" {
+			t.Errorf("owner_id %q: esperava cause do campo 'owner_id', recebeu %+v", ownerId, respBody.Causes)
+		}
+	}
+}
+
+func TestListCommunitiesByOwnerIdNoMatch(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	owner := createCommunityOwner(t, "owner.nomatch@ajuda.dev")
+	token := validTokenFor(t, owner.Id)
+	registerCommunityForOwner(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Owner No Match")
+
+	page := listCommunities(t, app, token, "owner_id="+uuidv7.New().String())
+	if len(page.Data) != 0 || page.HasNext {
+		t.Errorf("esperava lista vazia com has_next false, recebeu %d itens, has_next=%v", len(page.Data), page.HasNext)
+	}
+}
+
+func TestListCommunitiesByOwnerIdPagination(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	ownerA := createCommunityOwner(t, "owner.a.ownerpage@ajuda.dev")
+	ownerB := createCommunityOwner(t, "owner.b.ownerpage@ajuda.dev")
+	tokenA := validTokenFor(t, ownerA.Id)
+	tokenB := validTokenFor(t, ownerB.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	registerCommunityForOwner(t, app, tokenA, address.Id, "Comunidade Owner A Pagina Um")
+	registerCommunityForOwner(t, app, tokenA, address.Id, "Comunidade Owner A Pagina Dois")
+	registerCommunityForOwner(t, app, tokenA, address.Id, "Comunidade Owner A Pagina Tres")
+	registerCommunityForOwner(t, app, tokenB, address.Id, "Comunidade Owner B Pagina Um")
+
+	pageOne := listCommunities(t, app, tokenA, "owner_id="+ownerA.Id+"&limit=2")
+	if len(pageOne.Data) != 2 || !pageOne.HasNext {
+		t.Errorf("esperava 2 itens com has_next true, recebeu %d itens, has_next=%v", len(pageOne.Data), pageOne.HasNext)
+	}
+
+	pageTwo := listCommunities(t, app, tokenA, "owner_id="+ownerA.Id+"&limit=2&page=2")
+	if len(pageTwo.Data) != 1 || pageTwo.HasNext {
+		t.Errorf("esperava 1 item com has_next false, recebeu %d itens, has_next=%v", len(pageTwo.Data), pageTwo.HasNext)
+	}
+}
+
+func TestListCommunitiesIgnoresAddressIdQueryParam(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	addressOne := createCommunityAddress(t, "sao paulo")
+	addressTwo := createCommunityAddress(t, "campinas")
+
+	registerCommunityViaApi(t, app, token, addressOne.Id, "Comunidade Ignora Address Um")
+	registerCommunityViaApi(t, app, token, addressTwo.Id, "Comunidade Ignora Address Dois")
+
+	page := listCommunities(t, app, token, "address_id="+addressOne.Id)
+	if len(page.Data) != 2 || page.HasNext {
+		t.Errorf("address_id deve ser ignorado: esperava as 2 comunidades, recebeu %d itens, has_next=%v: %+v", len(page.Data), page.HasNext, page.Data)
+	}
+}
+
+func TestListCommunitiesByNameSubstring(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	devSp := registerCommunityViaApi(t, app, token, address.Id, "Comunidade Dev SP")
+	devRj := registerCommunityViaApi(t, app, token, address.Id, "Comunidade Dev RJ")
+	registerCommunityViaApi(t, app, token, address.Id, "Comunidade Design SP")
+
+	page := listCommunities(t, app, token, "name=dev")
+	if len(page.Data) != 2 {
+		t.Fatalf("esperava 2 comunidades contendo 'dev', recebeu %d: %+v", len(page.Data), page.Data)
+	}
+	found := map[string]bool{}
+	for _, item := range page.Data {
+		found[item.Id] = true
+	}
+	if !found[devSp] || !found[devRj] {
+		t.Errorf("esperava as comunidades %s e %s, recebeu %+v", devSp, devRj, page.Data)
+	}
+}
+
+func TestListCommunitiesByNameCaseInsensitive(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	community := registerCommunityViaApi(t, app, token, address.Id, "Comunidade Dev SP")
+
+	queries := []string{"name=DEV", "name=dev%20sp", "name=Comunidade"}
+	for _, query := range queries {
+		page := listCommunities(t, app, token, query)
+		if len(page.Data) != 1 || page.Data[0].Id != community {
+			t.Errorf("query %q: esperava somente a comunidade '%s', recebeu %+v", query, community, page.Data)
+		}
+	}
+}
+
+func TestListCommunitiesByNameAndOwnerId(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	ownerA := createCommunityOwner(t, "owner.a.ownername@ajuda.dev")
+	ownerB := createCommunityOwner(t, "owner.b.ownername@ajuda.dev")
+	tokenA := validTokenFor(t, ownerA.Id)
+	tokenB := validTokenFor(t, ownerB.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	communityA := registerCommunityForOwner(t, app, tokenA, address.Id, "Comunidade Dev SP")
+	registerCommunityForOwner(t, app, tokenA, address.Id, "Comunidade Design")
+	registerCommunityForOwner(t, app, tokenB, address.Id, "Comunidade Dev RJ")
+
+	page := listCommunities(t, app, tokenA, "owner_id="+ownerA.Id+"&name=dev")
+	if len(page.Data) != 1 || page.Data[0].Id != communityA {
+		t.Errorf("esperava somente a comunidade de dev do owner A, recebeu %+v", page.Data)
+	}
+}
+
+func TestListCommunitiesByNameEscape(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	registerCommunityViaApi(t, app, token, address.Id, "Comunidade Dev SP")
+
+	wildcardPage := listCommunities(t, app, token, "name=%25")
+	if len(wildcardPage.Data) != 0 {
+		t.Errorf("esperava 0 resultados para '%%' literal, recebeu %+v", wildcardPage.Data)
+	}
+
+	underscorePage := listCommunities(t, app, token, "name=dev_sp")
+	if len(underscorePage.Data) != 0 {
+		t.Errorf("esperava 0 resultados para 'dev_sp' (underscore literal), recebeu %+v", underscorePage.Data)
+	}
+}
+
+func TestListCommunitiesByNameWhitespace(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	community := registerCommunityViaApi(t, app, token, address.Id, "Comunidade Dev SP")
+	registerCommunityViaApi(t, app, token, address.Id, "Comunidade Design")
+
+	whitespacePage := listCommunities(t, app, token, "name=%20%20")
+	if len(whitespacePage.Data) != 2 || whitespacePage.HasNext {
+		t.Errorf("esperava a lista completa (2 itens) sem filtro, recebeu %d itens, has_next=%v", len(whitespacePage.Data), whitespacePage.HasNext)
+	}
+
+	trimmedPage := listCommunities(t, app, token, "name=%20dev")
+	if len(trimmedPage.Data) != 1 || trimmedPage.Data[0].Id != community {
+		t.Errorf("esperava 1 resultado para ' dev' (com trim), recebeu %+v", trimmedPage.Data)
+	}
+}
+
+func TestListCommunitiesOwnerIdOfOtherUserIsReadable(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	ownerA := createCommunityOwner(t, "owner.a.ownerread@ajuda.dev")
+	ownerB := createCommunityOwner(t, "owner.b.ownerread@ajuda.dev")
+	tokenA := validTokenFor(t, ownerA.Id)
+	tokenB := validTokenFor(t, ownerB.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	communityB := registerCommunityForOwner(t, app, tokenB, address.Id, "Comunidade Owner B Leitura")
+
+	page := listCommunities(t, app, tokenA, "owner_id="+ownerB.Id)
+	if len(page.Data) != 1 || page.Data[0].Id != communityB {
+		t.Errorf("leitura não é restrita por owner: esperava a comunidade %s, recebeu %+v", communityB, page.Data)
 	}
 }

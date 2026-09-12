@@ -6,7 +6,7 @@ Backend of a communities/help platform (`github.com/ajuda-dev/backend`). The dom
 
 - **Users** (`users`): registration with name, email and password (bcrypt hash).
 - **Addresses** (`addresses`): address registration, with lookup/validation via the external **ViaCEP** API (by CEP or by state + city + street).
-- **Communities** (`community`): belong to a user (owner) and are linked to an address. They support creation and paginated listing with an optional `address_id` filter.
+- **Communities** (`community`): belong to a user (owner) and are linked to an address. They support creation and paginated listing with optional `owner_id`, `name` and `city` filters.
 
 The project is in an early development stage (no Makefile/CI). All endpoints are protected by the VerifyJWT middleware (JWT Bearer token), except POST /v1/user/register and POST /v1/user/login; the Swagger UI stays public.
 
@@ -101,7 +101,7 @@ Defined in `src/controller/routes/routes.go`:
 | POST | `/v1/address/register` | `RegisterAddress` | Creates an address (201) |
 | POST | `/v1/community/register` | `RegisterCommunity` | Creates a community (201, returns the full `dto.CommunityDto`: `address` + `owner`) |
 | GET | `/v1/community/:id` | `GetCommunityById` | Community detail with `address` + `owner`; `400` id not a UUID v7; `404` not found/soft-deleted (200) |
-| GET | `/v1/community` | `GetAllCommunities` | Paginated community listing; query params `page`, `limit`, `address_id`, `city` (partial, case-insensitive match) (200) |
+| GET | `/v1/community` | `GetAllCommunities` | Paginated community listing; query params `page`, `limit`, `owner_id` (UUID v7), `name` (partial, case-insensitive match), `city` (partial, case-insensitive match) (200) |
 | GET | `/swagger/*` | `swagger.HandlerDefault` | Swagger UI documentation |
 
 ## How to run

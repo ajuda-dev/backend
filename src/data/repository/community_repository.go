@@ -11,8 +11,9 @@ import (
 )
 
 type CommunityFilter struct {
-	AddressId string
-	City      string
+	OwnerId string
+	Name    string
+	City    string
 }
 
 type CommunityRepository interface {
@@ -97,8 +98,13 @@ func (c *communityRepository) FindAll(filter CommunityFilter, page int, limit in
 	if limit <= 0 {
 		limit = 10
 	}
-	if filter.AddressId != "" {
-		query = query.Where("address_id = ?", filter.AddressId)
+	if filter.OwnerId != "" {
+		query = query.Where("owner_id = ?", filter.OwnerId)
+	}
+	name := strings.ToLower(strings.TrimSpace(filter.Name))
+	if name != "" {
+		search := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(name)
+		query = query.Where("LOWER(name) LIKE ?", "%"+search+"%")
 	}
 	city := strings.ToLower(strings.TrimSpace(filter.City))
 	if city != "" {

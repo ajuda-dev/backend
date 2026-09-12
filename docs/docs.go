@@ -75,7 +75,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna todas as comunidades, com paginação e filtros por endereço e cidade (busca parcial por cidade, case-insensitive)",
+                "description": "Retorna todas as comunidades, com paginação e filtros por dono, nome e cidade (buscas parciais e case-insensitive)",
                 "consumes": [
                     "application/json"
                 ],
@@ -101,8 +101,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "ID do endereço",
-                        "name": "address_id",
+                        "description": "ID do dono da comunidade (uuid v7)",
+                        "name": "owner_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Nome da comunidade (busca parcial, case-insensitive)",
+                        "name": "name",
                         "in": "query"
                     },
                     {
