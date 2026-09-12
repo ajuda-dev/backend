@@ -37,6 +37,12 @@ func Connect() (db *gorm.DB, err error) {
 	if err != nil {
 		return nil, err
 	}
+	// unaccent é usado pela busca por cidade e nome (planos 13/15/16); é uma extensão
+	// "trusted", então o dono do banco a cria sem superusuário. Falha aqui é fail-fast:
+	// sem a extensão, toda busca por cidade/nome responderia 500.
+	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS unaccent").Error; err != nil {
+		return nil, fmt.Errorf("error enabling unaccent extension: %w", err)
+	}
 	err = db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{})
 	if err != nil {
 		return nil, fmt.Errorf("error doing AutoMigrate: %w", err)

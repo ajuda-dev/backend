@@ -311,7 +311,7 @@ paths:
       consumes:
       - application/json
       description: Retorna todas as comunidades, com paginação e filtros por dono,
-        nome e cidade (buscas parciais e case-insensitive)
+        nome e cidade (buscas parciais, case-insensitive e accent-insensitive)
       parameters:
       - description: Página
         in: query
@@ -325,11 +325,12 @@ paths:
         in: query
         name: owner_id
         type: string
-      - description: Nome da comunidade (busca parcial, case-insensitive)
+      - description: Nome da comunidade (busca parcial, case-insensitive, ignora acentos)
         in: query
         name: name
         type: string
-      - description: Cidade do endereço da comunidade (busca parcial, case-insensitive)
+      - description: Cidade do endereço da comunidade (busca parcial, case-insensitive,
+          ignora acentos)
         in: query
         name: city
         type: string

@@ -469,7 +469,7 @@ func TestListCommunitiesSubstringPagination(t *testing.T) {
 	}
 }
 
-func TestListCommunitiesAccentNotNormalized(t *testing.T) {
+func TestListCommunitiesByCityAccentInsensitive(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
 	t.Cleanup(cleanCommunityTable)
@@ -477,11 +477,35 @@ func TestListCommunitiesAccentNotNormalized(t *testing.T) {
 	app := setupApp()
 	user := createCommunityUser(t)
 	token := validTokenFor(t, user.Id)
-	registerCommunityViaApi(t, app, token, createCommunityAddress(t, "são paulo").Id, "Comunidade São Paulo")
+	community := registerCommunityViaApi(t, app, token, createCommunityAddress(t, "são paulo").Id, "Comunidade São Paulo")
 
-	page := listCommunities(t, app, token, "city=sao")
-	if len(page.Data) != 0 {
-		t.Errorf("acentos não são normalizados: esperava 0 resultados para 'sao', recebeu %+v", page.Data)
+	queries := []string{"city=sao", "city=SAO", "city=paulo", "city=são"}
+	for _, query := range queries {
+		page := listCommunities(t, app, token, query)
+		if len(page.Data) != 1 || page.Data[0].Id != community {
+			t.Errorf("query %q: esperava a comunidade '%s', recebeu %+v", query, community, page.Data)
+		}
+	}
+
+	noMatchPage := listCommunities(t, app, token, "city=nao%20existe")
+	if len(noMatchPage.Data) != 0 {
+		t.Errorf("esperava 0 resultados para 'nao existe', recebeu %+v", noMatchPage.Data)
+	}
+}
+
+func TestListCommunitiesByCityAccentInsensitiveReverse(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	community := registerCommunityViaApi(t, app, token, createCommunityAddress(t, "sao paulo").Id, "Comunidade Sao Paulo Sem Acento")
+
+	page := listCommunities(t, app, token, "city=são%20paulo")
+	if len(page.Data) != 1 || page.Data[0].Id != community {
+		t.Errorf("esperava a comunidade '%s' para termo acentuado sobre base sem acento, recebeu %+v", community, page.Data)
 	}
 }
 
@@ -925,6 +949,89 @@ func TestListCommunitiesByNameWhitespace(t *testing.T) {
 	trimmedPage := listCommunities(t, app, token, "name=%20dev")
 	if len(trimmedPage.Data) != 1 || trimmedPage.Data[0].Id != community {
 		t.Errorf("esperava 1 resultado para ' dev' (com trim), recebeu %+v", trimmedPage.Data)
+	}
+}
+
+func TestListCommunitiesByNameAccentInsensitive(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	community := registerCommunityViaApi(t, app, token, address.Id, "Comunidade São Paulo")
+
+	queries := []string{"name=sao", "name=SÃO", "name=paulo"}
+	for _, query := range queries {
+		page := listCommunities(t, app, token, query)
+		if len(page.Data) != 1 || page.Data[0].Id != community {
+			t.Errorf("query %q: esperava a comunidade '%s', recebeu %+v", query, community, page.Data)
+		}
+	}
+}
+
+func TestListCommunitiesByNameAccentInsensitiveReverse(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	community := registerCommunityViaApi(t, app, token, address.Id, "Comunidade Acai Belem")
+
+	page := listCommunities(t, app, token, "name=açaí")
+	if len(page.Data) != 1 || page.Data[0].Id != community {
+		t.Errorf("esperava a comunidade '%s' para termo acentuado sobre nome sem acento, recebeu %+v", community, page.Data)
+	}
+}
+
+func TestListCommunitiesByNameAccentWithOwnerId(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	ownerA := createCommunityOwner(t, "owner.a.owneraccent@ajuda.dev")
+	ownerB := createCommunityOwner(t, "owner.b.owneraccent@ajuda.dev")
+	tokenA := validTokenFor(t, ownerA.Id)
+	tokenB := validTokenFor(t, ownerB.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	communityA := registerCommunityForOwner(t, app, tokenA, address.Id, "Comunidade São Paulo")
+	registerCommunityForOwner(t, app, tokenB, address.Id, "Comunidade São Paulo Belem")
+
+	page := listCommunities(t, app, tokenA, "owner_id="+ownerA.Id+"&name=sao")
+	if len(page.Data) != 1 || page.Data[0].Id != communityA {
+		t.Errorf("esperava somente a comunidade de A, recebeu %+v", page.Data)
+	}
+}
+
+func TestListCommunitiesByNameAccentEscape(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	token := validTokenFor(t, user.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	registerCommunityViaApi(t, app, token, address.Id, "Comunidade Dev SP")
+
+	wildcardPage := listCommunities(t, app, token, "name=%25")
+	if len(wildcardPage.Data) != 0 {
+		t.Errorf("esperava 0 resultados para '%%' literal, recebeu %+v", wildcardPage.Data)
+	}
+
+	underscorePage := listCommunities(t, app, token, "name=dev_sp")
+	if len(underscorePage.Data) != 0 {
+		t.Errorf("esperava 0 resultados para 'dev_sp' (underscore literal), recebeu %+v", underscorePage.Data)
 	}
 }
 

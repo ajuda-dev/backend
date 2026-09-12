@@ -104,13 +104,17 @@ func (c *communityRepository) FindAll(filter CommunityFilter, page int, limit in
 	name := strings.ToLower(strings.TrimSpace(filter.Name))
 	if name != "" {
 		search := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(name)
-		query = query.Where("LOWER(name) LIKE ?", "%"+search+"%")
+		// unaccent nos DOIS lados: o termo passa por ToLower em Go, que preserva acento,
+		// então sem unaccent(?) quem digita "são" deixa de achar a base sem acento.
+		query = query.Where("unaccent(LOWER(name)) LIKE unaccent(?)", "%"+search+"%")
 	}
 	city := strings.ToLower(strings.TrimSpace(filter.City))
 	if city != "" {
 		search := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(city)
+		// addresses.city já é gravado em minúsculas (AddressEntity.FromDomainAddress),
+		// por isso não há LOWER() aqui; só falta remover o acento.
 		query = query.Joins("JOIN addresses ON addresses.id = community.address_id").
-			Where("addresses.city LIKE ?", "%"+search+"%")
+			Where("unaccent(addresses.city) LIKE unaccent(?)", "%"+search+"%")
 	}
 
 	offset := (page - 1) * limit

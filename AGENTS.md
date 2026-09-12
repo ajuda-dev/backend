@@ -90,6 +90,7 @@ Controller (HTTP/Fiber) → Service (business rules) → Repository (GORM) → P
 - **Variables:** `DB_HOST` (host:porta, ex. `localhost:5432`), `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL_MODE` (default `disable`), `DB_TIME_ZONE`, `PURGE_ENABLED` (default `false`), `PURGE_OLDER_THAN_DAYS` (default `30`), `PURGE_INTERVAL_HOURS` (default `24`).
 - **Connection:** `src/config/database/database_connect.go` builds the DSN and opens it with `gorm.Open(postgres.Open(dsn))`.
 - **Migration:** automatic `AutoMigrate` of the `UserEntity`, `AddressEntity`, `CommunityEntity` entities on startup.
+- **Extension:** `CREATE EXTENSION IF NOT EXISTS unaccent` runs on boot (before `AutoMigrate`) and in the integration test setup; the community `name`/`city` searches depend on it, so a failure aborts startup with an explicit error.
 
 ## Endpoints
 
@@ -101,7 +102,7 @@ Defined in `src/controller/routes/routes.go`:
 | POST | `/v1/address/register` | `RegisterAddress` | Creates an address (201) |
 | POST | `/v1/community/register` | `RegisterCommunity` | Creates a community (201, returns the full `dto.CommunityDto`: `address` + `owner`) |
 | GET | `/v1/community/:id` | `GetCommunityById` | Community detail with `address` + `owner`; `400` id not a UUID v7; `404` not found/soft-deleted (200) |
-| GET | `/v1/community` | `GetAllCommunities` | Paginated community listing; query params `page`, `limit`, `owner_id` (UUID v7), `name` (partial, case-insensitive match), `city` (partial, case-insensitive match) (200) |
+| GET | `/v1/community` | `GetAllCommunities` | Paginated community listing; query params `page`, `limit`, `owner_id` (UUID v7), `name` (partial, case- and accent-insensitive match), `city` (partial, case- and accent-insensitive match) (200) |
 | GET | `/swagger/*` | `swagger.HandlerDefault` | Swagger UI documentation |
 
 ## How to run

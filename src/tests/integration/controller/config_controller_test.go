@@ -83,6 +83,12 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 			log.Printf("Erro ao parar o container: %v", err)
 		}
 	}
+	// A busca por cidade/nome usa unaccent (plano 16), e este setup não passa pelo
+	// database.Connect(): a extensão precisa ser criada também nos testes.
+	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS unaccent").Error; err != nil {
+		container.Terminate(ctx)
+		return nil, nil, fmt.Errorf("error enabling unaccent extension: %w", err)
+	}
 	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{})
 
 	return db, cleanup, nil

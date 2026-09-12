@@ -101,15 +101,15 @@ func (c *communityController) GetCommunityById() fiber.Handler {
 
 // GetAllCommunities godoc
 // @Summary      Lista comunidades
-// @Description  Retorna todas as comunidades, com paginação e filtros por dono, nome e cidade (buscas parciais e case-insensitive)
+// @Description  Retorna todas as comunidades, com paginação e filtros por dono, nome e cidade (buscas parciais, case-insensitive e accent-insensitive)
 // @Tags         communities
 // @Accept       json
 // @Produce      json
 // @Param        page      query   int     false  "Página"
 // @Param        limit     query   int     false  "Limite"
 // @Param        owner_id  query   string  false  "ID do dono da comunidade (uuid v7)"
-// @Param        name      query   string  false  "Nome da comunidade (busca parcial, case-insensitive)"
-// @Param        city      query   string  false  "Cidade do endereço da comunidade (busca parcial, case-insensitive)"
+// @Param        name      query   string  false  "Nome da comunidade (busca parcial, case-insensitive, ignora acentos)"
+// @Param        city      query   string  false  "Cidade do endereço da comunidade (busca parcial, case-insensitive, ignora acentos)"
 // @Success      200   {object}  dto.PageableCommunityDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
