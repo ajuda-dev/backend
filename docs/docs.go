@@ -690,7 +690,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado)",
+                "description": "Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado). creator_role (MENTOR default ou MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1",
                 "consumes": [
                     "application/json"
                 ],
@@ -866,7 +866,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "O host adiciona um MENTEE (status REQUESTED) em eventos MENTORING ou um SPEAKER (status CONFIRMED) em eventos COMMUNITY_EVENT/WEBINAR.",
+                "description": "Quem gerencia o evento convida um participante. Em MENTORING o papel deve ser complementar ao creator_role de quem criou (MENTOR convida MENTEE e vice-versa) e a linha nasce REQUESTED; em COMMUNITY_EVENT/WEBINAR o convidado é SPEAKER e a linha nasce CONFIRMED.",
                 "consumes": [
                     "application/json"
                 ],
@@ -876,7 +876,7 @@ const docTemplate = `{
                 "tags": [
                     "event_users"
                 ],
-                "summary": "Adiciona participante (MENTEE ou SPEAKER)",
+                "summary": "Adiciona participante (MENTOR/MENTEE ou SPEAKER)",
                 "parameters": [
                     {
                         "type": "string",
@@ -1012,7 +1012,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "MENTEE aceita (CONFIRMED) ou recusa (REJECTED) o convite de mentoria. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.",
+                "description": "O convidado aceita (CONFIRMED) ou recusa (REJECTED) o convite de mentoria. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2332,6 +2332,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "community_id": {
+                    "type": "string"
+                },
+                "creator_role": {
                     "type": "string"
                 },
                 "description": {

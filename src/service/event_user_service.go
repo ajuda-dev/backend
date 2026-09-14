@@ -68,15 +68,22 @@ func (e *eventUserService) AddParticipant(eventId string, requesterId string, ta
 	if !canManageEvent(requester, event) {
 		return nil, forbiddenManageEvent()
 	}
+	creatorRole := ""
+	if event.Category == domain.CategoryMentoring {
+		creatorRole, err = e.creatorRole(event)
+		if err != nil {
+			return nil, err
+		}
+	}
 	eventUser := &domain.EventUserDomain{
 		EventId: eventId,
 		UserId:  targetUserId,
 		Role:    role,
 	}
-	if err := e.eventUserValidator.ValidateAddParticipant(*eventUser, event.Category); err != nil {
+	if err := e.eventUserValidator.ValidateAddParticipant(*eventUser, event.Category, creatorRole); err != nil {
 		return nil, err
 	}
-	if eventUser.Role == domain.RoleMentee {
+	if event.Category == domain.CategoryMentoring {
 		eventUser.Status = domain.StatusRequested
 	} else {
 		eventUser.Status = domain.StatusConfirmed
@@ -144,6 +151,19 @@ func (e *eventUserService) CancelParticipation(eventId string, userId string, re
 			}})
 	}
 	return e.eventUserRepository.UpdateStatus(eventId, userId, domain.StatusCancelled, event.MaxSlots)
+}
+
+func (e *eventUserService) creatorRole(event *domain.EventDomain) (string, *rest_err.RestErr) {
+	participants, err := e.eventUserRepository.FindByEvent(event.Id, "")
+	if err != nil {
+		return "", err
+	}
+	for _, participant := range participants {
+		if participant.UserId == event.Owner.Id {
+			return participant.Role, nil
+		}
+	}
+	return domain.RoleMentor, nil
 }
 
 func (e *eventUserService) validateUserExists(userId string) *rest_err.RestErr {

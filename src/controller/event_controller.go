@@ -34,7 +34,7 @@ func NewEventController(eventService service.EventService) EventController {
 
 // RegisterEvent godoc
 // @Summary      Registra um novo evento
-// @Description  Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado)
+// @Description  Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado). creator_role (MENTOR default ou MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1
 // @Tags         events
 // @Accept       json
 // @Produce      json

@@ -25,6 +25,7 @@ type EventDomain struct {
 	Address     *AddressDomain
 	MeetingLink string
 	MaxSlots    *int
+	CreatorRole string
 }
 
 type PageableEvent struct {

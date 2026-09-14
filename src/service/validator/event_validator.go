@@ -87,6 +87,19 @@ func (e *eventValidator) ValidatorRegisterEvent(event domain.EventDomain) *rest_
 			Message: "AddressId must be empty for ONLINE events",
 		})
 	}
+	if event.CreatorRole != "" {
+		if event.Category != domain.CategoryMentoring {
+			causes = append(causes, rest_err.Causes{
+				Field:   "creator_role",
+				Message: "CreatorRole is only allowed for MENTORING events",
+			})
+		} else if event.CreatorRole != domain.RoleMentor && event.CreatorRole != domain.RoleMentee {
+			causes = append(causes, rest_err.Causes{
+				Field:   "creator_role",
+				Message: "CreatorRole is not valid, use MENTOR or MENTEE",
+			})
+		}
+	}
 
 	if len(causes) > 0 {
 		return rest_err.NewBadRequestValidationError(

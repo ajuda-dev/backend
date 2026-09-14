@@ -8,7 +8,7 @@ import (
 
 type EventUserValidator interface {
 	ValidateJoin(eventUser domain.EventUserDomain, category string) *rest_err.RestErr
-	ValidateAddParticipant(eventUser domain.EventUserDomain, category string) *rest_err.RestErr
+	ValidateAddParticipant(eventUser domain.EventUserDomain, category string, creatorRole string) *rest_err.RestErr
 	ValidateUpdateParticipantStatus(status string) *rest_err.RestErr
 }
 
@@ -49,7 +49,7 @@ func (e *eventUserValidator) ValidateJoin(eventUser domain.EventUserDomain, cate
 	return nil
 }
 
-func (e *eventUserValidator) ValidateAddParticipant(eventUser domain.EventUserDomain, category string) *rest_err.RestErr {
+func (e *eventUserValidator) ValidateAddParticipant(eventUser domain.EventUserDomain, category string, creatorRole string) *rest_err.RestErr {
 	causes := []rest_err.Causes{}
 
 	if eventUser.EventId == "" || !uuidv7.IsValidString(eventUser.EventId) {
@@ -64,23 +64,31 @@ func (e *eventUserValidator) ValidateAddParticipant(eventUser domain.EventUserDo
 			Message: "UserId is not valid",
 		})
 	}
-	if eventUser.Role != domain.RoleMentee && eventUser.Role != domain.RoleSpeaker {
-		causes = append(causes, rest_err.Causes{
-			Field:   "role",
-			Message: "Role is not valid, use MENTEE or SPEAKER",
-		})
-	}
-	if eventUser.Role == domain.RoleMentee && category != domain.CategoryMentoring {
-		causes = append(causes, rest_err.Causes{
-			Field:   "role",
-			Message: "MENTEE role is only allowed for MENTORING events",
-		})
-	}
-	if eventUser.Role == domain.RoleSpeaker && category == domain.CategoryMentoring {
-		causes = append(causes, rest_err.Causes{
-			Field:   "role",
-			Message: "SPEAKER role is not allowed for MENTORING events",
-		})
+	if category == domain.CategoryMentoring {
+		if eventUser.Role != domain.RoleMentor && eventUser.Role != domain.RoleMentee {
+			causes = append(causes, rest_err.Causes{
+				Field:   "role",
+				Message: "Role is not valid, use MENTOR or MENTEE",
+			})
+		} else if eventUser.Role == creatorRole {
+			causes = append(causes, rest_err.Causes{
+				Field:   "role",
+				Message: "Role must be complementary to the creator role, use " + complementaryRole(creatorRole),
+			})
+		}
+	} else {
+		if eventUser.Role != domain.RoleMentee && eventUser.Role != domain.RoleSpeaker {
+			causes = append(causes, rest_err.Causes{
+				Field:   "role",
+				Message: "Role is not valid, use MENTEE or SPEAKER",
+			})
+		}
+		if eventUser.Role == domain.RoleMentee {
+			causes = append(causes, rest_err.Causes{
+				Field:   "role",
+				Message: "MENTEE role is only allowed for MENTORING events",
+			})
+		}
 	}
 
 	if len(causes) > 0 {
@@ -90,6 +98,13 @@ func (e *eventUserValidator) ValidateAddParticipant(eventUser domain.EventUserDo
 		)
 	}
 	return nil
+}
+
+func complementaryRole(creatorRole string) string {
+	if creatorRole == domain.RoleMentee {
+		return domain.RoleMentor
+	}
+	return domain.RoleMentee
 }
 
 func (e *eventUserValidator) ValidateUpdateParticipantStatus(status string) *rest_err.RestErr {

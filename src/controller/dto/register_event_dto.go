@@ -19,6 +19,7 @@ type RegisterEventDto struct {
 	DurationMin int       `json:"duration_min"`
 	MeetingLink string    `json:"meeting_link"`
 	MaxSlots    *int      `json:"max_slots"`
+	CreatorRole string    `json:"creator_role"`
 }
 
 func (r *RegisterEventDto) ToDomain() *domain.EventDomain {
@@ -42,6 +43,7 @@ func (r *RegisterEventDto) ToDomain() *domain.EventDomain {
 		DurationMin: r.DurationMin,
 		MeetingLink: r.MeetingLink,
 		MaxSlots:    r.MaxSlots,
+		CreatorRole: r.CreatorRole,
 	}
 }
 
@@ -57,6 +59,7 @@ func (r RegisterEventDto) FromDomain(event *domain.EventDomain) interface{} {
 		DurationMin: event.DurationMin,
 		MeetingLink: event.MeetingLink,
 		MaxSlots:    event.MaxSlots,
+		CreatorRole: event.CreatorRole,
 	}
 	if event.Community != nil {
 		dtoEvent.CommunityId = &event.Community.Id

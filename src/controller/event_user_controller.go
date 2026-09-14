@@ -64,8 +64,8 @@ func (e *eventUserController) JoinEvent() fiber.Handler {
 }
 
 // AddParticipant godoc
-// @Summary      Adiciona participante (MENTEE ou SPEAKER)
-// @Description  O host adiciona um MENTEE (status REQUESTED) em eventos MENTORING ou um SPEAKER (status CONFIRMED) em eventos COMMUNITY_EVENT/WEBINAR.
+// @Summary      Adiciona participante (MENTOR/MENTEE ou SPEAKER)
+// @Description  Quem gerencia o evento convida um participante. Em MENTORING o papel deve ser complementar ao creator_role de quem criou (MENTOR convida MENTEE e vice-versa) e a linha nasce REQUESTED; em COMMUNITY_EVENT/WEBINAR o convidado é SPEAKER e a linha nasce CONFIRMED.
 // @Tags         event_users
 // @Accept       json
 // @Produce      json
@@ -142,7 +142,7 @@ func (e *eventUserController) GetParticipants() fiber.Handler {
 
 // UpdateParticipantStatus godoc
 // @Summary      Atualiza status do participante
-// @Description  MENTEE aceita (CONFIRMED) ou recusa (REJECTED) o convite de mentoria. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.
+// @Description  O convidado aceita (CONFIRMED) ou recusa (REJECTED) o convite de mentoria. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.
 // @Tags         event_users
 // @Accept       json
 // @Produce      json

@@ -607,3 +607,185 @@ func TestGetParticipantsEmailFiltered(t *testing.T) {
 		t.Errorf("esperava o email completo para o admin, recebeu %+v", adminRow.User)
 	}
 }
+
+func euCreateMentoringEventWithRole(t *testing.T, app *fiber.App, owner *domain.UserDomain, creatorRole string) dto.RegisterEventDto {
+	t.Helper()
+	return registerEventViaApi(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		Category:    domain.CategoryMentoring,
+		Type:        domain.TypeOnline,
+		Title:       "Mentoria 1:1",
+		Description: "evento de mentoria",
+		StartAt:     time.Now().Add(48 * time.Hour),
+		DurationMin: 60,
+		CreatorRole: creatorRole,
+	})
+}
+
+func TestMentoringInviteRoleMustBeComplementary(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	mentorOwner := createUserWithRole(t, "comp_mentor_owner@ajuda.dev", domain.UserRoleUser)
+	menteeOwner := createUserWithRole(t, "comp_mentee_owner@ajuda.dev", domain.UserRoleUser)
+	guest := createUserWithRole(t, "comp_guest@ajuda.dev", domain.UserRoleUser)
+
+	mentorEvent := euCreateMentoringEvent(t, app, mentorOwner)
+	resp := euAddParticipant(t, app, mentorEvent.Id, `{"user_id":"`+guest.Id+`","role":"MENTOR"}`, validTokenFor(t, mentorOwner.Id))
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 para MENTOR convidando MENTOR, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if len(getCauseByField("role", respBody.Causes)) == 0 {
+		t.Errorf("esperava cause em role, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euAddParticipant(t, app, mentorEvent.Id, `{"user_id":"`+guest.Id+`","role":"MENTEE"}`, validTokenFor(t, mentorOwner.Id))
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 para MENTOR convidando MENTEE, recebeu %d", resp.StatusCode)
+	}
+	row := euDecodeEventUserDto(t, resp)
+	if row.Role != domain.RoleMentee || row.Status != domain.StatusRequested {
+		t.Errorf("esperava MENTEE/REQUESTED, recebeu %s/%s", row.Role, row.Status)
+	}
+
+	menteeEvent := euCreateMentoringEventWithRole(t, app, menteeOwner, domain.RoleMentee)
+	resp = euAddParticipant(t, app, menteeEvent.Id, `{"user_id":"`+guest.Id+`","role":"MENTEE"}`, validTokenFor(t, menteeOwner.Id))
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 para MENTEE convidando MENTEE, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	if len(getCauseByField("role", respBody.Causes)) == 0 {
+		t.Errorf("esperava cause em role, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euAddParticipant(t, app, menteeEvent.Id, `{"user_id":"`+guest.Id+`","role":"MENTOR"}`, validTokenFor(t, menteeOwner.Id))
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 para MENTEE convidando MENTOR, recebeu %d", resp.StatusCode)
+	}
+	row = euDecodeEventUserDto(t, resp)
+	if row.Role != domain.RoleMentor || row.Status != domain.StatusRequested {
+		t.Errorf("esperava MENTOR/REQUESTED, recebeu %s/%s", row.Role, row.Status)
+	}
+}
+
+func TestMentoringCreatedByMenteeAcceptsMentorInvite(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	mentee := createUserWithRole(t, "by_mentee_owner@ajuda.dev", domain.UserRoleUser)
+	mentor := createUserWithRole(t, "by_mentee_mentor@ajuda.dev", domain.UserRoleUser)
+
+	event := euCreateMentoringEventWithRole(t, app, mentee, domain.RoleMentee)
+	if event.MaxSlots == nil || *event.MaxSlots != 2 {
+		t.Errorf("esperava max_slots 2 no 1:1, recebeu %+v", event.MaxSlots)
+	}
+	if event.CreatorRole != domain.RoleMentee {
+		t.Errorf("esperava creator_role MENTEE na resposta do register, recebeu '%s'", event.CreatorRole)
+	}
+
+	creatorRow := euFindRow(t, event.Id, mentee.Id)
+	if creatorRow.Role != domain.RoleMentee || creatorRow.Status != domain.StatusConfirmed {
+		t.Errorf("esperava a linha do criador MENTEE/CONFIRMED, recebeu %s/%s", creatorRow.Role, creatorRow.Status)
+	}
+
+	resp := euAddParticipant(t, app, event.Id, `{"user_id":"`+mentor.Id+`","role":"MENTOR"}`, validTokenFor(t, mentee.Id))
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no convite do mentor, recebeu %d", resp.StatusCode)
+	}
+	row := euDecodeEventUserDto(t, resp)
+	if row.Role != domain.RoleMentor || row.Status != domain.StatusRequested {
+		t.Errorf("esperava MENTOR/REQUESTED no convite, recebeu %s/%s", row.Role, row.Status)
+	}
+
+	resp = euUpdateStatus(t, app, event.Id, mentor.Id, domain.StatusConfirmed, validTokenFor(t, mentor.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 para o mentor aceitando, recebeu %d", resp.StatusCode)
+	}
+	row = euDecodeEventUserDto(t, resp)
+	if row.Role != domain.RoleMentor || row.Status != domain.StatusConfirmed {
+		t.Errorf("esperava MENTOR/CONFIRMED no aceite, recebeu %s/%s", row.Role, row.Status)
+	}
+}
+
+func TestMentoringCreatorRoleDefaultIsMentor(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "default_role_owner@ajuda.dev", domain.UserRoleUser)
+
+	event := euCreateMentoringEvent(t, app, owner)
+	if event.CreatorRole != domain.RoleMentor {
+		t.Errorf("esperava creator_role MENTOR na resposta do register, recebeu '%s'", event.CreatorRole)
+	}
+	creatorRow := euFindRow(t, event.Id, owner.Id)
+	if creatorRow.Role != domain.RoleMentor || creatorRow.Status != domain.StatusConfirmed {
+		t.Errorf("esperava a linha do criador MENTOR/CONFIRMED por default, recebeu %s/%s", creatorRow.Role, creatorRow.Status)
+	}
+}
+
+func TestMentoringCreatorRoleOnlyForMentoring(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "role_scope_owner@ajuda.dev", domain.UserRoleUser)
+
+	eventReqValidation(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		Category:    domain.CategoryCommunityEvent,
+		Type:        domain.TypeOnline,
+		Title:       "Evento com creator_role",
+		Description: "creator_role fora de MENTORING",
+		StartAt:     time.Now().Add(48 * time.Hour),
+		DurationMin: 60,
+		CreatorRole: domain.RoleMentee,
+	}, "creator_role")
+
+	eventReqValidation(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		Category:    domain.CategoryMentoring,
+		Type:        domain.TypeOnline,
+		Title:       "Mentoria com papel inválido",
+		Description: "creator_role inválido",
+		StartAt:     time.Now().Add(48 * time.Hour),
+		DurationMin: 60,
+		CreatorRole: "SPEAKER",
+	}, "creator_role")
+}
+
+func TestMentoringMenteeMaxOneConfirmed(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "max_mentee_owner@ajuda.dev", domain.UserRoleUser)
+	firstMentee := createUserWithRole(t, "max_mentee_first@ajuda.dev", domain.UserRoleUser)
+	secondMentee := createUserWithRole(t, "max_mentee_second@ajuda.dev", domain.UserRoleUser)
+
+	event := euCreateMentoringEvent(t, app, owner)
+	resp := euAddParticipant(t, app, event.Id, `{"user_id":"`+firstMentee.Id+`","role":"MENTEE"}`, validTokenFor(t, owner.Id))
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no convite do primeiro mentee, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euUpdateStatus(t, app, event.Id, firstMentee.Id, domain.StatusConfirmed, validTokenFor(t, firstMentee.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no aceite do primeiro mentee, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euAddParticipant(t, app, event.Id, `{"user_id":"`+secondMentee.Id+`","role":"MENTEE"}`, validTokenFor(t, owner.Id))
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no convite do segundo mentee, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euUpdateStatus(t, app, event.Id, secondMentee.Id, domain.StatusConfirmed, validTokenFor(t, secondMentee.Id))
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 no segundo mentee confirmado, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if len(getCauseByField("user_id", respBody.Causes)) == 0 {
+		t.Errorf("esperava cause em user_id, recebeu %+v", respBody.Causes)
+	}
+}

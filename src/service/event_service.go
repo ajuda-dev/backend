@@ -50,6 +50,9 @@ func (e *eventService) CreateEvent(event *domain.EventDomain) (*domain.EventDoma
 	if event.Category == domain.CategoryMentoring {
 		maxSlots := 2
 		event.MaxSlots = &maxSlots
+		if event.CreatorRole == "" {
+			event.CreatorRole = domain.RoleMentor
+		}
 	}
 
 	if err := e.eventValidator.ValidatorRegisterEvent(*event); err != nil {
@@ -99,7 +102,7 @@ func (e *eventService) CreateEvent(event *domain.EventDomain) (*domain.EventDoma
 		if _, mentorErr := e.eventUserRepository.CreateOrUpdate(&domain.EventUserDomain{
 			EventId: createdEvent.Id,
 			UserId:  createdEvent.Owner.Id,
-			Role:    domain.RoleMentor,
+			Role:    event.CreatorRole,
 			Status:  domain.StatusConfirmed,
 		}, createdEvent.MaxSlots); mentorErr != nil {
 			return &domain.EventDomain{}, mentorErr

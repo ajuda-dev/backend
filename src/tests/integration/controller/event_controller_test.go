@@ -28,6 +28,7 @@ type eventTestRequest struct {
 	DurationMin int       `json:"duration_min"`
 	MeetingLink string    `json:"meeting_link"`
 	MaxSlots    *int      `json:"max_slots"`
+	CreatorRole string    `json:"creator_role"`
 }
 
 func newEventRegisterRequest(body []byte) *http.Request {
