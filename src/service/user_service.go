@@ -60,14 +60,7 @@ func (u *userService) GetUserById(targetId string, requesterId string) (*domain.
 	if err != nil {
 		return nil, err
 	}
-	if requester.Id == target.Id || requester.Role == domain.UserRoleAdmin {
-		return target, nil
-	}
-	visible := target.ConfigVisibility.VisibleToOthers()
-	if _, shared := visible[domain.VisibilityKeyEmail]; !shared {
-		target.Email = ""
-	}
-	target.ConfigVisibility = visible
+	applyVisibilityFilter(target, requester)
 	return target, nil
 }
 

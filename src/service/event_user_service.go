@@ -8,11 +8,11 @@ import (
 )
 
 type EventUserService interface {
-	JoinEvent(eventUser *domain.EventUserDomain) (*domain.EventUserDomain, *rest_err.RestErr)
-	AddParticipant(eventUser *domain.EventUserDomain) (*domain.EventUserDomain, *rest_err.RestErr)
-	GetParticipants(eventId string, status string) ([]*domain.EventUserDomain, *rest_err.RestErr)
-	UpdateParticipantStatus(eventUser *domain.EventUserDomain) (*domain.EventUserDomain, *rest_err.RestErr)
-	CancelParticipation(eventId string, userId string) (*domain.EventUserDomain, *rest_err.RestErr)
+	JoinEvent(eventId string, requesterId string) (*domain.EventUserDomain, *rest_err.RestErr)
+	AddParticipant(eventId string, requesterId string, targetUserId string, role string) (*domain.EventUserDomain, *rest_err.RestErr)
+	GetParticipants(eventId string, status string, requesterId string) ([]*domain.EventUserDomain, *rest_err.RestErr)
+	UpdateParticipantStatus(eventId string, userId string, requesterId string, status string) (*domain.EventUserDomain, *rest_err.RestErr)
+	CancelParticipation(eventId string, userId string, requesterId string) (*domain.EventUserDomain, *rest_err.RestErr)
 }
 
 type eventUserService struct {
@@ -35,26 +35,43 @@ func NewEventUserService(
 	}
 }
 
-func (e *eventUserService) JoinEvent(eventUser *domain.EventUserDomain) (*domain.EventUserDomain, *rest_err.RestErr) {
-	event, err := e.eventService.GetEventById(eventUser.EventId)
+func (e *eventUserService) JoinEvent(eventId string, requesterId string) (*domain.EventUserDomain, *rest_err.RestErr) {
+	requester, err := authenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}
-	eventUser.Role = domain.RoleAttendee
-	eventUser.Status = domain.StatusConfirmed
-	if err := e.eventUserValidator.ValidateJoin(*eventUser, event.Category); err != nil {
+	event, err := e.eventService.GetEventById(eventId)
+	if err != nil {
 		return nil, err
 	}
-	if err := e.validateUserExists(eventUser.UserId); err != nil {
+	eventUser := &domain.EventUserDomain{
+		EventId: eventId,
+		UserId:  requester.Id,
+		Role:    domain.RoleAttendee,
+		Status:  domain.StatusConfirmed,
+	}
+	if err := e.eventUserValidator.ValidateJoin(*eventUser, event.Category); err != nil {
 		return nil, err
 	}
 	return e.eventUserRepository.CreateOrUpdate(eventUser, event.MaxSlots)
 }
 
-func (e *eventUserService) AddParticipant(eventUser *domain.EventUserDomain) (*domain.EventUserDomain, *rest_err.RestErr) {
-	event, err := e.eventService.GetEventById(eventUser.EventId)
+func (e *eventUserService) AddParticipant(eventId string, requesterId string, targetUserId string, role string) (*domain.EventUserDomain, *rest_err.RestErr) {
+	requester, err := authenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
+	}
+	event, err := e.eventService.GetEventById(eventId)
+	if err != nil {
+		return nil, err
+	}
+	if !canManageEvent(requester, event) {
+		return nil, forbiddenManageEvent()
+	}
+	eventUser := &domain.EventUserDomain{
+		EventId: eventId,
+		UserId:  targetUserId,
+		Role:    role,
 	}
 	if err := e.eventUserValidator.ValidateAddParticipant(*eventUser, event.Category); err != nil {
 		return nil, err
@@ -70,28 +87,61 @@ func (e *eventUserService) AddParticipant(eventUser *domain.EventUserDomain) (*d
 	return e.eventUserRepository.CreateOrUpdate(eventUser, event.MaxSlots)
 }
 
-func (e *eventUserService) GetParticipants(eventId string, status string) ([]*domain.EventUserDomain, *rest_err.RestErr) {
+func (e *eventUserService) GetParticipants(eventId string, status string, requesterId string) ([]*domain.EventUserDomain, *rest_err.RestErr) {
+	requester, err := authenticatedUser(e.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
 	if _, err := e.eventService.GetEventById(eventId); err != nil {
 		return nil, err
 	}
-	return e.eventUserRepository.FindByEvent(eventId, status)
-}
-
-func (e *eventUserService) UpdateParticipantStatus(eventUser *domain.EventUserDomain) (*domain.EventUserDomain, *rest_err.RestErr) {
-	event, err := e.eventService.GetEventById(eventUser.EventId)
+	participants, err := e.eventUserRepository.FindByEvent(eventId, status)
 	if err != nil {
 		return nil, err
 	}
-	if err := e.eventUserValidator.ValidateUpdateParticipantStatus(eventUser.Status); err != nil {
-		return nil, err
+	for _, participant := range participants {
+		applyVisibilityFilter(participant.User, requester)
 	}
-	return e.eventUserRepository.UpdateStatus(eventUser.EventId, eventUser.UserId, eventUser.Status, event.MaxSlots)
+	return participants, nil
 }
 
-func (e *eventUserService) CancelParticipation(eventId string, userId string) (*domain.EventUserDomain, *rest_err.RestErr) {
+func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string, requesterId string, status string) (*domain.EventUserDomain, *rest_err.RestErr) {
+	requester, err := authenticatedUser(e.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
 	event, err := e.eventService.GetEventById(eventId)
 	if err != nil {
 		return nil, err
+	}
+	if userId != requester.Id {
+		return nil, rest_err.NewForbiddenError("only the invited user can accept or reject this invitation")
+	}
+	if err := e.eventUserValidator.ValidateUpdateParticipantStatus(status); err != nil {
+		return nil, err
+	}
+	return e.eventUserRepository.UpdateStatus(eventId, userId, status, event.MaxSlots)
+}
+
+func (e *eventUserService) CancelParticipation(eventId string, userId string, requesterId string) (*domain.EventUserDomain, *rest_err.RestErr) {
+	requester, err := authenticatedUser(e.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	event, err := e.eventService.GetEventById(eventId)
+	if err != nil {
+		return nil, err
+	}
+	if userId != requester.Id && !canManageEvent(requester, event) {
+		return nil, forbiddenManageEvent()
+	}
+	if event.Category == domain.CategoryMentoring && userId == event.Owner.Id {
+		return nil, rest_err.NewBadRequestValidationError(
+			"Invalid participation data",
+			[]rest_err.Causes{{
+				Field:   "user_id",
+				Message: "the creator cannot leave the event; cancel the event instead",
+			}})
 	}
 	return e.eventUserRepository.UpdateStatus(eventId, userId, domain.StatusCancelled, event.MaxSlots)
 }

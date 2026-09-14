@@ -663,6 +663,13 @@
                             "type": "object",
                             "additionalProperties": true
                         }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     }
                 }
             }
@@ -745,15 +752,6 @@
                         "name": "eventId",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Dados da inscrição",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.JoinEventDto"
-                        }
                     }
                 ],
                 "responses": {
@@ -772,6 +770,13 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -826,7 +831,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/dto.EventUserDto"
+                                "$ref": "#/definitions/dto.EventParticipantDto"
                             }
                         }
                     },
@@ -902,6 +907,13 @@
                             "additionalProperties": true
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -962,6 +974,13 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1041,6 +1060,13 @@
                             "additionalProperties": true
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1087,6 +1113,13 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2099,6 +2132,29 @@
                 }
             }
         },
+        "dto.EventParticipantDto": {
+            "type": "object",
+            "properties": {
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/dto.ParticipantUserDto"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.EventUserDto": {
             "type": "object",
             "properties": {
@@ -2117,14 +2173,6 @@
                 "user": {
                     "$ref": "#/definitions/dto.UserDtoOut"
                 },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.JoinEventDto": {
-            "type": "object",
-            "properties": {
                 "user_id": {
                     "type": "string"
                 }
@@ -2228,6 +2276,20 @@
                 },
                 "has_next": {
                     "type": "boolean"
+                }
+            }
+        },
+        "dto.ParticipantUserDto": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },

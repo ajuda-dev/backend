@@ -27,35 +27,11 @@ func (e EventUserDto) FromDomain(eventUser *domain.EventUserDomain) EventUserDto
 	return dtoUser
 }
 
-func ToEventUserDtoList(eventUsers []*domain.EventUserDomain) []EventUserDto {
-	dtos := make([]EventUserDto, len(eventUsers))
-	for i, eu := range eventUsers {
-		dtos[i] = EventUserDto{}.FromDomain(eu)
-	}
-	return dtos
-}
-
 type AddParticipantDto struct {
 	UserId string `json:"user_id"`
 	Role   string `json:"role"`
 }
 
-func (a *AddParticipantDto) ToDomain(eventId string) *domain.EventUserDomain {
-	return &domain.EventUserDomain{
-		EventId: eventId,
-		UserId:  a.UserId,
-		Role:    a.Role,
-	}
-}
-
 type UpdateParticipantStatusDto struct {
 	Status string `json:"status"`
-}
-
-func (u *UpdateParticipantStatusDto) ToDomain(eventId string, userId string) *domain.EventUserDomain {
-	return &domain.EventUserDomain{
-		EventId: eventId,
-		UserId:  userId,
-		Status:  u.Status,
-	}
 }

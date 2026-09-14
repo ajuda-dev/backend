@@ -672,6 +672,13 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": true
                         }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     }
                 }
             }
@@ -754,15 +761,6 @@ const docTemplate = `{
                         "name": "eventId",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Dados da inscrição",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.JoinEventDto"
-                        }
                     }
                 ],
                 "responses": {
@@ -781,6 +779,13 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -835,7 +840,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/dto.EventUserDto"
+                                "$ref": "#/definitions/dto.EventParticipantDto"
                             }
                         }
                     },
@@ -911,6 +916,13 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -971,6 +983,13 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1050,6 +1069,13 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1096,6 +1122,13 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2108,6 +2141,29 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.EventParticipantDto": {
+            "type": "object",
+            "properties": {
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/dto.ParticipantUserDto"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.EventUserDto": {
             "type": "object",
             "properties": {
@@ -2126,14 +2182,6 @@ const docTemplate = `{
                 "user": {
                     "$ref": "#/definitions/dto.UserDtoOut"
                 },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.JoinEventDto": {
-            "type": "object",
-            "properties": {
                 "user_id": {
                     "type": "string"
                 }
@@ -2237,6 +2285,20 @@ const docTemplate = `{
                 },
                 "has_next": {
                     "type": "boolean"
+                }
+            }
+        },
+        "dto.ParticipantUserDto": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },

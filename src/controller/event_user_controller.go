@@ -4,6 +4,7 @@ import (
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller/dto"
+	"github.com/ajuda-dev/backend/src/controller/middleware"
 	"github.com/ajuda-dev/backend/src/service"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
@@ -34,9 +35,9 @@ func NewEventUserController(eventUserService service.EventUserService) EventUser
 // @Accept       json
 // @Produce      json
 // @Param        eventId  path  string  true  "ID do evento"
-// @Param        body  body  dto.JoinEventDto  true  "Dados da inscrição"
 // @Success      201   {object}  dto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
@@ -49,14 +50,11 @@ func (e *eventUserController) JoinEvent() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "eventId", Message: "eventId must be a valid UUID v7"}}))
 		}
-		var joinEventDto dto.JoinEventDto
-		if err := cf.BodyParser(&joinEventDto); err != nil {
-			logger.Error("erro body request", err)
-			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Não foi possível processar o corpo da requisição",
-			})
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
 		}
-		eventUser, err := e.eventUserService.JoinEvent(joinEventDto.ToDomain(eventId))
+		eventUser, err := e.eventUserService.JoinEvent(eventId, userId)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
@@ -76,6 +74,7 @@ func (e *eventUserController) JoinEvent() fiber.Handler {
 // @Success      201   {object}  dto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/event/{eventId}/participants [post]
@@ -94,7 +93,11 @@ func (e *eventUserController) AddParticipant() fiber.Handler {
 				"error": "Não foi possível processar o corpo da requisição",
 			})
 		}
-		eventUser, err := e.eventUserService.AddParticipant(addParticipantDto.ToDomain(eventId))
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		eventUser, err := e.eventUserService.AddParticipant(eventId, userId, addParticipantDto.UserId, addParticipantDto.Role)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
@@ -111,7 +114,7 @@ func (e *eventUserController) AddParticipant() fiber.Handler {
 // @Produce      json
 // @Param        eventId  path  string  true  "ID do evento"
 // @Param        status   query  string  false  "Filtro por status (REQUESTED, CONFIRMED, REJECTED, CANCELLED)"
-// @Success      200   {array}   dto.EventUserDto
+// @Success      200   {array}   dto.EventParticipantDto
 // @Failure      404   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
@@ -124,12 +127,16 @@ func (e *eventUserController) GetParticipants() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "eventId", Message: "eventId must be a valid UUID v7"}}))
 		}
-		participants, err := e.eventUserService.GetParticipants(eventId, cf.Query("status"))
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		participants, err := e.eventUserService.GetParticipants(eventId, cf.Query("status"), userId)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusOK).JSON(dto.ToEventUserDtoList(participants))
+		return cf.Status(fiber.StatusOK).JSON(dto.ToEventParticipantDtoList(participants))
 	}
 }
 
@@ -145,6 +152,7 @@ func (e *eventUserController) GetParticipants() fiber.Handler {
 // @Success      200   {object}  dto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/event/{eventId}/participants/{userId}/status [put]
@@ -169,7 +177,11 @@ func (e *eventUserController) UpdateParticipantStatus() fiber.Handler {
 				"error": "Não foi possível processar o corpo da requisição",
 			})
 		}
-		eventUser, err := e.eventUserService.UpdateParticipantStatus(updateStatusDto.ToDomain(eventId, userId))
+		requesterId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || requesterId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		eventUser, err := e.eventUserService.UpdateParticipantStatus(eventId, userId, requesterId, updateStatusDto.Status)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
@@ -189,6 +201,7 @@ func (e *eventUserController) UpdateParticipantStatus() fiber.Handler {
 // @Success      200   {object}  dto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/event/{eventId}/participants/{userId} [delete]
@@ -206,7 +219,11 @@ func (e *eventUserController) CancelParticipation() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "userId", Message: "userId must be a valid UUID v7"}}))
 		}
-		eventUser, err := e.eventUserService.CancelParticipation(eventId, userId)
+		requesterId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || requesterId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		eventUser, err := e.eventUserService.CancelParticipation(eventId, userId, requesterId)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)

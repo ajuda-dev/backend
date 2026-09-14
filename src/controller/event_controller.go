@@ -79,6 +79,7 @@ func (e *eventController) RegisterEvent() fiber.Handler {
 // @Param        id  path  string  true  "ID do evento"
 // @Success      200   {object}  dto.EventDto
 // @Failure      404   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/event/{id} [get]
@@ -90,7 +91,11 @@ func (e *eventController) GetEventById() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
 		}
-		event, err := e.eventService.GetEventById(id)
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		event, err := e.eventService.GetEventDetail(id, userId)
 		if err != nil {
 			logger.Error("error: ", err)
 			return cf.Status(err.Code).JSON(err)
@@ -118,6 +123,7 @@ func (e *eventController) GetEventById() fiber.Handler {
 // @Param        status       query  string  false  "Status da participação (com user_id)"
 // @Success      200   {object}  dto.PageableEventDto
 // @Failure      400   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/event [get]
@@ -153,7 +159,12 @@ func (e *eventController) GetAllEvents() fiber.Handler {
 				[]rest_err.Causes{{Field: "user_id", Message: "user_id must be a valid UUID v7"}}))
 		}
 
-		result, e := e.eventService.GetAll(filter, page, limit)
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+
+		result, e := e.eventService.GetAll(filter, page, limit, userId)
 		if e != nil {
 			logger.Error("error: ", e)
 			return cf.Status(e.Code).JSON(e)
@@ -182,7 +193,11 @@ func (e *eventController) DeleteEventById() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
 		}
-		err := e.eventService.DeleteEventById(id)
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		err := e.eventService.DeleteEventById(id, userId)
 		if err != nil {
 			logger.Error("error: ", err)
 			return cf.Status(err.Code).JSON(err)
