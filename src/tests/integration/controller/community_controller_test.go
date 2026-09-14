@@ -22,7 +22,6 @@ func newCommunityRegisterRequest(body []byte) *http.Request {
 	return req
 }
 
-
 func TestCreateCommunitySuccess(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)
@@ -34,7 +33,6 @@ func TestCreateCommunitySuccess(t *testing.T) {
 		Email:    testEmail,
 		Password: "123456",
 	})
-
 
 	if createErr != nil {
 		t.Fatalf("failed to create user: %v", createErr)
@@ -112,8 +110,7 @@ func TestCreateCommunitySuccess(t *testing.T) {
 	}
 }
 
-
-func TestCreateCommunityFail(t *testing.T){
+func TestCreateCommunityFail(t *testing.T) {
 	t.Cleanup(cleanCommunityTable)
 	app := setupApp()
 	token := validTokenFor(t, uuidv7.New().String())

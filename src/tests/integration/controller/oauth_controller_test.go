@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	oauthTestFrontendURL = "http://frontend.test"
-	oauthTestCallbackURL = "http://localhost:8080/v1/auth/github/callback"
-	oauthTestTokenPrefix = oauthTestFrontendURL + "/auth/callback?token="
+	oauthTestFrontendURL     = "http://frontend.test"
+	oauthTestCallbackURL     = "http://localhost:8080/v1/auth/github/callback"
+	oauthTestSuccessRedirect = oauthTestFrontendURL + "/auth/callback"
 )
 
 type fakeGithubServer struct {
@@ -133,16 +133,27 @@ func oauthTokenSubject(t *testing.T, app *fiber.App, provider string, code strin
 	if response.StatusCode != fiber.StatusFound {
 		t.Fatalf("esperava 302 no callback oauth, recebeu %d", response.StatusCode)
 	}
-	location := response.Header.Get("Location")
-	if !strings.HasPrefix(location, oauthTestTokenPrefix) {
-		t.Fatalf("esperava redirect para o frontend com token, recebeu %s", location)
+	if location := response.Header.Get("Location"); location != oauthTestSuccessRedirect {
+		t.Fatalf("esperava redirect para %s sem token na URL, recebeu %s", oauthTestSuccessRedirect, location)
+	}
+	return sessionTokenSubject(t, response)
+}
+
+func sessionTokenSubject(t *testing.T, response *http.Response) string {
+	t.Helper()
+	cookie := sessionCookieFrom(t, response)
+	if cookie == nil || cookie.Value == "" {
+		t.Fatal("esperava cookie de sessão com o token no callback oauth")
+	}
+	if !cookie.HttpOnly {
+		t.Error("esperava cookie de sessão com HttpOnly")
 	}
 
 	claims := &jwt.RegisteredClaims{}
-	parsedToken, err := jwt.ParseWithClaims(strings.TrimPrefix(location, oauthTestTokenPrefix), claims,
+	parsedToken, err := jwt.ParseWithClaims(cookie.Value, claims,
 		func(*jwt.Token) (interface{}, error) { return []byte("test-secret"), nil })
 	if err != nil || !parsedToken.Valid {
-		t.Fatalf("esperava token JWT válido no redirect, erro: %v", err)
+		t.Fatalf("esperava token JWT válido no cookie de sessão, erro: %v", err)
 	}
 	if claims.Subject == "" {
 		t.Fatal("esperava subject no token JWT")
@@ -201,7 +212,7 @@ func TestOAuthGithubLoginRedirectsToProvider(t *testing.T) {
 	}
 }
 
-func TestOAuthGithubCallbackCreatesUserAndReturnsToken(t *testing.T) {
+func TestOAuthGithubCallbackCreatesUserAndSetsSessionCookie(t *testing.T) {
 	cleanUsersTable()
 	cleanOAuthAccountsTable()
 	fake := newFakeGithubServer(t)
@@ -220,15 +231,21 @@ func TestOAuthGithubCallbackCreatesUserAndReturnsToken(t *testing.T) {
 		}
 	}
 
-	location := response.Header.Get("Location")
-	if !strings.HasPrefix(location, oauthTestTokenPrefix) {
-		t.Fatalf("esperava redirect para o frontend com token, recebeu %s", location)
+	if location := response.Header.Get("Location"); location != oauthTestSuccessRedirect {
+		t.Fatalf("esperava redirect para %s sem token na URL, recebeu %s", oauthTestSuccessRedirect, location)
+	}
+	cookie := sessionCookieFrom(t, response)
+	if cookie == nil || cookie.Value == "" {
+		t.Fatal("esperava cookie de sessão com o token no callback oauth")
+	}
+	if !cookie.HttpOnly {
+		t.Error("esperava cookie de sessão com HttpOnly")
 	}
 	claims := &jwt.RegisteredClaims{}
-	parsedToken, err := jwt.ParseWithClaims(strings.TrimPrefix(location, oauthTestTokenPrefix), claims,
+	parsedToken, err := jwt.ParseWithClaims(cookie.Value, claims,
 		func(*jwt.Token) (interface{}, error) { return []byte("test-secret"), nil })
 	if err != nil || !parsedToken.Valid {
-		t.Fatalf("esperava token JWT válido no redirect, erro: %v", err)
+		t.Fatalf("esperava token JWT válido no cookie de sessão, erro: %v", err)
 	}
 
 	var userEntity entity.UserEntity

@@ -2,13 +2,13 @@ package controller
 
 import (
 	"crypto/subtle"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
+	"github.com/ajuda-dev/backend/src/controller/middleware"
 	"github.com/ajuda-dev/backend/src/service"
 	"github.com/gofiber/fiber/v2"
 )
@@ -62,13 +62,13 @@ func (o *oauthController) StartLogin() fiber.Handler {
 
 // Callback godoc
 // @Summary      Callback do login via OAuth
-// @Description  Recebe o code do provedor, autentica o usuário (reaproveitando o vínculo existente, casando pelo e-mail verificado ou criando um usuário novo sem senha) e redireciona para o frontend com o token JWT na query (?token=). Em falha, redireciona para o frontend com ?error=auth_failed. Endpoint público.
+// @Description  Recebe o code do provedor, autentica o usuário (reaproveitando o vínculo existente, casando pelo e-mail verificado ou criando um usuário novo sem senha) e grava o token JWT em cookie de sessão HttpOnly (ajudadev_session) antes de redirecionar para o frontend — o token não trafega na URL. Em falha, redireciona para o frontend com ?error=auth_failed. Endpoint público.
 // @Tags         auth
 // @Produce      json
 // @Param        provider  path   string  true  "Provedor OAuth (ex.: github)"
 // @Param        code      query  string  true  "Código de autorização devolvido pelo provedor"
 // @Param        state     query  string  true  "State enviado no início do fluxo"
-// @Success      302  {string}  string  "Redireciona para o frontend com o token JWT"
+// @Success      302  {string}  string  "Redireciona para o frontend com o cookie de sessão gravado"
 // @Failure      400  {object}  map[string]interface{}
 // @Router       /v1/auth/{provider}/callback [get]
 func (o *oauthController) Callback() fiber.Handler {
@@ -86,7 +86,8 @@ func (o *oauthController) Callback() fiber.Handler {
 			logger.Error("error: ", err)
 			return c.Redirect(oauthErrorRedirectURL(), fiber.StatusFound)
 		}
-		return c.Redirect(oauthSuccessRedirectURL(token), fiber.StatusFound)
+		middleware.SetSessionCookie(c, token)
+		return c.Redirect(oauthSuccessRedirectURL(), fiber.StatusFound)
 	}
 }
 
@@ -109,8 +110,8 @@ func isValidOAuthState(state string, expectedState string) bool {
 	return subtle.ConstantTimeCompare([]byte(state), []byte(expectedState)) == 1
 }
 
-func oauthSuccessRedirectURL(token string) string {
-	return oauthFrontendURL() + oauthSuccessPath + "?token=" + url.QueryEscape(token)
+func oauthSuccessRedirectURL() string {
+	return oauthFrontendURL() + oauthSuccessPath
 }
 
 func oauthErrorRedirectURL() string {

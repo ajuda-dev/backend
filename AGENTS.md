@@ -8,7 +8,7 @@ Backend of a communities/help platform (`github.com/ajuda-dev/backend`). The dom
 - **Addresses** (`addresses`): address registration, with lookup/validation via the external **ViaCEP** API (by CEP or by state + city + street).
 - **Communities** (`community`): belong to a user (owner) and are linked to an address. They support creation and paginated listing with optional `owner_id`, `name` and `city` filters.
 
-The project is in an early development stage (no Makefile/CI). All endpoints are protected by the VerifyJWT middleware (JWT Bearer token), except POST /v1/user/register and POST /v1/user/login; the Swagger UI stays public.
+The project is in an early development stage (no Makefile/CI). Authentication uses a JWT stored in an HttpOnly session cookie (`ajudadev_session`), set on login, register and OAuth callback; the same JWT is also accepted via `Authorization: Bearer` (native/API clients) — see `src/controller/middleware`. All endpoints are protected by the VerifyJWT middleware, except POST /v1/user/register, POST /v1/user/login and POST /v1/user/logout; the Swagger UI stays public.
 
 ## Stack
 
@@ -99,7 +99,10 @@ Defined in `src/controller/routes/routes.go`:
 
 | Method | Route | Handler | Description |
 |---|---|---|---|
-| POST | `/v1/user/register` | `RegisterUser` | Creates a user (201); minimal signup — `description`/`configVisibility` are ignored and never returned |
+| POST | `/v1/user/register` | `RegisterUser` | Creates a user (201); minimal signup — `description`/`configVisibility` are ignored and never returned; sets the HttpOnly session cookie; native clients (`X-Client-Type: native`) also receive `token` in the body |
+| POST | `/v1/user/login` | `LoginUser` | Authenticates (200) and sets the HttpOnly session cookie `ajudadev_session`; native clients (`X-Client-Type: native`) also receive `token` in the body — the browser never reads the token |
+| POST | `/v1/user/logout` | `Logout` | Clears the session cookie (204); public and idempotent so it also works with an expired session |
+| GET | `/v1/user/me` | `Me` | Returns the authenticated user (200, `dto.UserDtoOut` with `id`, `name`, `email`, `role`); used by the frontend to restore the session on boot; `401` without a valid cookie/Bearer |
 | PUT | `/v1/user/:userId` | `UpdateUser` | Updates `name`, `description` and `configVisibility` (partial merge per key); `email`/`password` rejected; only the user themselves or an `ADMIN` (200, returns `dto.UserDtoOut` with `description` + `configVisibility`) |
 | GET | `/v1/user/:userId` | `GetUserById` | User profile read (200, returns `dto.UserProfileDtoOut`: `id`, `name`, `description`, `email` when visible, `configVisibility`); the user themselves or an `ADMIN` get the full profile, everyone else only the entries with `shareWithCommunity: true` (top-level `email` only when the `email` key is shared); `400` id not a UUID v7, `401` invalid requester, `404` not found/soft-deleted; the password is never returned |
 | GET | `/v1/user` | `GetAllUsers` | Paginated user listing (200, returns `dto.PageableUserDto` with `id`, `name` and `skills` — the `email` is never exposed); optional AND-combinable query params `skill` (exact match, upper-cased, max 50), `name` (partial, case- and accent-insensitive match) and `email` (exact, case-insensitive match); without filters it returns every active user, including those with no skills (`"skills": []`); `400` only when `skill` exceeds 50 chars |
@@ -123,5 +126,5 @@ Defined in `src/controller/routes/routes.go`:
 
 - Follow the layered architecture described above; new features should add Controller, Service, Repository, Entity, DTO, Domain and Validator following the existing pattern.
 - Business errors must be returned as `*rest_err.RestErr` with the appropriate HTTP code.
-- Every endpoint must be protected by the VerifyJWT middleware (JWT Bearer token in the Authorization header). Permanent exceptions: POST /v1/user/register, POST /v1/user/login and GET /swagger/*. New endpoints are authenticated by default; on mixed groups (public + protected under the same prefix), apply the middleware per route, never to the whole group.
+- Every endpoint must be protected by the VerifyJWT middleware. Authentication accepts the `ajudadev_session` HttpOnly cookie (browsers) or `Authorization: Bearer <jwt>` (native/API clients); the cookie is cleared when it carries an invalid/expired token. Permanent exceptions: POST /v1/user/register, POST /v1/user/login, POST /v1/user/logout and GET /swagger/*. New endpoints are authenticated by default; on mixed groups (public + protected under the same prefix), apply the middleware per route, never to the whole group.
 - Do not add unnecessary comments to the code.

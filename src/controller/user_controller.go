@@ -21,6 +21,8 @@ func NewUserController(userService service.UserService) UserController {
 
 type UserController interface {
 	RegisterUser() fiber.Handler
+	Logout() fiber.Handler
+	Me() fiber.Handler
 	GetAllUsers() fiber.Handler
 	GetUserById() fiber.Handler
 	UpdateUser() fiber.Handler
@@ -33,11 +35,12 @@ type userController struct {
 
 // RegisterUser godoc
 // @Summary      Registra um novo usuário
-// @Description  Cria um novo usuário no sistema
+// @Description  Cria um novo usuário e grava o token JWT em um cookie de sessão HttpOnly (ajudadev_session), enviado automaticamente pelo navegador nas próximas requisições. Clientes nativos informam o header X-Client-Type: native e recebem o token também no corpo da resposta, para guardar em secure storage e usar via Authorization: Bearer.
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        user  body  dto.RegisterUserDtoIn  true  "Dados do usuário"
+// @Param        user           body    dto.RegisterUserDtoIn  true   "Dados do usuário"
+// @Param        X-Client-Type  header  string                 false  "Informe 'native' (apps mobile/desktop) para receber o token JWT no corpo da resposta"
 // @Success      201   {object}  dto.UserDtoOut
 // @Failure      400   {object}  map[string]interface{}
 // @Router       /v1/user/register [post]
@@ -54,10 +57,49 @@ func (u *userController) RegisterUser() fiber.Handler {
 			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
+		middleware.SetSessionCookie(c, token)
 		var registerUserDtoOut dto.UserDtoOut
 		registerUserDtoOut = *registerUserDtoOut.FromDomainUser(user)
-		registerUserDtoOut.Token = token
+		if middleware.WantsTokenInBody(c) {
+			registerUserDtoOut.Token = token
+		}
 		return c.Status(fiber.StatusCreated).JSON(registerUserDtoOut)
+	}
+}
+
+// Me godoc
+// @Summary      Retorna o usuário autenticado
+// @Description  Devolve id, name, email e role do usuário da sessão atual (cookie de sessão ou Authorization: Bearer). Usado pelo frontend no boot para restaurar a sessão sem guardar o token no navegador.
+// @Tags         users
+// @Produce      json
+// @Success      200   {object}  dto.UserDtoOut
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/user/me [get]
+func (u *userController) Me() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		requesterId := c.Locals(middleware.UserIdKey).(string)
+		user, err := u.userService.GetUserById(requesterId, requesterId)
+		if err != nil {
+			logger.Error("error: ", err)
+			return c.Status(err.Code).JSON(err)
+		}
+		var userDtoOut dto.UserDtoOut
+		userDtoOut = *userDtoOut.FromDomainUser(user)
+		return c.Status(fiber.StatusOK).JSON(userDtoOut)
+	}
+}
+
+// Logout godoc
+// @Summary      Encerra a sessão (logout)
+// @Description  Limpa o cookie HttpOnly de sessão. Endpoint público e idempotente: precisa responder mesmo com a sessão já expirada, para que o navegador pare de enviar o cookie.
+// @Tags         users
+// @Success      204
+// @Router       /v1/user/logout [post]
+func (u *userController) Logout() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		middleware.ClearSessionCookie(c)
+		return c.SendStatus(fiber.StatusNoContent)
 	}
 }
 

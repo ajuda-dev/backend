@@ -2,8 +2,8 @@ package rest_err
 
 import "net/http"
 
-
 var NOT_FOUND = http.StatusNotFound
+
 // RestErr represents the error object.
 // @Summary Error information
 // @Description Structure for describing why the error occurred
@@ -47,7 +47,6 @@ func NewBadRequestError(message string) *RestErr {
 		Code:    http.StatusBadRequest,
 	}
 }
-
 
 func NewBadRequestValidationError(message string, causes []Causes) *RestErr {
 	return &RestErr{

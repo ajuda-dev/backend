@@ -12,10 +12,22 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const defaultJWTExpirationHours = 24
+
 func NewAuthService(userRepository repository.UserRepository) AuthService {
 	return &authService{
 		userRepository: userRepository,
 	}
+}
+
+// JWTExpiration retorna a validade dos tokens (JWT_EXPIRATION_TIME em horas, padrão 24).
+// O cookie de sessão usa o mesmo prazo, para não sobreviver ao token que carrega.
+func JWTExpiration() time.Duration {
+	expirationHours, err := strconv.Atoi(os.Getenv("JWT_EXPIRATION_TIME"))
+	if err != nil || expirationHours <= 0 {
+		expirationHours = defaultJWTExpirationHours
+	}
+	return time.Duration(expirationHours) * time.Hour
 }
 
 type AuthService interface {
@@ -53,16 +65,11 @@ func (a *authService) CreateToken(user *domain.UserDomain) (string, *rest_err.Re
 		return "", rest_err.NewInternalServerError("JWT_SECRET is not configured")
 	}
 
-	expirationHours, err := strconv.Atoi(os.Getenv("JWT_EXPIRATION_TIME"))
-	if err != nil || expirationHours <= 0 {
-		expirationHours = 24
-	}
-
 	now := time.Now()
 	claims := jwt.RegisteredClaims{
 		Subject:   user.Id,
 		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(expirationHours) * time.Hour)),
+		ExpiresAt: jwt.NewNumericDate(now.Add(JWTExpiration())),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

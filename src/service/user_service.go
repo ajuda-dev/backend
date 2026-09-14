@@ -16,12 +16,12 @@ func NewUserService(userRepository repository.UserRepository, validator validato
 	eventUserRepository repository.EventUserRepository,
 	communityUserRepository repository.CommunityUserRepository) UserService {
 	return &userService{
-		userRepository:         userRepository,
-		validator:              validator,
-		authService:            authService,
-		communityRepository:    communityRepository,
-		eventRepository:        eventRepository,
-		eventUserRepository:    eventUserRepository,
+		userRepository:          userRepository,
+		validator:               validator,
+		authService:             authService,
+		communityRepository:     communityRepository,
+		eventRepository:         eventRepository,
+		eventUserRepository:     eventUserRepository,
 		communityUserRepository: communityUserRepository,
 	}
 }
@@ -36,12 +36,12 @@ type UserService interface {
 }
 
 type userService struct {
-	userRepository         repository.UserRepository
-	validator              validator.UserValidator
-	authService            AuthService
-	communityRepository    repository.CommunityRepository
-	eventRepository        repository.EventRepository
-	eventUserRepository    repository.EventUserRepository
+	userRepository          repository.UserRepository
+	validator               validator.UserValidator
+	authService             AuthService
+	communityRepository     repository.CommunityRepository
+	eventRepository         repository.EventRepository
+	eventUserRepository     repository.EventUserRepository
 	communityUserRepository repository.CommunityUserRepository
 }
 

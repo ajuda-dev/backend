@@ -7,7 +7,7 @@ type UserDtoOut struct {
 	Name             string              `json:"name"`
 	Email            string              `json:"email"`
 	Role             string              `json:"role"`
-	Token            string              `json:"token"`
+	Token            string              `json:"token,omitempty"`
 	Description      string              `json:"description,omitempty"`
 	ConfigVisibility ConfigVisibilityDto `json:"configVisibility,omitempty"`
 }

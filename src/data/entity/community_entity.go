@@ -8,7 +8,7 @@ import (
 )
 
 type CommunityEntity struct {
-	Id          string         `gorm:"primaryKey;type:uuid"`
+	Id          string `gorm:"primaryKey;type:uuid"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   gorm.DeletedAt `gorm:"uniqueIndex:idx_community_name_del,priority:2"`
@@ -19,8 +19,6 @@ type CommunityEntity struct {
 	Address     AddressEntity  `gorm:"foreignKey:AddressId;references:Id"`
 	Owner       UserEntity     `gorm:"foreignKey:OwnerId;references:Id"`
 }
-
-
 
 func (c *CommunityEntity) TableName() string {
 	return "community"
@@ -39,15 +37,14 @@ func (c *CommunityEntity) FromDomain(domain domain.CommunityDomain) *CommunityEn
 	}
 }
 
-
 func (c CommunityEntity) ToDomain() *domain.CommunityDomain {
 	return &domain.CommunityDomain{
-		Id: c.Id,
-		Name: c.Name,
+		Id:          c.Id,
+		Name:        c.Name,
 		Description: c.Description,
-		Owner: *c.Owner.ToDomainUser(),
-		Address: *c.Address.ToDomainAddress(),
-	}	
+		Owner:       *c.Owner.ToDomainUser(),
+		Address:     *c.Address.ToDomainAddress(),
+	}
 }
 
 func ToCommunityDomainList(entities []CommunityEntity) []*domain.CommunityDomain {

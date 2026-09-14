@@ -3,21 +3,14 @@ package controller_test
 import (
 	"bytes"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/service/domain"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 )
-
-
-
-
-
-
-
 
 func newUserRegisterRequest(body []byte) *http.Request {
 	req := httptest.NewRequest("POST", "/v1/user/register", bytes.NewBuffer(body))
@@ -44,7 +37,7 @@ func getCauseByField(field string, causesList []rest_err.Causes) []string {
 func TestCreateUserSuccess(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	
+
 	body := []byte(`
 	{
 		"name": "teste",
@@ -69,11 +62,18 @@ func TestCreateUserSuccess(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
-	if respBody.Token == "" {
-		t.Error("esperava token não vazio na resposta")
+	if respBody.Token != "" {
+		t.Errorf("esperava response sem token (navegador usa cookie HttpOnly), recebeu '%s'", respBody.Token)
+	}
+	cookie := sessionCookieFrom(t, resp)
+	if cookie == nil || cookie.Value == "" {
+		t.Fatal("esperava cookie de sessão definido no registro")
+	}
+	if !cookie.HttpOnly {
+		t.Error("esperava cookie de sessão com HttpOnly")
 	}
 	user, findUserError := userRepository.GetUserByEmail(testEmail)
-	if findUserError != nil || user == nil   || user.Id == "" {
+	if findUserError != nil || user == nil || user.Id == "" {
 		t.Fatalf("user not found in database: %v", findUserError)
 	}
 }
@@ -158,11 +158,7 @@ func TestCreateUserFail(t *testing.T) {
 	verifyEmailFieldError(t, respBody)
 	verifyPasswordFieldError(t, respBody)
 
-	
 }
-
-
-
 
 func verifyEmailFieldError(t *testing.T, respBody rest_err.RestErr) {
 	causes := getCauseByField("email", respBody.Causes)
@@ -184,7 +180,6 @@ func verifyEmailFieldError(t *testing.T, respBody rest_err.RestErr) {
 		}
 	}
 }
-
 
 func verifyPasswordFieldError(t *testing.T, respBody rest_err.RestErr) {
 	causes := getCauseByField("password", respBody.Causes)
@@ -248,14 +243,21 @@ func TestLoginSuccess(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
-	if respBody.Token == "" {
-		t.Error("esperava token não vazio na resposta")
+	if respBody.Token != "" {
+		t.Errorf("esperava response sem token (navegador usa cookie HttpOnly), recebeu '%s'", respBody.Token)
 	}
 	if respBody.Id == "" {
 		t.Error("esperava id não vazio na resposta")
 	}
 	if respBody.Email != testEmail {
 		t.Errorf("esperava email '%s', recebeu '%s'", testEmail, respBody.Email)
+	}
+	cookie := sessionCookieFrom(t, resp)
+	if cookie == nil || cookie.Value == "" {
+		t.Fatal("esperava cookie de sessão definido no login")
+	}
+	if !cookie.HttpOnly {
+		t.Error("esperava cookie de sessão com HttpOnly")
 	}
 }
 

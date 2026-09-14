@@ -18,7 +18,7 @@ var (
 	GitHubAPIBaseURLEnv   = "GITHUB_API_BASE_URL"
 )
 
-const githubCallbackURLDefault = "http://localhost:8080/v1/auth/github/callback"
+const githubCallbackURLDefault = "http://127.0.0.1:8080/v1/auth/github/callback"
 
 // ProvidersFromEnv monta os provedores OAuth habilitados por variáveis de ambiente.
 // Um provedor só entra no registry quando está configurado; adicionar google no

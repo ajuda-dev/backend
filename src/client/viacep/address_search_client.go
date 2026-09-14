@@ -59,10 +59,10 @@ func (a *addressSearchClient) SearchAddress(address domain.AddressDomain) (*doma
 		}
 		data = dataArr[0]
 	}
-	if data.Erro  {
+	if data.Erro {
 		return nil, rest_err.NewBadRequestError("invalid search address data")
 	}
-	
+
 	return viaCepResponseToAddressDomain(data), nil
 }
 
@@ -79,5 +79,5 @@ func buildUrl(address domain.AddressDomain) string {
 	if address.ZipCode != "" {
 		return fmt.Sprintf("%s/%s/json/", baseUrl, address.ZipCode)
 	}
-	return  fmt.Sprintf("%s/%s/%s/%s/json/", baseUrl, address.State, address.City, address.Street)
+	return fmt.Sprintf("%s/%s/%s/%s/json/", baseUrl, address.State, address.City, address.Street)
 }

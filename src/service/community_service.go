@@ -82,8 +82,6 @@ func (c *communityService) CreateCommunity(community *domain.CommunityDomain) (*
 	return c.communityRepository.CreateCommunity(community)
 }
 
-
-
 func (c *communityService) GetCommunityById(id string) (*domain.CommunityDomain, *rest_err.RestErr) {
 	return c.communityRepository.FindById(id)
 }

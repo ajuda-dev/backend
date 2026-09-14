@@ -3,9 +3,9 @@ package dto
 import "github.com/ajuda-dev/backend/src/service/domain"
 
 type PageableCommunityDto struct {
-	HasNext bool `json:"has_next"`
+	HasNext bool           `json:"has_next"`
 	Data    []CommunityDto `json:"data"`
- }
+}
 
 type CommunityDto struct {
 	Id          string      `json:"id"`

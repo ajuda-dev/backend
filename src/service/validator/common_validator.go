@@ -5,8 +5,10 @@ import (
 	"regexp"
 	"strings"
 )
+
 var emailRegex = regexp.MustCompile(`^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`)
 var phoneAllowedChars = regexp.MustCompile(`^\+?[0-9()\-. ]+$`)
+
 func isValidName(name string, isCommunity bool) bool {
 	if strings.TrimSpace(name) == "" {
 		return false
@@ -22,10 +24,9 @@ func isValidName(name string, isCommunity bool) bool {
 	return re.MatchString(name) && len(name) <= 50
 }
 
-
 func isValidEmail(email string) bool {
 	if strings.TrimSpace(email) == "" {
-			return false
+		return false
 	}
 	return emailRegex.MatchString(email)
 }

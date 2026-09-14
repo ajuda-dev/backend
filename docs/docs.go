@@ -144,7 +144,7 @@ const docTemplate = `{
         },
         "/v1/auth/{provider}/callback": {
             "get": {
-                "description": "Recebe o code do provedor, autentica o usuário (reaproveitando o vínculo existente, casando pelo e-mail verificado ou criando um usuário novo sem senha) e redireciona para o frontend com o token JWT na query (?token=). Em falha, redireciona para o frontend com ?error=auth_failed. Endpoint público.",
+                "description": "Recebe o code do provedor, autentica o usuário (reaproveitando o vínculo existente, casando pelo e-mail verificado ou criando um usuário novo sem senha) e grava o token JWT em cookie de sessão HttpOnly (ajudadev_session) antes de redirecionar para o frontend — o token não trafega na URL. Em falha, redireciona para o frontend com ?error=auth_failed. Endpoint público.",
                 "produces": [
                     "application/json"
                 ],
@@ -177,7 +177,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "302": {
-                        "description": "Redireciona para o frontend com o token JWT",
+                        "description": "Redireciona para o frontend com o cookie de sessão gravado",
                         "schema": {
                             "type": "string"
                         }
@@ -1862,7 +1862,7 @@ const docTemplate = `{
         },
         "/v1/user/login": {
             "post": {
-                "description": "Realiza o login de um usuário e retorna um token JWT",
+                "description": "Realiza o login e grava o token JWT em um cookie de sessão HttpOnly (ajudadev_session), enviado automaticamente pelo navegador nas próximas requisições. Clientes nativos informam o header X-Client-Type: native e recebem o token também no corpo da resposta, para guardar em secure storage e usar via Authorization: Bearer.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1882,6 +1882,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/dto.LoginUserDtoIn"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Informe 'native' (apps mobile/desktop) para receber o token JWT no corpo da resposta",
+                        "name": "X-Client-Type",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -1908,9 +1914,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/user/logout": {
+            "post": {
+                "description": "Limpa o cookie HttpOnly de sessão. Endpoint público e idempotente: precisa responder mesmo com a sessão já expirada, para que o navegador pare de enviar o cookie.",
+                "tags": [
+                    "users"
+                ],
+                "summary": "Encerra a sessão (logout)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/v1/user/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Devolve id, name, email e role do usuário da sessão atual (cookie de sessão ou Authorization: Bearer). Usado pelo frontend no boot para restaurar a sessão sem guardar o token no navegador.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Retorna o usuário autenticado",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.UserDtoOut"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/user/register": {
             "post": {
-                "description": "Cria um novo usuário no sistema",
+                "description": "Cria um novo usuário e grava o token JWT em um cookie de sessão HttpOnly (ajudadev_session), enviado automaticamente pelo navegador nas próximas requisições. Clientes nativos informam o header X-Client-Type: native e recebem o token também no corpo da resposta, para guardar em secure storage e usar via Authorization: Bearer.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1930,6 +1982,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/dto.RegisterUserDtoIn"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Informe 'native' (apps mobile/desktop) para receber o token JWT no corpo da resposta",
+                        "name": "X-Client-Type",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -2921,7 +2979,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "AjudaDev Backend API",
-	Description:      "",
+	Description:      "Sessão por cookie HttpOnly (ajudadev_session): login, registro e callback OAuth gravam o cookie e o navegador o envia sozinho — o JavaScript nunca lê o token. Apps nativos usam Authorization: Bearer com o token obtido via header X-Client-Type: native no login/registro.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

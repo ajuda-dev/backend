@@ -14,12 +14,9 @@ type UserValidator interface {
 
 type userValidator struct{}
 
-
-
 func NewUserValidator() UserValidator {
 	return &userValidator{}
 }
-
 
 func (u *userValidator) ValidateRegisterUser(registerUser domain.UserDomain) *rest_err.RestErr {
 	causes := []rest_err.Causes{}
@@ -158,6 +155,3 @@ func validateConfigVisibility(config domain.ConfigVisibility) []rest_err.Causes 
 	}
 	return causes
 }
-
-
-

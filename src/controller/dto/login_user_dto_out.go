@@ -3,16 +3,15 @@ package dto
 import "github.com/ajuda-dev/backend/src/service/domain"
 
 type LoginUserDtoOut struct {
-	Token string `json:"token"`
+	Token string `json:"token,omitempty"`
 	Id    string `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email"`
 	Role  string `json:"role"`
 }
 
-func (l *LoginUserDtoOut) FromDomainUser(user *domain.UserDomain, token string) *LoginUserDtoOut {
+func (l *LoginUserDtoOut) FromDomainUser(user *domain.UserDomain) *LoginUserDtoOut {
 	return &LoginUserDtoOut{
-		Token: token,
 		Id:    user.Id,
 		Name:  user.Name,
 		Email: user.Email,

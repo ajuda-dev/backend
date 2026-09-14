@@ -8,7 +8,7 @@ import (
 )
 
 type UserEntity struct {
-	Id               string               `gorm:"primaryKey;type:uuid"`
+	Id               string `gorm:"primaryKey;type:uuid"`
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	DeletedAt        gorm.DeletedAt       `gorm:"uniqueIndex:idx_users_email_del,priority:2"`
@@ -20,13 +20,9 @@ type UserEntity struct {
 	ConfigVisibility UserConfigVisibility `gorm:"type:jsonb;column:config_visibility"`
 }
 
-
 func (UserEntity) TableName() string {
 	return "users"
 }
-
-
-
 
 func (u *UserEntity) ToDomainUser() *domain.UserDomain {
 	config := u.ConfigVisibility.ToDomain()

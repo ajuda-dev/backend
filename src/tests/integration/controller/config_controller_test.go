@@ -27,18 +27,18 @@ import (
 )
 
 var (
-	db                  *gorm.DB
-	cleanupDB           func()
-	userRepository      repository.UserRepository
-	addressRepository   repository.AddressRepository
-	communityRepository repository.CommunityRepository
-	eventRepository     repository.EventRepository
-	eventUserRepository repository.EventUserRepository
-	skillRepository     repository.SkillRepository
-	skillUserRepository repository.SkillUserRepository
+	db                      *gorm.DB
+	cleanupDB               func()
+	userRepository          repository.UserRepository
+	addressRepository       repository.AddressRepository
+	communityRepository     repository.CommunityRepository
+	eventRepository         repository.EventRepository
+	eventUserRepository     repository.EventUserRepository
+	skillRepository         repository.SkillRepository
+	skillUserRepository     repository.SkillUserRepository
 	communityUserRepository repository.CommunityUserRepository
-	oauthAccountRepository repository.OAuthAccountRepository
-	testEmail           = "teste@ajuda.dev"
+	oauthAccountRepository  repository.OAuthAccountRepository
+	testEmail               = "teste@ajuda.dev"
 )
 
 func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
@@ -242,4 +242,14 @@ func createUserWithRole(t *testing.T, email string, role string) *domain.UserDom
 func doAuthedRequest(app *fiber.App, req *http.Request, token string) (*http.Response, error) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	return app.Test(req)
+}
+
+func sessionCookieFrom(t *testing.T, resp *http.Response) *http.Cookie {
+	t.Helper()
+	for _, cookie := range resp.Cookies() {
+		if cookie.Name == middleware.SessionCookieName {
+			return cookie
+		}
+	}
+	return nil
 }

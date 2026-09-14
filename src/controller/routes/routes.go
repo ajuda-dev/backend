@@ -12,6 +12,8 @@ func SetupRoutesUser(app *fiber.App, userController controller.UserController, a
 	user := app.Group("/v1/user")
 	user.Post("/register", userController.RegisterUser())
 	user.Post("/login", authController.LoginUser())
+	user.Post("/logout", userController.Logout())
+	user.Get("/me", auth, userController.Me())
 	user.Get("", auth, userController.GetAllUsers())
 	user.Get("/:userId", auth, userController.GetUserById())
 	user.Put("/:userId", auth, userController.UpdateUser())
