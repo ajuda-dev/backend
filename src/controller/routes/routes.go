@@ -38,6 +38,9 @@ func SetupRoutesCommunityUsers(app *fiber.App, communityUserController controlle
 	communities.Post("/:id/join", communityUserController.JoinCommunity())
 	communities.Delete("/:id/leave", communityUserController.LeaveCommunity())
 	communities.Get("/:id/members", communityUserController.GetCommunityMembers())
+
+	users := app.Group("/v1/user")
+	users.Get("/:userId/communities", auth, communityUserController.GetUserCommunities())
 }
 
 func SetupRoutesEvents(app *fiber.App, eventController controller.EventController, auth fiber.Handler) {

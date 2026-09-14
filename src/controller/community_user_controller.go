@@ -16,6 +16,7 @@ type CommunityUserController interface {
 	JoinCommunity() fiber.Handler
 	LeaveCommunity() fiber.Handler
 	GetCommunityMembers() fiber.Handler
+	GetUserCommunities() fiber.Handler
 }
 
 type communityUserController struct {
@@ -124,5 +125,38 @@ func (c *communityUserController) GetCommunityMembers() fiber.Handler {
 			return cf.Status(err.Code).JSON(err)
 		}
 		return cf.Status(fiber.StatusOK).JSON(dto.PageableCommunityMemberDto{}.FromDomain(*result))
+	}
+}
+
+// GetUserCommunities godoc
+// @Summary      Lista comunidades do usuário
+// @Description  Retorna as comunidades em que o usuário é membro (linhas de community_users), paginadas em ordem alfabética pelo nome. Comunidades próprias do usuário não aparecem aqui (usar GET /v1/community?owner_id=). Qualquer usuário autenticado pode consultar.
+// @Tags         community_users
+// @Accept       json
+// @Produce      json
+// @Param        userId  path   string  true   "ID do usuário"
+// @Param        page    query  int     false  "Página"
+// @Param        limit   query  int     false  "Limite"
+// @Success      200   {object}  dto.PageableCommunityDto
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/user/{userId}/communities [get]
+func (c *communityUserController) GetUserCommunities() fiber.Handler {
+	return func(cf *fiber.Ctx) error {
+		userId := cf.Params("userId")
+		if !uuidv7.IsValidString(userId) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "userId", Message: "userId must be a valid UUID v7"}}))
+		}
+		page, _ := strconv.Atoi(cf.Query("page", "1"))
+		limit, _ := strconv.Atoi(cf.Query("limit", "10"))
+		result, err := c.communityUserService.GetUserCommunities(userId, page, limit)
+		if err != nil {
+			logger.Error("erro", err)
+			return cf.Status(err.Code).JSON(err)
+		}
+		return cf.Status(fiber.StatusOK).JSON(dto.PageableCommunityDto{}.FromDomain(*result))
 	}
 }

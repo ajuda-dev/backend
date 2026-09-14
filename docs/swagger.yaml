@@ -1713,6 +1713,50 @@ paths:
       summary: Altera o perfil de um usuário
       tags:
       - users
+  /v1/user/{userId}/communities:
+    get:
+      consumes:
+      - application/json
+      description: Retorna as comunidades em que o usuário é membro (linhas de community_users),
+        paginadas em ordem alfabética pelo nome. Comunidades próprias do usuário não
+        aparecem aqui (usar GET /v1/community?owner_id=). Qualquer usuário autenticado
+        pode consultar.
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Página
+        in: query
+        name: page
+        type: integer
+      - description: Limite
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PageableCommunityDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lista comunidades do usuário
+      tags:
+      - community_users
   /v1/user/{userId}/skills:
     get:
       consumes:

@@ -10,6 +10,7 @@ type CommunityUserService interface {
 	JoinCommunity(communityId string, userId string) (*domain.CommunityUserDomain, *rest_err.RestErr)
 	LeaveCommunity(communityId string, userId string) *rest_err.RestErr
 	GetCommunityMembers(communityId string, requesterId string, page int, limit int) (*domain.PageableCommunityMember, *rest_err.RestErr)
+	GetUserCommunities(userId string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
 }
 
 type communityUserService struct {
@@ -68,4 +69,8 @@ func (c *communityUserService) GetCommunityMembers(communityId string, requester
 		applyVisibilityFilter(member.User, requester)
 	}
 	return result, nil
+}
+
+func (c *communityUserService) GetUserCommunities(userId string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
+	return c.communityUserRepository.FindCommunitiesByUser(userId, page, limit)
 }
