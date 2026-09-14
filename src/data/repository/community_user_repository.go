@@ -16,6 +16,7 @@ type CommunityUserRepository interface {
 	CountByCommunity(communityId string) (int64, *rest_err.RestErr)
 	CountByUserId(userId string) (int64, *rest_err.RestErr)
 	ExistsByCommunityAndUser(communityId string, userId string) (bool, *rest_err.RestErr)
+	FindMembersByCommunity(communityId string, page int, limit int) (*domain.PageableCommunityMember, *rest_err.RestErr)
 }
 
 type communityUserRepository struct {
@@ -93,4 +94,29 @@ func (c *communityUserRepository) ExistsByCommunityAndUser(communityId string, u
 		return false, rest_err.NewInternalServerError("Error getting membership: " + err.Error())
 	}
 	return count > 0, nil
+}
+
+func (c *communityUserRepository) FindMembersByCommunity(communityId string, page int, limit int) (*domain.PageableCommunityMember, *rest_err.RestErr) {
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	var entities []entity.CommunityUserEntity
+	err := c.database.Model(&entity.CommunityUserEntity{}).
+		Joins("JOIN users ON users.id = community_users.user_id").
+		Where("community_users.community_id = ? AND users.deleted_at IS NULL", communityId).
+		Preload("User").
+		Order("users.name, community_users.id").
+		Offset((page - 1) * limit).Limit(limit + 1).
+		Find(&entities).Error
+	if err != nil {
+		return nil, rest_err.NewInternalServerError("Error getting community members: " + err.Error())
+	}
+	hasNext := len(entities) > limit
+	if hasNext {
+		entities = entities[:limit]
+	}
+	return &domain.PageableCommunityMember{HasNext: hasNext, Data: entity.ToCommunityUserDomainList(entities)}, nil
 }

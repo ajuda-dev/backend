@@ -1,0 +1,52 @@
+package dto
+
+import "github.com/ajuda-dev/backend/src/service/domain"
+
+type CommunityMemberUserDto struct {
+	Id    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email,omitempty"`
+}
+
+type CommunityMemberDto struct {
+	Id          string                  `json:"id"`
+	CommunityId string                  `json:"community_id"`
+	UserId      string                  `json:"user_id"`
+	User        *CommunityMemberUserDto `json:"user,omitempty"`
+}
+
+type PageableCommunityMemberDto struct {
+	HasNext bool                 `json:"has_next"`
+	Data    []CommunityMemberDto `json:"data"`
+}
+
+func (c CommunityMemberDto) FromDomain(communityUser *domain.CommunityUserDomain) CommunityMemberDto {
+	dtoMember := CommunityMemberDto{
+		Id:          communityUser.Id,
+		CommunityId: communityUser.CommunityId,
+		UserId:      communityUser.UserId,
+	}
+	if communityUser.User != nil {
+		dtoMember.User = &CommunityMemberUserDto{
+			Id:    communityUser.User.Id,
+			Name:  communityUser.User.Name,
+			Email: communityUser.User.Email,
+		}
+	}
+	return dtoMember
+}
+
+func ToCommunityMemberDtoList(communityUsers []*domain.CommunityUserDomain) []CommunityMemberDto {
+	dtos := make([]CommunityMemberDto, len(communityUsers))
+	for i, cu := range communityUsers {
+		dtos[i] = CommunityMemberDto{}.FromDomain(cu)
+	}
+	return dtos
+}
+
+func (p PageableCommunityMemberDto) FromDomain(pageable domain.PageableCommunityMember) *PageableCommunityMemberDto {
+	return &PageableCommunityMemberDto{
+		HasNext: pageable.HasNext,
+		Data:    ToCommunityMemberDtoList(pageable.Data),
+	}
+}

@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"strconv"
+
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller/dto"
@@ -13,6 +15,7 @@ import (
 type CommunityUserController interface {
 	JoinCommunity() fiber.Handler
 	LeaveCommunity() fiber.Handler
+	GetCommunityMembers() fiber.Handler
 }
 
 type communityUserController struct {
@@ -83,5 +86,43 @@ func (c *communityUserController) LeaveCommunity() fiber.Handler {
 			return cf.Status(err.Code).JSON(err)
 		}
 		return cf.SendStatus(fiber.StatusNoContent)
+	}
+}
+
+// GetCommunityMembers godoc
+// @Summary      Lista membros da comunidade
+// @Description  Retorna os membros de uma comunidade (linhas de community_users) com o usuário resumido, paginados em ordem alfabética pelo nome. O dono não aparece (não possui membership). Usuários sem e-mail compartilhado não expõem e-mail.
+// @Tags         community_users
+// @Accept       json
+// @Produce      json
+// @Param        id     path   string  true   "ID da comunidade"
+// @Param        page   query  int     false  "Página"
+// @Param        limit  query  int     false  "Limite"
+// @Success      200   {object}  dto.PageableCommunityMemberDto
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/community/{id}/members [get]
+func (c *communityUserController) GetCommunityMembers() fiber.Handler {
+	return func(cf *fiber.Ctx) error {
+		communityId := cf.Params("id")
+		if !uuidv7.IsValidString(communityId) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
+		}
+		page, _ := strconv.Atoi(cf.Query("page", "1"))
+		limit, _ := strconv.Atoi(cf.Query("limit", "10"))
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		result, err := c.communityUserService.GetCommunityMembers(communityId, userId, page, limit)
+		if err != nil {
+			logger.Error("erro", err)
+			return cf.Status(err.Code).JSON(err)
+		}
+		return cf.Status(fiber.StatusOK).JSON(dto.PageableCommunityMemberDto{}.FromDomain(*result))
 	}
 }

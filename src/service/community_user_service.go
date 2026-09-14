@@ -9,6 +9,7 @@ import (
 type CommunityUserService interface {
 	JoinCommunity(communityId string, userId string) (*domain.CommunityUserDomain, *rest_err.RestErr)
 	LeaveCommunity(communityId string, userId string) *rest_err.RestErr
+	GetCommunityMembers(communityId string, requesterId string, page int, limit int) (*domain.PageableCommunityMember, *rest_err.RestErr)
 }
 
 type communityUserService struct {
@@ -49,4 +50,22 @@ func (c *communityUserService) LeaveCommunity(communityId string, userId string)
 		return err
 	}
 	return c.communityUserRepository.DeleteByCommunityAndUser(communityId, userId)
+}
+
+func (c *communityUserService) GetCommunityMembers(communityId string, requesterId string, page int, limit int) (*domain.PageableCommunityMember, *rest_err.RestErr) {
+	requester, err := authenticatedUser(c.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := c.communityService.GetCommunityById(communityId); err != nil {
+		return nil, err
+	}
+	result, err := c.communityUserRepository.FindMembersByCommunity(communityId, page, limit)
+	if err != nil {
+		return nil, err
+	}
+	for _, member := range result.Data {
+		applyVisibilityFilter(member.User, requester)
+	}
+	return result, nil
 }

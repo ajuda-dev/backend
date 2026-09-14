@@ -33,6 +33,19 @@ func createCommunityUserForTest(t *testing.T, email string) *domain.UserDomain {
 	return user
 }
 
+func createNamedCommunityUserForTest(t *testing.T, name string, email string) *domain.UserDomain {
+	t.Helper()
+	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+		Name:     name,
+		Email:    email,
+		Password: "123456",
+	})
+	if createErr != nil {
+		t.Fatalf("failed to create member user: %v", createErr)
+	}
+	return user
+}
+
 func createCommunityOwnedByForTest(t *testing.T, name string, ownerEmail string) string {
 	t.Helper()
 	owner, createErr := userRepository.CreateUser(&domain.UserDomain{

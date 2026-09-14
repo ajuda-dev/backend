@@ -557,6 +557,76 @@
                 }
             }
         },
+        "/v1/community/{id}/members": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retorna os membros de uma comunidade (linhas de community_users) com o usuário resumido, paginados em ordem alfabética pelo nome. O dono não aparece (não possui membership). Usuários sem e-mail compartilhado não expõem e-mail.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "community_users"
+                ],
+                "summary": "Lista membros da comunidade",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da comunidade",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limite",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PageableCommunityMemberDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/event": {
             "get": {
                 "security": [
@@ -2151,6 +2221,37 @@
                 }
             }
         },
+        "dto.CommunityMemberDto": {
+            "type": "object",
+            "properties": {
+                "community_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/dto.CommunityMemberUserDto"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CommunityMemberUserDto": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.CommunityUserDto": {
             "type": "object",
             "properties": {
@@ -2313,6 +2414,20 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/dto.CommunityDto"
+                    }
+                },
+                "has_next": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "dto.PageableCommunityMemberDto": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.CommunityMemberDto"
                     }
                 },
                 "has_next": {

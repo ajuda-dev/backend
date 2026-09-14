@@ -24,5 +24,17 @@ func (e *CommunityUserEntity) FromDomain(cu domain.CommunityUserDomain) *Communi
 }
 
 func (e CommunityUserEntity) ToDomain() *domain.CommunityUserDomain {
-	return &domain.CommunityUserDomain{Id: e.Id, CommunityId: e.CommunityId, UserId: e.UserId}
+	communityUser := &domain.CommunityUserDomain{Id: e.Id, CommunityId: e.CommunityId, UserId: e.UserId}
+	if e.User.Id != "" {
+		communityUser.User = e.User.ToDomainUser()
+	}
+	return communityUser
+}
+
+func ToCommunityUserDomainList(entities []CommunityUserEntity) []*domain.CommunityUserDomain {
+	var domains []*domain.CommunityUserDomain
+	for _, e := range entities {
+		domains = append(domains, e.ToDomain())
+	}
+	return domains
 }

@@ -107,6 +107,7 @@ Defined in `src/controller/routes/routes.go`:
 | POST | `/v1/community/register` | `RegisterCommunity` | Creates a community (201, returns the full `dto.CommunityDto`: `address` + `owner`) |
 | GET | `/v1/community/:id` | `GetCommunityById` | Community detail with `address` + `owner`; `400` id not a UUID v7; `404` not found/soft-deleted (200) |
 | GET | `/v1/community` | `GetAllCommunities` | Paginated community listing; query params `page`, `limit`, `owner_id` (UUID v7), `name` (partial, case- and accent-insensitive match), `city` (partial, case- and accent-insensitive match) (200) |
+| GET | `/v1/community/:id/members` | `GetCommunityMembers` | Paginated community member listing (`community_users` rows) with the summarized user embedded (`dto.PageableCommunityMemberDto`: `has_next` + `data` with `id`, `community_id`, `user_id`, `user`); query params `page`, `limit`; alphabetical by user name; the owner is not listed (no membership row); soft-deleted users are excluded; `email` only when visible (`applyVisibilityFilter`); `400` id not a UUID v7, `401` invalid requester, `404` community not found/soft-deleted (200) |
 | GET | `/swagger/*` | `swagger.HandlerDefault` | Swagger UI documentation |
 
 ## How to run

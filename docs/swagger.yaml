@@ -43,6 +43,26 @@ definitions:
       owner:
         $ref: '#/definitions/dto.UserDtoOut'
     type: object
+  dto.CommunityMemberDto:
+    properties:
+      community_id:
+        type: string
+      id:
+        type: string
+      user:
+        $ref: '#/definitions/dto.CommunityMemberUserDto'
+      user_id:
+        type: string
+    type: object
+  dto.CommunityMemberUserDto:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
   dto.CommunityUserDto:
     properties:
       community_id:
@@ -149,6 +169,15 @@ definitions:
       data:
         items:
           $ref: '#/definitions/dto.CommunityDto'
+        type: array
+      has_next:
+        type: boolean
+    type: object
+  dto.PageableCommunityMemberDto:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.CommunityMemberDto'
         type: array
       has_next:
         type: boolean
@@ -694,6 +723,55 @@ paths:
       security:
       - BearerAuth: []
       summary: Sai de uma comunidade
+      tags:
+      - community_users
+  /v1/community/{id}/members:
+    get:
+      consumes:
+      - application/json
+      description: Retorna os membros de uma comunidade (linhas de community_users)
+        com o usuário resumido, paginados em ordem alfabética pelo nome. O dono não
+        aparece (não possui membership). Usuários sem e-mail compartilhado não expõem
+        e-mail.
+      parameters:
+      - description: ID da comunidade
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Página
+        in: query
+        name: page
+        type: integer
+      - description: Limite
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PageableCommunityMemberDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lista membros da comunidade
       tags:
       - community_users
   /v1/community/register:
