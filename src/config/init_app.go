@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 
+	"github.com/ajuda-dev/backend/src/client/oauth"
 	client "github.com/ajuda-dev/backend/src/client/viacep"
 	"github.com/ajuda-dev/backend/src/config/database"
 	"github.com/ajuda-dev/backend/src/config/logger"
@@ -34,6 +35,7 @@ func InitApp() {
 	communityUserRepository := repository.NewCommunityUserRepository(db)
 
 	authService := service.NewAuthService(userRepository)
+	oauthService := service.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), repository.NewOAuthAccountRepository(db), userRepository, authService)
 	userService := initUserService(userRepository, authService, communityRepository, eventRepository, eventUserRepository, communityUserRepository)
 	addressService := initAddressService(addressRepository)
 	eventService := service.NewEventService(
@@ -49,6 +51,7 @@ func InitApp() {
 	communityService := service.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, validator.NewCommunityValidator())
 	communityUserService := service.NewCommunityUserService(userService, communityService, communityUserRepository)
 	routes.SetupRoutesUser(app, initUserController(userService), initAuthController(authService), authMiddleware)
+	routes.SetupRoutesAuth(app, controller.NewOAuthController(oauthService))
 	routes.SetupRoutesAddress(app, initAddressController(addressService), authMiddleware)
 	routes.SetupRoutesCommunities(app, controller.NewCommunityController(communityService), authMiddleware)
 	routes.SetupRoutesCommunityUsers(app, controller.NewCommunityUserController(communityUserService), authMiddleware)

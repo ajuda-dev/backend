@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ajuda-dev/backend/src/client/oauth"
 	client "github.com/ajuda-dev/backend/src/client/viacep"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller"
@@ -36,6 +37,7 @@ var (
 	skillRepository     repository.SkillRepository
 	skillUserRepository repository.SkillUserRepository
 	communityUserRepository repository.CommunityUserRepository
+	oauthAccountRepository repository.OAuthAccountRepository
 	testEmail           = "teste@ajuda.dev"
 )
 
@@ -89,7 +91,7 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 		container.Terminate(ctx)
 		return nil, nil, fmt.Errorf("error enabling unaccent extension: %w", err)
 	}
-	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{})
+	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{}, &entity.OAuthAccountEntity{})
 
 	return db, cleanup, nil
 }
@@ -112,6 +114,7 @@ func TestMain(m *testing.M) {
 	skillRepository = repository.NewSkillRepository(db)
 	skillUserRepository = repository.NewSkillUserRepository(db)
 	communityUserRepository = repository.NewCommunityUserRepository(db)
+	oauthAccountRepository = repository.NewOAuthAccountRepository(db)
 	code := m.Run()
 	cleanupDB()
 	os.Exit(code)
@@ -120,11 +123,13 @@ func TestMain(m *testing.M) {
 func setupApp() *fiber.App {
 	app := fiber.New()
 	authService := service.NewAuthService(userRepository)
+	oauthService := service.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), oauthAccountRepository, userRepository, authService)
 	authMiddleware := middleware.VerifyJWT(authService)
 	userService := service.NewUserService(userRepository, validator.NewUserValidator(), authService,
 		communityRepository, eventRepository, eventUserRepository, communityUserRepository)
 	addressService := service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient())
 	routes.SetupRoutesUser(app, controller.NewUserController(userService), controller.NewAuthController(authService), authMiddleware)
+	routes.SetupRoutesAuth(app, controller.NewOAuthController(oauthService))
 	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService), authMiddleware)
 	communityService := service.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, validator.NewCommunityValidator())
 	routes.SetupRoutesCommunities(app, controller.NewCommunityController(communityService), authMiddleware)
@@ -170,6 +175,10 @@ func cleanSkillUsersTable() {
 
 func cleanCommunityUsersTable() {
 	db.Exec("DELETE FROM community_users")
+}
+
+func cleanOAuthAccountsTable() {
+	db.Exec("DELETE FROM oauth_accounts")
 }
 
 type addressSearchClientMock struct {

@@ -18,6 +18,13 @@ func SetupRoutesUser(app *fiber.App, userController controller.UserController, a
 	user.Delete("/:userId", auth, userController.DeleteUser())
 }
 
+func SetupRoutesAuth(app *fiber.App, oauthController controller.OAuthController) {
+	auth := app.Group("/v1/auth")
+	// Rotas públicas por natureza: são o próprio fluxo de login, o usuário ainda não possui token.
+	auth.Get("/:provider/login", oauthController.StartLogin())
+	auth.Get("/:provider/callback", oauthController.Callback())
+}
+
 func SetupRoutesAddress(app *fiber.App, addressController controller.AddressController, auth fiber.Handler) {
 	address := app.Group("/v1/address", auth)
 	address.Post("/register", addressController.RegisterAddress())

@@ -142,6 +142,92 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/auth/{provider}/callback": {
+            "get": {
+                "description": "Recebe o code do provedor, autentica o usuário (reaproveitando o vínculo existente, casando pelo e-mail verificado ou criando um usuário novo sem senha) e redireciona para o frontend com o token JWT na query (?token=). Em falha, redireciona para o frontend com ?error=auth_failed. Endpoint público.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Callback do login via OAuth",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provedor OAuth (ex.: github)",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Código de autorização devolvido pelo provedor",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "State enviado no início do fluxo",
+                        "name": "state",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redireciona para o frontend com o token JWT",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/auth/{provider}/login": {
+            "get": {
+                "description": "Redireciona o navegador para o provedor OAuth informado no path (ex.: github). Endpoint público: é o início do fluxo de login. O state é gravado em cookie HttpOnly de curta duração e conferido no callback.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Inicia o login via OAuth",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provedor OAuth (ex.: github)",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redireciona para a página de autorização do provedor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/community": {
             "get": {
                 "security": [
