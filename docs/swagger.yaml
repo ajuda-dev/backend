@@ -78,6 +78,8 @@ definitions:
         $ref: '#/definitions/dto.UserDtoOut'
       start_at:
         type: string
+      status:
+        type: string
       title:
         type: string
       type:
@@ -224,6 +226,8 @@ definitions:
         type: string
       start_at:
         type: string
+      status:
+        type: string
       title:
         type: string
       type:
@@ -272,6 +276,11 @@ definitions:
       description:
         type: string
       name:
+        type: string
+    type: object
+  dto.UpdateEventApprovalDto:
+    properties:
+      status:
         type: string
     type: object
   dto.UpdateParticipantStatusDto:
@@ -773,6 +782,11 @@ paths:
         in: query
         name: status
         type: string
+      - description: Status de aprovação do evento (PENDING, APPROVED, REJECTED) —
+          apenas dono da comunidade ou staff
+        in: query
+        name: approval_status
+        type: string
       produces:
       - application/json
       responses:
@@ -1102,6 +1116,57 @@ paths:
       security:
       - BearerAuth: []
       summary: Busca evento por id
+      tags:
+      - events
+  /v1/event/{id}/approval:
+    put:
+      consumes:
+      - application/json
+      description: 'O dono da comunidade (ou moderador/admin) decide o status de aprovação
+        do evento. Transições permitidas: PENDING para APPROVED ou REJECTED e REJECTED
+        para APPROVED.'
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Novo status (APPROVED ou REJECTED)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateEventApprovalDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.EventDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Aprova ou rejeita um evento da comunidade
       tags:
       - events
   /v1/event/register:

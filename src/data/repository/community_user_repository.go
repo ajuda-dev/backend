@@ -15,6 +15,7 @@ type CommunityUserRepository interface {
 	DeleteByCommunityAndUser(communityId string, userId string) *rest_err.RestErr
 	CountByCommunity(communityId string) (int64, *rest_err.RestErr)
 	CountByUserId(userId string) (int64, *rest_err.RestErr)
+	ExistsByCommunityAndUser(communityId string, userId string) (bool, *rest_err.RestErr)
 }
 
 type communityUserRepository struct {
@@ -82,4 +83,14 @@ func (c *communityUserRepository) CountByUserId(userId string) (int64, *rest_err
 		return 0, rest_err.NewInternalServerError("Error counting memberships: " + err.Error())
 	}
 	return count, nil
+}
+
+func (c *communityUserRepository) ExistsByCommunityAndUser(communityId string, userId string) (bool, *rest_err.RestErr) {
+	var count int64
+	if err := c.database.Model(&entity.CommunityUserEntity{}).
+		Where("community_id = ? AND user_id = ?", communityId, userId).
+		Count(&count).Error; err != nil {
+		return false, rest_err.NewInternalServerError("Error getting membership: " + err.Error())
+	}
+	return count > 0, nil
 }

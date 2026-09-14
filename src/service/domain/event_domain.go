@@ -10,6 +10,10 @@ const (
 	TypeOnline   = "ONLINE"
 	TypeInperson = "INPERSON"
 	TypeHybrid   = "HYBRID"
+
+	EventStatusPending  = "PENDING"
+	EventStatusApproved = "APPROVED"
+	EventStatusRejected = "REJECTED"
 )
 
 type EventDomain struct {
@@ -26,6 +30,7 @@ type EventDomain struct {
 	MeetingLink string
 	MaxSlots    *int
 	CreatorRole string
+	Status      string
 }
 
 type PageableEvent struct {

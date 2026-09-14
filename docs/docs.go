@@ -650,6 +650,12 @@ const docTemplate = `{
                         "description": "Status da participação (com user_id)",
                         "name": "status",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status de aprovação do evento (PENDING, APPROVED, REJECTED) — apenas dono da comunidade ou staff",
+                        "name": "approval_status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1169,6 +1175,80 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/event/{id}/approval": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "O dono da comunidade (ou moderador/admin) decide o status de aprovação do evento. Transições permitidas: PENDING para APPROVED ou REJECTED e REJECTED para APPROVED.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Aprova ou rejeita um evento da comunidade",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Novo status (APPROVED ou REJECTED)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateEventApprovalDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.EventDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2133,6 +2213,9 @@ const docTemplate = `{
                 "start_at": {
                     "type": "string"
                 },
+                "status": {
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 },
@@ -2358,6 +2441,9 @@ const docTemplate = `{
                 "start_at": {
                     "type": "string"
                 },
+                "status": {
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 },
@@ -2432,6 +2518,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.UpdateEventApprovalDto": {
+            "type": "object",
+            "properties": {
+                "status": {
                     "type": "string"
                 }
             }

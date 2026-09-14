@@ -42,6 +42,7 @@ func InitApp() {
 		communityRepository,
 		eventRepository,
 		eventUserRepository,
+		communityUserRepository,
 		validator.NewEventValidator())
 	skillService := service.NewSkillService(userService, skillRepository, validator.NewSkillValidator())
 	authMiddleware := middleware.VerifyJWT(authService)

@@ -288,6 +288,11 @@ func TestAddParticipantOnlyManager(t *testing.T) {
 	moderator := createUserWithRole(t, "add_moderator@ajuda.dev", domain.UserRoleModerator)
 	address := createEventAddress(t, "add_city")
 	community := createEventCommunity(t, "Comunidade add", communityOwner, address)
+	eaAddCommunityMember(t, community.Id, eventOwner.Id)
+	eaAddCommunityMember(t, community.Id, third.Id)
+	eaAddCommunityMember(t, community.Id, speaker.Id)
+	eaAddCommunityMember(t, community.Id, mentee.Id)
+	eaAddCommunityMember(t, community.Id, speakerByModerator.Id)
 
 	event := registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     eventOwner.Id,
@@ -414,6 +419,9 @@ func TestCancelParticipationPermissions(t *testing.T) {
 	moderator := createUserWithRole(t, "cancel_moderator@ajuda.dev", domain.UserRoleModerator)
 	address := createEventAddress(t, "cancel_city")
 	community := createEventCommunity(t, "Comunidade cancel", communityOwner, address)
+	eaAddCommunityMember(t, community.Id, eventOwner.Id)
+	eaAddCommunityMember(t, community.Id, participant.Id)
+	eaAddCommunityMember(t, community.Id, third.Id)
 
 	event := registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     eventOwner.Id,
@@ -425,6 +433,7 @@ func TestCancelParticipationPermissions(t *testing.T) {
 		StartAt:     time.Now().Add(48 * time.Hour),
 		DurationMin: 60,
 	})
+	eaApproveEvent(t, app, event.Id, communityOwner.Id)
 	participantToken := validTokenFor(t, participant.Id)
 
 	cases := []struct {

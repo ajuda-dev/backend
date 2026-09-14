@@ -44,6 +44,9 @@ func (e *eventUserService) JoinEvent(eventId string, requesterId string) (*domai
 	if err != nil {
 		return nil, err
 	}
+	if !isEventApproved(event) {
+		return nil, eventNotApprovedError()
+	}
 	eventUser := &domain.EventUserDomain{
 		EventId: eventId,
 		UserId:  requester.Id,
@@ -99,8 +102,12 @@ func (e *eventUserService) GetParticipants(eventId string, status string, reques
 	if err != nil {
 		return nil, err
 	}
-	if _, err := e.eventService.GetEventById(eventId); err != nil {
+	event, err := e.eventService.GetEventById(eventId)
+	if err != nil {
 		return nil, err
+	}
+	if !isEventApproved(event) && !canManageEvent(requester, event) {
+		return nil, rest_err.NewNotFoundError("event not found")
 	}
 	participants, err := e.eventUserRepository.FindByEvent(eventId, status)
 	if err != nil {
@@ -123,6 +130,9 @@ func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string
 	}
 	if userId != requester.Id {
 		return nil, rest_err.NewForbiddenError("only the invited user can accept or reject this invitation")
+	}
+	if status == domain.StatusConfirmed && !isEventApproved(event) {
+		return nil, eventNotApprovedError()
 	}
 	if err := e.eventUserValidator.ValidateUpdateParticipantStatus(status); err != nil {
 		return nil, err

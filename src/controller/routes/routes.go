@@ -44,6 +44,7 @@ func SetupRoutesEvents(app *fiber.App, eventController controller.EventControlle
 	events.Post("/register", eventController.RegisterEvent())
 	events.Get("/:id", eventController.GetEventById())
 	events.Get("", eventController.GetAllEvents())
+	events.Put("/:id/approval", eventController.UpdateEventApproval())
 	events.Delete("/:id", eventController.DeleteEventById())
 }
 

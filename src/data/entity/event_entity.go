@@ -8,7 +8,7 @@ import (
 )
 
 type EventEntity struct {
-	Id          string         `gorm:"primaryKey;type:uuid"`
+	Id          string `gorm:"primaryKey;type:uuid"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
@@ -23,6 +23,7 @@ type EventEntity struct {
 	AddressId   *string   `gorm:"type:uuid;index"`
 	MeetingLink string
 	MaxSlots    *int
+	Status      string `gorm:"type:varchar(20);not null;default:'PENDING';index"`
 
 	Community *CommunityEntity `gorm:"foreignKey:CommunityId;references:Id;constraint:OnDelete:RESTRICT"`
 	Address   *AddressEntity   `gorm:"foreignKey:AddressId;references:Id;constraint:OnDelete:SET NULL"`
@@ -45,6 +46,7 @@ func (e *EventEntity) FromDomain(event domain.EventDomain) *EventEntity {
 		OwnerId:     event.Owner.Id,
 		MeetingLink: event.MeetingLink,
 		MaxSlots:    event.MaxSlots,
+		Status:      event.Status,
 	}
 	if event.Community != nil {
 		communityId := event.Community.Id
@@ -69,6 +71,7 @@ func (e EventEntity) ToDomain() *domain.EventDomain {
 		Owner:       *e.Owner.ToDomainUser(),
 		MeetingLink: e.MeetingLink,
 		MaxSlots:    e.MaxSlots,
+		Status:      e.Status,
 	}
 	if e.Community != nil {
 		event.Community = e.Community.ToDomain()

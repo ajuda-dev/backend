@@ -43,6 +43,7 @@ func TestDeleteEventAuthorization(t *testing.T) {
 	moderator := createUserWithRole(t, "del_moderator@ajuda.dev", domain.UserRoleModerator)
 	address := createEventAddress(t, "del_city")
 	community := createEventCommunity(t, "Comunidade delete", communityOwner, address)
+	eaAddCommunityMember(t, community.Id, eventOwner.Id)
 
 	createEvent := func(title string) dto.RegisterEventDto {
 		t.Helper()

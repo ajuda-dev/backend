@@ -12,15 +12,18 @@ import (
 )
 
 type EventFilter struct {
-	CommunityId string
-	Category    string
-	Type        string
-	AddressId   string
-	City        string
-	Upcoming    bool
-	UserId      string
-	Role        string
-	Status      string
+	CommunityId        string
+	Category           string
+	Type               string
+	AddressId          string
+	City               string
+	Upcoming           bool
+	UserId             string
+	Role               string
+	Status             string
+	RequesterId        string
+	IncludeNonApproved bool
+	ApprovalStatus     string
 }
 
 type EventRepository interface {
@@ -29,6 +32,7 @@ type EventRepository interface {
 	FindAll(filter EventFilter, page int, limit int) (*domain.PageableEvent, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
 	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
+	UpdateApprovalStatus(id string, current string, status string) (*domain.EventDomain, *rest_err.RestErr)
 }
 
 type eventRepository struct {
@@ -42,6 +46,9 @@ func NewEventRepository(db *gorm.DB) EventRepository {
 }
 
 func (e *eventRepository) CreateEvent(event *domain.EventDomain) (*domain.EventDomain, *rest_err.RestErr) {
+	if event.Status == "" {
+		event.Status = domain.EventStatusPending
+	}
 	eventEntity := (&entity.EventEntity{}).FromDomain(*event)
 	eventEntity.Id = uuidv7.New().String()
 	if err := e.database.Create(eventEntity).Error; err != nil {
@@ -129,6 +136,13 @@ func (e *eventRepository) FindAll(filter EventFilter, page int, limit int) (*dom
 	if filter.Status != "" {
 		query = query.Where("event_users.status = ?", filter.Status)
 	}
+	if filter.ApprovalStatus != "" {
+		query = query.Where("events.status = ?", filter.ApprovalStatus)
+	} else if !filter.IncludeNonApproved {
+		query = query.Where(
+			"events.status = ? OR events.owner_id = ? OR events.community_id IN (SELECT id FROM community WHERE owner_id = ? AND deleted_at IS NULL)",
+			domain.EventStatusApproved, filter.RequesterId, filter.RequesterId)
+	}
 	query = query.Order("start_at")
 	query = query.Preload("Owner").
 		Preload("Address").
@@ -150,4 +164,32 @@ func (e *eventRepository) FindAll(filter EventFilter, page int, limit int) (*dom
 		HasNext: hasNext,
 		Data:    entity.ToEventDomainList(events),
 	}, nil
+}
+
+func isValidEventStatusTransition(current string, target string) bool {
+	switch current {
+	case domain.EventStatusPending:
+		return target == domain.EventStatusApproved || target == domain.EventStatusRejected
+	case domain.EventStatusRejected:
+		return target == domain.EventStatusApproved
+	}
+	return false
+}
+
+func (e *eventRepository) UpdateApprovalStatus(id string, current string, status string) (*domain.EventDomain, *rest_err.RestErr) {
+	result := e.database.Model(&entity.EventEntity{}).
+		Where("id = ? AND status = ? AND deleted_at IS NULL", id, current).
+		Update("status", status)
+	if result.Error != nil {
+		return nil, rest_err.NewInternalServerError("Error updating event status: " + result.Error.Error())
+	}
+	if result.RowsAffected == 0 {
+		return nil, rest_err.NewBadRequestValidationError(
+			"Invalid event data",
+			[]rest_err.Causes{{
+				Field:   "status",
+				Message: "invalid status transition from " + current + " to " + status,
+			}})
+	}
+	return e.FindById(id)
 }

@@ -129,7 +129,7 @@ func setupApp() *fiber.App {
 	communityService := service.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, validator.NewCommunityValidator())
 	routes.SetupRoutesCommunities(app, controller.NewCommunityController(communityService), authMiddleware)
 	routes.SetupRoutesCommunityUsers(app, controller.NewCommunityUserController(service.NewCommunityUserService(userService, communityService, communityUserRepository)), authMiddleware)
-	eventService := service.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, validator.NewEventValidator())
+	eventService := service.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, communityUserRepository, validator.NewEventValidator())
 	routes.SetupRoutesEvents(app, controller.NewEventController(eventService), authMiddleware)
 	routes.SetupRoutesEventUsers(app, controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator())), authMiddleware)
 	skillService := service.NewSkillService(userService, skillRepository, validator.NewSkillValidator())

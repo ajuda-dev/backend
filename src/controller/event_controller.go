@@ -20,6 +20,7 @@ type EventController interface {
 	GetEventById() fiber.Handler
 	GetAllEvents() fiber.Handler
 	DeleteEventById() fiber.Handler
+	UpdateEventApproval() fiber.Handler
 }
 
 type eventController struct {
@@ -121,6 +122,7 @@ func (e *eventController) GetEventById() fiber.Handler {
 // @Param        user_id      query  string  false  "ID do usuário (agenda: eventos com participação)"
 // @Param        role         query  string  false  "Papel da participação (com user_id)"
 // @Param        status       query  string  false  "Status da participação (com user_id)"
+// @Param        approval_status query  string  false  "Status de aprovação do evento (PENDING, APPROVED, REJECTED) — apenas dono da comunidade ou staff"
 // @Success      200   {object}  dto.PageableEventDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      403   {object}  map[string]interface{}
@@ -133,15 +135,16 @@ func (e *eventController) GetAllEvents() fiber.Handler {
 		limit, _ := strconv.Atoi(cf.Query("limit", "10"))
 
 		filter := repository.EventFilter{
-			CommunityId: cf.Query("community_id"),
-			Category:    cf.Query("category"),
-			Type:        cf.Query("type"),
-			AddressId:   cf.Query("address_id"),
-			City:        cf.Query("city"),
-			Upcoming:    strings.EqualFold(cf.Query("upcoming"), "true"),
-			UserId:      cf.Query("user_id"),
-			Role:        cf.Query("role"),
-			Status:      cf.Query("status"),
+			CommunityId:    cf.Query("community_id"),
+			Category:       cf.Query("category"),
+			Type:           cf.Query("type"),
+			AddressId:      cf.Query("address_id"),
+			City:           cf.Query("city"),
+			Upcoming:       strings.EqualFold(cf.Query("upcoming"), "true"),
+			UserId:         cf.Query("user_id"),
+			Role:           cf.Query("role"),
+			Status:         cf.Query("status"),
+			ApprovalStatus: cf.Query("approval_status"),
 		}
 		if filter.CommunityId != "" && !uuidv7.IsValidString(filter.CommunityId) {
 			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
@@ -203,5 +206,48 @@ func (e *eventController) DeleteEventById() fiber.Handler {
 			return cf.Status(err.Code).JSON(err)
 		}
 		return cf.SendStatus(fiber.StatusNoContent)
+	}
+}
+
+// UpdateEventApproval godoc
+// @Summary      Aprova ou rejeita um evento da comunidade
+// @Description  O dono da comunidade (ou moderador/admin) decide o status de aprovação do evento. Transições permitidas: PENDING para APPROVED ou REJECTED e REJECTED para APPROVED.
+// @Tags         events
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string  true  "ID do evento"
+// @Param        body  body  dto.UpdateEventApprovalDto  true  "Novo status (APPROVED ou REJECTED)"
+// @Success      200   {object}  dto.EventDto
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/event/{id}/approval [put]
+func (e *eventController) UpdateEventApproval() fiber.Handler {
+	return func(cf *fiber.Ctx) error {
+		id := cf.Params("id")
+		if !uuidv7.IsValidString(id) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
+		}
+		var updateEventApprovalDto dto.UpdateEventApprovalDto
+		if err := cf.BodyParser(&updateEventApprovalDto); err != nil {
+			logger.Error("erro body request", err)
+			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		event, err := e.eventService.UpdateApproval(id, userId, updateEventApprovalDto.Status)
+		if err != nil {
+			logger.Error("error: ", err)
+			return cf.Status(err.Code).JSON(err)
+		}
+		return cf.Status(fiber.StatusOK).JSON(dto.EventDto{}.FromDomain(event))
 	}
 }
