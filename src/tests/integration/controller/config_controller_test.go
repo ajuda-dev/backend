@@ -38,6 +38,7 @@ var (
 	skillUserRepository     repository.SkillUserRepository
 	communityUserRepository repository.CommunityUserRepository
 	oauthAccountRepository  repository.OAuthAccountRepository
+	outboxEventRepository   repository.OutboxEventRepository
 	testEmail               = "teste@ajuda.dev"
 )
 
@@ -91,7 +92,7 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 		container.Terminate(ctx)
 		return nil, nil, fmt.Errorf("error enabling unaccent extension: %w", err)
 	}
-	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{}, &entity.OAuthAccountEntity{})
+	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{}, &entity.OAuthAccountEntity{}, &entity.OutboxEventEntity{})
 
 	return db, cleanup, nil
 }
@@ -115,6 +116,7 @@ func TestMain(m *testing.M) {
 	skillUserRepository = repository.NewSkillUserRepository(db)
 	communityUserRepository = repository.NewCommunityUserRepository(db)
 	oauthAccountRepository = repository.NewOAuthAccountRepository(db)
+	outboxEventRepository = repository.NewOutboxEventRepository(db)
 	code := m.Run()
 	cleanupDB()
 	os.Exit(code)

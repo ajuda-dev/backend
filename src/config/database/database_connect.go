@@ -43,7 +43,7 @@ func Connect() (db *gorm.DB, err error) {
 	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS unaccent").Error; err != nil {
 		return nil, fmt.Errorf("error enabling unaccent extension: %w", err)
 	}
-	err = db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{}, &entity.OAuthAccountEntity{})
+	err = db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{}, &entity.OAuthAccountEntity{}, &entity.OutboxEventEntity{})
 	if err != nil {
 		return nil, fmt.Errorf("error doing AutoMigrate: %w", err)
 	}
