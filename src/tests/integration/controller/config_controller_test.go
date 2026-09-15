@@ -93,6 +93,10 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 		return nil, nil, fmt.Errorf("error enabling unaccent extension: %w", err)
 	}
 	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{}, &entity.OAuthAccountEntity{}, &entity.OutboxEventEntity{})
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_outbox_events_user_read_created ON outbox_events (user_id, read_at, created_at)").Error; err != nil {
+		container.Terminate(ctx)
+		return nil, nil, fmt.Errorf("error creating outbox inbox index: %w", err)
+	}
 
 	return db, cleanup, nil
 }
@@ -102,6 +106,7 @@ func TestMain(m *testing.M) {
 
 	os.Setenv("JWT_SECRET", "test-secret")
 	os.Setenv("JWT_EXPIRATION_TIME", "24")
+	os.Setenv("OUTBOX_ENABLED", "false")
 
 	db, cleanupDB, err = setupTestDB(context.Background())
 	if err != nil {
@@ -110,13 +115,13 @@ func TestMain(m *testing.M) {
 	userRepository = repository.NewUserRepository(db)
 	addressRepository = repository.NewAddressRepository(db)
 	communityRepository = repository.NewCommunityRepository(db)
-	eventRepository = repository.NewEventRepository(db)
-	eventUserRepository = repository.NewEventUserRepository(db)
+	outboxEventRepository = repository.NewOutboxEventRepository(db)
+	eventRepository = repository.NewEventRepository(db, outboxEventRepository)
+	eventUserRepository = repository.NewEventUserRepository(db, outboxEventRepository)
 	skillRepository = repository.NewSkillRepository(db)
 	skillUserRepository = repository.NewSkillUserRepository(db)
 	communityUserRepository = repository.NewCommunityUserRepository(db)
 	oauthAccountRepository = repository.NewOAuthAccountRepository(db)
-	outboxEventRepository = repository.NewOutboxEventRepository(db)
 	code := m.Run()
 	cleanupDB()
 	os.Exit(code)
@@ -142,12 +147,14 @@ func setupApp() *fiber.App {
 	skillService := service.NewSkillService(userService, skillRepository, validator.NewSkillValidator())
 	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService), authMiddleware)
 	routes.SetupRoutesSkillUsers(app, controller.NewSkillUserController(service.NewSkillUserService(userService, skillService, skillUserRepository, validator.NewSkillUserValidator())), authMiddleware)
+	routes.SetupRoutesNotifications(app, controller.NewNotificationController(service.NewNotificationHub(), service.NewNotificationService(outboxEventRepository)), authMiddleware)
 	routes.SetupSwaggerRoute(app)
 
 	return app
 }
 
 func cleanUsersTable() {
+	db.Exec("DELETE FROM outbox_events")
 	db.Exec("DELETE FROM users")
 }
 

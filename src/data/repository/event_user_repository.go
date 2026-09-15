@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
@@ -23,11 +24,13 @@ type EventUserRepository interface {
 
 type eventUserRepository struct {
 	database *gorm.DB
+	outbox   OutboxEventRepository
 }
 
-func NewEventUserRepository(db *gorm.DB) EventUserRepository {
+func NewEventUserRepository(db *gorm.DB, outbox OutboxEventRepository) EventUserRepository {
 	return &eventUserRepository{
 		database: db,
+		outbox:   outbox,
 	}
 }
 
@@ -126,6 +129,9 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *domain.EventUserDomain, 
 				return rest_err.NewInternalServerError("Error creating participant: " + err.Error())
 			}
 			result = eventUserEntity.ToDomain()
+			if err := e.insertMentoringInviteOutbox(tx, eventUser); err != nil {
+				return err
+			}
 			return nil
 		}
 
@@ -138,6 +144,9 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *domain.EventUserDomain, 
 			existing.Role = eventUser.Role
 			existing.Status = eventUser.Status
 			result = existing.ToDomain()
+			if err := e.insertMentoringInviteOutbox(tx, eventUser); err != nil {
+				return err
+			}
 			return nil
 		case domain.StatusRequested:
 			return rest_err.NewBadRequestValidationError("Invalid participation data",
@@ -201,6 +210,25 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 		return nil, toRestErr(txErr)
 	}
 	return result, nil
+}
+
+func (e *eventUserRepository) insertMentoringInviteOutbox(tx *gorm.DB, eventUser *domain.EventUserDomain) error {
+	if e.outbox == nil || eventUser.Status != domain.StatusRequested {
+		return nil
+	}
+	payload, _ := json.Marshal(map[string]string{
+		"event_id": eventUser.EventId,
+		"category": domain.CategoryMentoring,
+	})
+	if err := e.outbox.Create(tx, &domain.OutboxEventDomain{
+		Type:    domain.OutboxTypeMentoringInvitePending,
+		UserId:  eventUser.UserId,
+		Payload: payload,
+		Status:  domain.OutboxStatusPending,
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func lockEventRow(tx *gorm.DB, eventId string) error {

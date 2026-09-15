@@ -88,6 +88,13 @@ func SetupRoutesSkillUsers(app *fiber.App, skillUserController controller.SkillU
 	users.Delete("/:userId/skills/:skillId", auth, skillUserController.RemoveSkillFromUser())
 }
 
+func SetupRoutesNotifications(app *fiber.App, notificationController controller.NotificationController, auth fiber.Handler) {
+	notifications := app.Group("/v1/notifications", auth)
+	notifications.Get("/stream", notificationController.Stream())
+	notifications.Get("", notificationController.List())
+	notifications.Put("/:id/read", notificationController.MarkRead())
+}
+
 func SetupSwaggerRoute(app *fiber.App) {
 	app.Get("/swagger/*", swagger.HandlerDefault)
 }

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -37,11 +38,13 @@ type EventRepository interface {
 
 type eventRepository struct {
 	database *gorm.DB
+	outbox   OutboxEventRepository
 }
 
-func NewEventRepository(db *gorm.DB) EventRepository {
+func NewEventRepository(db *gorm.DB, outbox OutboxEventRepository) EventRepository {
 	return &eventRepository{
 		database: db,
+		outbox:   outbox,
 	}
 }
 
@@ -49,12 +52,35 @@ func (e *eventRepository) CreateEvent(event *domain.EventDomain) (*domain.EventD
 	if event.Status == "" {
 		event.Status = domain.EventStatusPending
 	}
-	eventEntity := (&entity.EventEntity{}).FromDomain(*event)
-	eventEntity.Id = uuidv7.New().String()
-	if err := e.database.Create(eventEntity).Error; err != nil {
-		return nil, rest_err.NewInternalServerError(err.Error())
+	txErr := e.database.Transaction(func(tx *gorm.DB) error {
+		eventEntity := (&entity.EventEntity{}).FromDomain(*event)
+		eventEntity.Id = uuidv7.New().String()
+		if err := tx.Create(eventEntity).Error; err != nil {
+			return rest_err.NewInternalServerError(err.Error())
+		}
+		event.Id = eventEntity.Id
+		if event.Status == domain.EventStatusPending && event.Community != nil && event.Community.Owner.Id != "" && e.outbox != nil {
+			payload, _ := json.Marshal(map[string]string{
+				"event_id":     event.Id,
+				"title":        event.Title,
+				"community_id": event.Community.Id,
+				"category":     event.Category,
+			})
+			outboxEvent := &domain.OutboxEventDomain{
+				Type:    domain.OutboxTypeCommunityEventPendingApproval,
+				UserId:  event.Community.Owner.Id,
+				Payload: payload,
+				Status:  domain.OutboxStatusPending,
+			}
+			if err := e.outbox.Create(tx, outboxEvent); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if txErr != nil {
+		return nil, toRestErr(txErr)
 	}
-	event.Id = eventEntity.Id
 	return event, nil
 }
 

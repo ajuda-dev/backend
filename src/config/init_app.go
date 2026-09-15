@@ -6,6 +6,7 @@ import (
 	"github.com/ajuda-dev/backend/src/client/oauth"
 	client "github.com/ajuda-dev/backend/src/client/viacep"
 	"github.com/ajuda-dev/backend/src/config/database"
+	"github.com/ajuda-dev/backend/src/config/job"
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/controller"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
@@ -28,8 +29,9 @@ func InitApp() {
 	userRepository := repository.NewUserRepository(db)
 	addressRepository := repository.NewAddressRepository(db)
 	communityRepository := repository.NewCommunityRepository(db)
-	eventRepository := repository.NewEventRepository(db)
-	eventUserRepository := repository.NewEventUserRepository(db)
+	outboxEventRepository := repository.NewOutboxEventRepository(db)
+	eventRepository := repository.NewEventRepository(db, outboxEventRepository)
+	eventUserRepository := repository.NewEventUserRepository(db, outboxEventRepository)
 	skillRepository := repository.NewSkillRepository(db)
 	skillUserRepository := repository.NewSkillUserRepository(db)
 	communityUserRepository := repository.NewCommunityUserRepository(db)
@@ -59,7 +61,10 @@ func InitApp() {
 	routes.SetupRoutesEventUsers(app, initEventUserController(userService, eventService, eventUserRepository), authMiddleware)
 	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService), authMiddleware)
 	routes.SetupRoutesSkillUsers(app, initSkillUserController(userService, skillService, skillUserRepository), authMiddleware)
+	hub := service.NewNotificationHub()
+	routes.SetupRoutesNotifications(app, controller.NewNotificationController(hub, service.NewNotificationService(outboxEventRepository)), authMiddleware)
 	routes.SetupSwaggerRoute(app)
+	job.StartOutboxJob(db, job.OutboxConfigFromEnv(), job.NewSSEOutboxHandler(hub))
 	log.Fatal(app.Listen(":8080"))
 }
 

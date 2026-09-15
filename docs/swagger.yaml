@@ -155,6 +155,19 @@ definitions:
       token:
         type: string
     type: object
+  dto.NotificationDtoOut:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      payload:
+        type: object
+      read_at:
+        type: string
+      type:
+        type: string
+    type: object
   dto.PageableAddressDto:
     properties:
       data:
@@ -187,6 +200,15 @@ definitions:
       data:
         items:
           $ref: '#/definitions/dto.EventDto'
+        type: array
+      has_next:
+        type: boolean
+    type: object
+  dto.PageableNotificationDto:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/dto.NotificationDtoOut'
         type: array
       has_next:
         type: boolean
@@ -1352,6 +1374,104 @@ paths:
       summary: Registra um novo evento
       tags:
       - events
+  /v1/notifications:
+    get:
+      description: Inbox paginada do usuário autenticado. Destinatário é sempre o
+        JWT. status=unread (default), read ou all. Não aceita user_id na query.
+      parameters:
+      - default: unread
+        description: unread, read ou all
+        in: query
+        name: status
+        type: string
+      - description: Página
+        in: query
+        name: page
+        type: integer
+      - description: Limite
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PageableNotificationDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Lista notificações do usuário
+      tags:
+      - notifications
+  /v1/notifications/{id}/read:
+    put:
+      description: Idempotente. O id é o bigserial da outbox (o mesmo do SSE). 404
+        se não for do usuário autenticado ou não for tipo de sininho.
+      parameters:
+      - description: ID da notificação (outbox bigserial)
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.NotificationDtoOut'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Marca uma notificação como lida
+      tags:
+      - notifications
+  /v1/notifications/stream:
+    get:
+      description: Abre uma conexão Server-Sent Events para o usuário autenticado.
+        O destinatário é sempre o JWT; user_id na query não é aceito.
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Stream de notificações (SSE)
+      tags:
+      - notifications
   /v1/skill:
     get:
       consumes:

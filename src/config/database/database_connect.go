@@ -47,6 +47,9 @@ func Connect() (db *gorm.DB, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("error doing AutoMigrate: %w", err)
 	}
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_outbox_events_user_read_created ON outbox_events (user_id, read_at, created_at)").Error; err != nil {
+		return nil, fmt.Errorf("error creating outbox inbox index: %w", err)
+	}
 
 	return db, nil
 }

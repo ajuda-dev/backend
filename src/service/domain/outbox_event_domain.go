@@ -14,6 +14,19 @@ const (
 	OutboxTypeMentoringInvitePending        = "MENTORING_INVITE_PENDING"
 )
 
+const (
+	NotificationInboxStatusUnread = "unread"
+	NotificationInboxStatusRead   = "read"
+	NotificationInboxStatusAll    = "all"
+)
+
+func InboxNotificationTypes() []string {
+	return []string{
+		OutboxTypeCommunityEventPendingApproval,
+		OutboxTypeMentoringInvitePending,
+	}
+}
+
 type OutboxEventDomain struct {
 	Id        int64
 	Type      string
@@ -22,4 +35,10 @@ type OutboxEventDomain struct {
 	Status    string
 	CreatedAt string
 	UpdatedAt string
+	ReadAt    string
+}
+
+type PageableOutboxEvent struct {
+	HasNext bool
+	Data    []OutboxEventDomain
 }
