@@ -16,6 +16,7 @@ const (
 	OutboxTypeMentoringInvitePending        = "MENTORING_INVITE_PENDING"
 	OutboxTypeMentoringInviteAccepted       = "MENTORING_INVITE_ACCEPTED"
 	OutboxTypeMentoringInviteRejected       = "MENTORING_INVITE_REJECTED"
+	OutboxTypeCreatedAccount                = "CREATED_ACCOUNT"
 )
 
 const (
@@ -33,6 +34,15 @@ func InboxNotificationTypes() []string {
 		OutboxTypeMentoringInviteAccepted,
 		OutboxTypeMentoringInviteRejected,
 	}
+}
+
+func IsInboxNotificationType(outboxType string) bool {
+	for _, t := range InboxNotificationTypes() {
+		if t == outboxType {
+			return true
+		}
+	}
+	return false
 }
 
 type OutboxEventDomain struct {

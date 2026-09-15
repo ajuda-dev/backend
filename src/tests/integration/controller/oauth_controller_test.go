@@ -264,6 +264,9 @@ func TestOAuthGithubCallbackCreatesUserAndSetsSessionCookie(t *testing.T) {
 	if userEntity.Password != "" {
 		t.Error("esperava usuário criado via oauth sem senha")
 	}
+	if userEntity.EmailVerifiedAt == nil {
+		t.Fatal("esperava email_verified_at preenchido no usuário criado via oauth")
+	}
 
 	var accountEntity entity.OAuthAccountEntity
 	if err := db.Where("provider = ? AND provider_user_id = ?", "github", "42").First(&accountEntity).Error; err != nil {

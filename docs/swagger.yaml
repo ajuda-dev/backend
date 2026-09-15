@@ -135,6 +135,11 @@ definitions:
       user_id:
         type: string
     type: object
+  dto.ForgotPasswordDtoIn:
+    properties:
+      email:
+        type: string
+    type: object
   dto.LoginUserDtoIn:
     properties:
       email:
@@ -146,6 +151,8 @@ definitions:
     properties:
       email:
         type: string
+      emailVerified:
+        type: boolean
       id:
         type: string
       name:
@@ -300,6 +307,15 @@ definitions:
       password:
         type: string
     type: object
+  dto.ResetPasswordDtoIn:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+      newPassword:
+        type: string
+    type: object
   dto.SkillDto:
     properties:
       id:
@@ -365,6 +381,8 @@ definitions:
         type: string
       email:
         type: string
+      emailVerified:
+        type: boolean
       id:
         type: string
       name:
@@ -397,6 +415,11 @@ definitions:
         items:
           $ref: '#/definitions/dto.SkillDto'
         type: array
+    type: object
+  dto.VerifyEmailDtoIn:
+    properties:
+      code:
+        type: string
     type: object
   dto.VisibilityConfigDto:
     properties:
@@ -767,6 +790,11 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -891,6 +919,11 @@ paths:
             type: object
         "401":
           description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
           schema:
             additionalProperties: true
             type: object
@@ -1366,6 +1399,11 @@ paths:
             type: object
         "401":
           description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
           schema:
             additionalProperties: true
             type: object
@@ -1854,9 +1892,9 @@ paths:
       consumes:
       - application/json
       description: Atualiza nome, resumo (description) e a configuração de visibilidade
-        (configVisibility) do perfil. E-mail e senha não são alteráveis por este endpoint;
-        o value da chave email da configVisibility é gerenciado pelo sistema. Somente
-        o próprio usuário (id do token) ou um admin podem executar.
+        (configVisibility) do perfil. E-mail, senha e emailVerified não são alteráveis
+        por este endpoint; o value da chave email da configVisibility é gerenciado
+        pelo sistema. Somente o próprio usuário (id do token) ou um admin podem executar.
       parameters:
       - description: ID do usuário
         in: path
@@ -2022,6 +2060,38 @@ paths:
       summary: Remove skill do perfil do usuário
       tags:
       - skill_users
+  /v1/user/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Sempre responde 204. Se o e-mail existir e tiver senha, envia um
+        código de 6 caracteres por e-mail. Não revela se a conta existe. Rate limit
+        por e-mail (429).
+      parameters:
+      - description: E-mail da conta
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ForgotPasswordDtoIn'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Solicita recuperação de senha
+      tags:
+      - users
   /v1/user/login:
     post:
       consumes:
@@ -2076,9 +2146,9 @@ paths:
       - users
   /v1/user/me:
     get:
-      description: 'Devolve id, name, email e role do usuário da sessão atual (cookie
-        de sessão ou Authorization: Bearer). Usado pelo frontend no boot para restaurar
-        a sessão sem guardar o token no navegador.'
+      description: 'Devolve id, name, email, role e emailVerified do usuário da sessão
+        atual (cookie de sessão ou Authorization: Bearer). Usado pelo frontend no
+        boot para restaurar a sessão sem guardar o token no navegador.'
       produces:
       - application/json
       responses:
@@ -2100,11 +2170,12 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Cria um novo usuário e grava o token JWT em um cookie de sessão
-        HttpOnly (ajudadev_session), enviado automaticamente pelo navegador nas próximas
-        requisições. Clientes nativos informam o header X-Client-Type: native e recebem
-        o token também no corpo da resposta, para guardar em secure storage e usar
-        via Authorization: Bearer.'
+      description: 'Cria um novo usuário com e-mail ainda não confirmado (emailVerified
+        false) e grava o token JWT em um cookie de sessão HttpOnly (ajudadev_session),
+        enviado automaticamente pelo navegador nas próximas requisições. O worker
+        da outbox envia o código de confirmação. Clientes nativos informam o header
+        X-Client-Type: native e recebem o token também no corpo da resposta, para
+        guardar em secure storage e usar via Authorization: Bearer.'
       parameters:
       - description: Dados do usuário
         in: body
@@ -2130,6 +2201,107 @@ paths:
             additionalProperties: true
             type: object
       summary: Registra um novo usuário
+      tags:
+      - users
+  /v1/user/resend-verification:
+    post:
+      description: Se o e-mail ainda não foi confirmado, enfileira um novo evento
+        CREATED_ACCOUNT na outbox. Sempre 204 quando a conta já está verificada. Rate
+        limit de envios → 429.
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Reenvia o código de confirmação de e-mail
+      tags:
+      - users
+  /v1/user/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Valida o código HMAC (sem persistir código) e grava o novo hash
+        bcrypt. Código inválido/expirado ou conta OAuth sem senha → 401 genérico.
+        Rate limit de tentativas → 429.
+      parameters:
+      - description: E-mail, código e nova senha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResetPasswordDtoIn'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Redefine a senha com o código recebido por e-mail
+      tags:
+      - users
+  /v1/user/verify-email:
+    post:
+      consumes:
+      - application/json
+      description: Valida o código de 6 caracteres (0-9A-Z) enviado no cadastro. Sucesso
+        preenche email_verified_at e devolve o usuário com emailVerified true. Código
+        inválido/expirado → 401. Rate limit de tentativas → 429.
+      parameters:
+      - description: Código de confirmação
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.VerifyEmailDtoIn'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserDtoOut'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Confirma o e-mail com o código recebido
       tags:
       - users
 securityDefinitions:

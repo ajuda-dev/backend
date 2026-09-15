@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 
+	"github.com/ajuda-dev/backend/src/client/email"
 	"github.com/ajuda-dev/backend/src/client/oauth"
 	client "github.com/ajuda-dev/backend/src/client/viacep"
 	"github.com/ajuda-dev/backend/src/config/database"
@@ -26,19 +27,21 @@ func InitApp() {
 		logger.Error("Failed to connect to the database", err)
 	}
 	app := fiber.New()
-	userRepository := repository.NewUserRepository(db)
+	outboxEventRepository := repository.NewOutboxEventRepository(db)
+	emailCodeRepository := repository.NewEmailCodeRepository(db)
+	emailSender := email.FromEnv()
+	userRepository := repository.NewUserRepository(db, outboxEventRepository)
 	addressRepository := repository.NewAddressRepository(db)
 	communityRepository := repository.NewCommunityRepository(db)
-	outboxEventRepository := repository.NewOutboxEventRepository(db)
 	eventRepository := repository.NewEventRepository(db, outboxEventRepository)
 	eventUserRepository := repository.NewEventUserRepository(db, outboxEventRepository)
 	skillRepository := repository.NewSkillRepository(db)
 	skillUserRepository := repository.NewSkillUserRepository(db)
 	communityUserRepository := repository.NewCommunityUserRepository(db)
 
-	authService := service.NewAuthService(userRepository)
+	authService := service.NewAuthService(userRepository, emailSender)
 	oauthService := service.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), repository.NewOAuthAccountRepository(db), userRepository, authService)
-	userService := initUserService(userRepository, authService, communityRepository, eventRepository, eventUserRepository, communityUserRepository)
+	userService := initUserService(userRepository, authService, communityRepository, eventRepository, eventUserRepository, communityUserRepository, outboxEventRepository, emailCodeRepository)
 	addressService := initAddressService(addressRepository)
 	eventService := service.NewEventService(
 		userService,
@@ -64,7 +67,10 @@ func InitApp() {
 	hub := service.NewNotificationHub()
 	routes.SetupRoutesNotifications(app, controller.NewNotificationController(hub, service.NewNotificationService(outboxEventRepository)), authMiddleware)
 	routes.SetupSwaggerRoute(app)
-	job.StartOutboxJob(db, job.OutboxConfigFromEnv(), job.NewSSEOutboxHandler(hub))
+	job.StartOutboxJob(db, job.OutboxConfigFromEnv(), job.NewDispatchingOutboxHandler(
+		job.NewSSEOutboxHandler(hub),
+		service.NewCreatedAccountHandler(userRepository, emailCodeRepository, emailSender, service.EmailCodeConfigFromEnv()),
+	))
 	log.Fatal(app.Listen(":8080"))
 }
 
@@ -99,9 +105,12 @@ func initUserService(userRepository repository.UserRepository,
 	communityRepository repository.CommunityRepository,
 	eventRepository repository.EventRepository,
 	eventUserRepository repository.EventUserRepository,
-	communityUserRepository repository.CommunityUserRepository) service.UserService {
+	communityUserRepository repository.CommunityUserRepository,
+	outboxEventRepository repository.OutboxEventRepository,
+	emailCodeRepository repository.EmailCodeRepository) service.UserService {
 	return service.NewUserService(userRepository, validator.NewUserValidator(), authService,
-		communityRepository, eventRepository, eventUserRepository, communityUserRepository)
+		communityRepository, eventRepository, eventUserRepository, communityUserRepository,
+		outboxEventRepository, emailCodeRepository)
 }
 
 func initAddressService(addressRepository repository.AddressRepository) service.AddressService {

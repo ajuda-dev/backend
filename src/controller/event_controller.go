@@ -43,6 +43,7 @@ func NewEventController(eventService service.EventService) EventController {
 // @Success      201   {object}  dto.RegisterEventDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/event/register [post]
 func (e *eventController) RegisterEvent() fiber.Handler {

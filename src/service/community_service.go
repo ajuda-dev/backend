@@ -64,6 +64,9 @@ func (c *communityService) CreateCommunity(community *domain.CommunityDomain) (*
 		}
 		return &domain.CommunityDomain{}, err_u
 	}
+	if err := requireVerifiedEmail(user); err != nil {
+		return &domain.CommunityDomain{}, err
+	}
 	community.Owner = *user
 	address, err_a := c.addressService.GetAddressById(community.Address.Id)
 	if err_a != nil {

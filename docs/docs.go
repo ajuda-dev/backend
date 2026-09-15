@@ -351,6 +351,13 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": true
                         }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     }
                 }
             }
@@ -582,6 +589,13 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -890,6 +904,13 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2007,6 +2028,51 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/user/forgot-password": {
+            "post": {
+                "description": "Sempre responde 204. Se o e-mail existir e tiver senha, envia um código de 6 caracteres por e-mail. Não revela se a conta existe. Rate limit por e-mail (429).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Solicita recuperação de senha",
+                "parameters": [
+                    {
+                        "description": "E-mail da conta",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.ForgotPasswordDtoIn"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/user/login": {
             "post": {
                 "description": "Realiza o login e grava o token JWT em um cookie de sessão HttpOnly (ajudadev_session), enviado automaticamente pelo navegador nas próximas requisições. Clientes nativos informam o header X-Client-Type: native e recebem o token também no corpo da resposta, para guardar em secure storage e usar via Authorization: Bearer.",
@@ -2082,7 +2148,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Devolve id, name, email e role do usuário da sessão atual (cookie de sessão ou Authorization: Bearer). Usado pelo frontend no boot para restaurar a sessão sem guardar o token no navegador.",
+                "description": "Devolve id, name, email, role e emailVerified do usuário da sessão atual (cookie de sessão ou Authorization: Bearer). Usado pelo frontend no boot para restaurar a sessão sem guardar o token no navegador.",
                 "produces": [
                     "application/json"
                 ],
@@ -2109,7 +2175,7 @@ const docTemplate = `{
         },
         "/v1/user/register": {
             "post": {
-                "description": "Cria um novo usuário e grava o token JWT em um cookie de sessão HttpOnly (ajudadev_session), enviado automaticamente pelo navegador nas próximas requisições. Clientes nativos informam o header X-Client-Type: native e recebem o token também no corpo da resposta, para guardar em secure storage e usar via Authorization: Bearer.",
+                "description": "Cria um novo usuário com e-mail ainda não confirmado (emailVerified false) e grava o token JWT em um cookie de sessão HttpOnly (ajudadev_session), enviado automaticamente pelo navegador nas próximas requisições. O worker da outbox envia o código de confirmação. Clientes nativos informam o header X-Client-Type: native e recebem o token também no corpo da resposta, para guardar em secure storage e usar via Authorization: Bearer.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2146,6 +2212,151 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/user/resend-verification": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Se o e-mail ainda não foi confirmado, enfileira um novo evento CREATED_ACCOUNT na outbox. Sempre 204 quando a conta já está verificada. Rate limit de envios → 429.",
+                "tags": [
+                    "users"
+                ],
+                "summary": "Reenvia o código de confirmação de e-mail",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/user/reset-password": {
+            "post": {
+                "description": "Valida o código HMAC (sem persistir código) e grava o novo hash bcrypt. Código inválido/expirado ou conta OAuth sem senha → 401 genérico. Rate limit de tentativas → 429.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Redefine a senha com o código recebido por e-mail",
+                "parameters": [
+                    {
+                        "description": "E-mail, código e nova senha",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.ResetPasswordDtoIn"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/user/verify-email": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Valida o código de 6 caracteres (0-9A-Z) enviado no cadastro. Sucesso preenche email_verified_at e devolve o usuário com emailVerified true. Código inválido/expirado → 401. Rate limit de tentativas → 429.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Confirma o e-mail com o código recebido",
+                "parameters": [
+                    {
+                        "description": "Código de confirmação",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.VerifyEmailDtoIn"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.UserDtoOut"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2214,7 +2425,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Atualiza nome, resumo (description) e a configuração de visibilidade (configVisibility) do perfil. E-mail e senha não são alteráveis por este endpoint; o value da chave email da configVisibility é gerenciado pelo sistema. Somente o próprio usuário (id do token) ou um admin podem executar.",
+                "description": "Atualiza nome, resumo (description) e a configuração de visibilidade (configVisibility) do perfil. E-mail, senha e emailVerified não são alteráveis por este endpoint; o value da chave email da configVisibility é gerenciado pelo sistema. Somente o próprio usuário (id do token) ou um admin podem executar.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2725,6 +2936,14 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.ForgotPasswordDtoIn": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.LoginUserDtoIn": {
             "type": "object",
             "properties": {
@@ -2741,6 +2960,9 @@ const docTemplate = `{
             "properties": {
                 "email": {
                     "type": "string"
+                },
+                "emailVerified": {
+                    "type": "boolean"
                 },
                 "id": {
                     "type": "string"
@@ -2980,6 +3202,20 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.ResetPasswordDtoIn": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "newPassword": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.SkillDto": {
             "type": "object",
             "properties": {
@@ -3081,6 +3317,9 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
+                "emailVerified": {
+                    "type": "boolean"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -3129,6 +3368,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/dto.SkillDto"
                     }
+                }
+            }
+        },
+        "dto.VerifyEmailDtoIn": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
                 }
             }
         },

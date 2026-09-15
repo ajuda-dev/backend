@@ -39,6 +39,7 @@ func NewCommunityUserController(communityUserService service.CommunityUserServic
 // @Success      201   {object}  dto.CommunityUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/community/{id}/join [post]

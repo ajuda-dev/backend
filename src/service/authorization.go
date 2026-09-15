@@ -25,3 +25,10 @@ func authenticatedUser(userService UserService, requesterId string) (*domain.Use
 	}
 	return requester, nil
 }
+
+func requireVerifiedEmail(user *domain.UserDomain) *rest_err.RestErr {
+	if user.EmailVerified() {
+		return nil
+	}
+	return rest_err.NewForbiddenError("email is not verified")
+}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ajuda-dev/backend/src/client/email"
 	"github.com/ajuda-dev/backend/src/client/oauth"
 	client "github.com/ajuda-dev/backend/src/client/viacep"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
@@ -39,6 +40,7 @@ var (
 	communityUserRepository repository.CommunityUserRepository
 	oauthAccountRepository  repository.OAuthAccountRepository
 	outboxEventRepository   repository.OutboxEventRepository
+	emailCodeRepository     repository.EmailCodeRepository
 	testEmail               = "teste@ajuda.dev"
 )
 
@@ -92,7 +94,7 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 		container.Terminate(ctx)
 		return nil, nil, fmt.Errorf("error enabling unaccent extension: %w", err)
 	}
-	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{}, &entity.OAuthAccountEntity{}, &entity.OutboxEventEntity{})
+	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{}, &entity.OAuthAccountEntity{}, &entity.OutboxEventEntity{}, &entity.EmailCodeEntity{})
 	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_outbox_events_user_read_created ON outbox_events (user_id, read_at, created_at)").Error; err != nil {
 		container.Terminate(ctx)
 		return nil, nil, fmt.Errorf("error creating outbox inbox index: %w", err)
@@ -112,10 +114,11 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic("Erro ao configurar o banco de dados: " + err.Error())
 	}
-	userRepository = repository.NewUserRepository(db)
+	userRepository = repository.NewUserRepository(db, nil)
 	addressRepository = repository.NewAddressRepository(db)
 	communityRepository = repository.NewCommunityRepository(db)
 	outboxEventRepository = repository.NewOutboxEventRepository(db)
+	emailCodeRepository = repository.NewEmailCodeRepository(db)
 	eventRepository = repository.NewEventRepository(db, outboxEventRepository)
 	eventUserRepository = repository.NewEventUserRepository(db, outboxEventRepository)
 	skillRepository = repository.NewSkillRepository(db)
@@ -128,12 +131,18 @@ func TestMain(m *testing.M) {
 }
 
 func setupApp() *fiber.App {
+	return setupAppWithEmail(email.NewNoopSender())
+}
+
+func setupAppWithEmail(sender email.EmailSender) *fiber.App {
 	app := fiber.New()
-	authService := service.NewAuthService(userRepository)
-	oauthService := service.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), oauthAccountRepository, userRepository, authService)
+	userRepo := repository.NewUserRepository(db, outboxEventRepository)
+	authService := service.NewAuthService(userRepo, sender)
+	oauthService := service.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), oauthAccountRepository, userRepo, authService)
 	authMiddleware := middleware.VerifyJWT(authService)
-	userService := service.NewUserService(userRepository, validator.NewUserValidator(), authService,
-		communityRepository, eventRepository, eventUserRepository, communityUserRepository)
+	userService := service.NewUserService(userRepo, validator.NewUserValidator(), authService,
+		communityRepository, eventRepository, eventUserRepository, communityUserRepository,
+		outboxEventRepository, emailCodeRepository)
 	addressService := service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient())
 	routes.SetupRoutesUser(app, controller.NewUserController(userService), controller.NewAuthController(authService), authMiddleware)
 	routes.SetupRoutesAuth(app, controller.NewOAuthController(oauthService))
@@ -154,6 +163,7 @@ func setupApp() *fiber.App {
 }
 
 func cleanUsersTable() {
+	db.Exec("DELETE FROM email_codes")
 	db.Exec("DELETE FROM outbox_events")
 	db.Exec("DELETE FROM users")
 }
@@ -223,7 +233,7 @@ func verifyCodeError(t *testing.T, respBody rest_err.RestErr) {
 
 func validTokenFor(t *testing.T, userId string) string {
 	t.Helper()
-	token, restErr := service.NewAuthService(userRepository).
+	token, restErr := service.NewAuthService(userRepository, email.NewNoopSender()).
 		CreateToken(&domain.UserDomain{Id: userId})
 	if restErr != nil {
 		t.Fatalf("failed to create token: %v", restErr)

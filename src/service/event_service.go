@@ -50,6 +50,9 @@ func (e *eventService) CreateEvent(event *domain.EventDomain) (*domain.EventDoma
 	if err != nil {
 		return &domain.EventDomain{}, err
 	}
+	if err := requireVerifiedEmail(requester); err != nil {
+		return &domain.EventDomain{}, err
+	}
 	event.Owner = *requester
 	event.Status = domain.EventStatusApproved
 	if event.Category == domain.CategoryMentoring {

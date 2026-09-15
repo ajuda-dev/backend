@@ -34,15 +34,16 @@ func (c *communityUserService) JoinCommunity(communityId string, userId string) 
 	if _, err := c.communityService.GetCommunityById(communityId); err != nil {
 		return nil, err
 	}
-	if _, err := c.userService.FindById(userId); err != nil {
-		if err.Code == rest_err.NOT_FOUND {
-			return nil, rest_err.NewUnauthorizedError("invalid authenticated user")
-		}
+	user, err := authenticatedUser(c.userService, userId)
+	if err != nil {
+		return nil, err
+	}
+	if err := requireVerifiedEmail(user); err != nil {
 		return nil, err
 	}
 	return c.communityUserRepository.Create(&domain.CommunityUserDomain{
 		CommunityId: communityId,
-		UserId:      userId,
+		UserId:      user.Id,
 	})
 }
 

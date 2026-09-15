@@ -5,7 +5,8 @@ import "github.com/ajuda-dev/backend/src/service/domain"
 // Atualização de perfil: nome, resumo e configuração de visibilidade.
 // Email e Password existem apenas para serem recusados com causa explícita
 // (o decoder JSON ignora chaves desconhecidas em silêncio).
-// Não há campo Role de propósito — cargo não é editável por este endpoint.
+// Não há campo Role nem emailVerified de propósito — cargo e verificação
+// de e-mail não são editáveis por este endpoint.
 type UpdateUserDtoIn struct {
 	Name             string              `json:"name"`
 	Email            string              `json:"email"`

@@ -1,7 +1,9 @@
 package service
 
 import (
+	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/data/repository"
@@ -14,7 +16,10 @@ func NewUserService(userRepository repository.UserRepository, validator validato
 	communityRepository repository.CommunityRepository,
 	eventRepository repository.EventRepository,
 	eventUserRepository repository.EventUserRepository,
-	communityUserRepository repository.CommunityUserRepository) UserService {
+	communityUserRepository repository.CommunityUserRepository,
+	outboxEventRepository repository.OutboxEventRepository,
+	emailCodeRepository repository.EmailCodeRepository) UserService {
+	cfg := EmailCodeConfigFromEnv()
 	return &userService{
 		userRepository:          userRepository,
 		validator:               validator,
@@ -23,6 +28,10 @@ func NewUserService(userRepository repository.UserRepository, validator validato
 		eventRepository:         eventRepository,
 		eventUserRepository:     eventUserRepository,
 		communityUserRepository: communityUserRepository,
+		outboxEventRepository:   outboxEventRepository,
+		emailCodeRepository:     emailCodeRepository,
+		emailCodeCfg:            cfg,
+		rateLimiter:             newEmailCodeRateLimiter(cfg),
 	}
 }
 
@@ -33,6 +42,8 @@ type UserService interface {
 	GetAllUsers(filter repository.UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr)
 	UpdateUser(targetId string, requesterId string, changes *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
 	DeleteUser(targetId string, requesterId string) *rest_err.RestErr
+	VerifyEmail(userId, code string) (*domain.UserDomain, *rest_err.RestErr)
+	ResendVerification(userId string) *rest_err.RestErr
 }
 
 type userService struct {
@@ -43,6 +54,10 @@ type userService struct {
 	eventRepository         repository.EventRepository
 	eventUserRepository     repository.EventUserRepository
 	communityUserRepository repository.CommunityUserRepository
+	outboxEventRepository   repository.OutboxEventRepository
+	emailCodeRepository     repository.EmailCodeRepository
+	emailCodeCfg            EmailCodeConfig
+	rateLimiter             *emailCodeRateLimiter
 }
 
 // FindById implements UserService.
@@ -117,6 +132,79 @@ func (u *userService) CreateUser(user *domain.UserDomain) (*domain.UserDomain, s
 		return nil, "", err
 	}
 	return user, token, nil
+}
+
+func (u *userService) VerifyEmail(userId, code string) (*domain.UserDomain, *rest_err.RestErr) {
+	user, err := u.userRepository.FindById(userId)
+	if err != nil {
+		return nil, err
+	}
+	if user.EmailVerified() {
+		return user, nil
+	}
+
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if code == "" {
+		return nil, rest_err.NewBadRequestValidationError("Invalid request", []rest_err.Causes{
+			{Field: "code", Message: "Code cannot be empty"},
+		})
+	}
+
+	now := time.Now()
+	if rateErr := u.rateLimiter.AllowVerificationAttempt(user.Id, now); rateErr != nil {
+		return nil, rateErr
+	}
+
+	invalid := rest_err.NewUnauthorizedError("invalid or expired code")
+	stored, findErr := u.emailCodeRepository.FindActive(user.Id, domain.EmailCodePurposeConfirm, now)
+	expected := strings.Repeat("0", 64)
+	if stored != nil {
+		expected = stored.CodeHash
+	}
+	if findErr != nil && findErr.Code != rest_err.NOT_FOUND {
+		return nil, findErr
+	}
+	if !constantTimeEqualCode(hashEmailConfirmCode(code, u.emailCodeCfg.Secret), expected) || stored == nil {
+		u.rateLimiter.RecordFailedAttempt(user.Id, now)
+		return nil, invalid
+	}
+	if consumeErr := u.emailCodeRepository.MarkConsumed(stored.Id); consumeErr != nil {
+		return nil, consumeErr
+	}
+	if markErr := u.userRepository.MarkEmailVerified(user.Id, now); markErr != nil {
+		return nil, markErr
+	}
+	u.rateLimiter.ClearAttempts(user.Id)
+	return u.userRepository.FindById(user.Id)
+}
+
+func (u *userService) ResendVerification(userId string) *rest_err.RestErr {
+	user, err := u.userRepository.FindById(userId)
+	if err != nil {
+		return err
+	}
+	if user.EmailVerified() {
+		return nil
+	}
+	if u.outboxEventRepository == nil {
+		return rest_err.NewInternalServerError("outbox is not configured")
+	}
+
+	now := time.Now()
+	if rateErr := u.rateLimiter.AllowVerificationSend(user.Id, now); rateErr != nil {
+		return rateErr
+	}
+
+	payload, _ := json.Marshal(map[string]string{
+		"email": user.Email,
+		"name":  user.Name,
+	})
+	return u.outboxEventRepository.Create(nil, &domain.OutboxEventDomain{
+		Type:    domain.OutboxTypeCreatedAccount,
+		UserId:  user.Id,
+		Payload: payload,
+		Status:  domain.OutboxStatusPending,
+	})
 }
 
 // UpdateUser implements UserService.

@@ -423,4 +423,7 @@ func TestLoginUserDoesNotReturnProfile(t *testing.T) {
 	if loginDto.Token != "" || loginDto.Id != user.Id || loginDto.Email != user.Email || loginDto.Role != domain.UserRoleUser {
 		t.Errorf("esperava id/email/role e token ausente no login (navegador usa cookie), recebeu %+v", loginDto)
 	}
+	if !loginDto.EmailVerified {
+		t.Error("esperava emailVerified true no login")
+	}
 }

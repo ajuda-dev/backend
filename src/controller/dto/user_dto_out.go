@@ -7,6 +7,7 @@ type UserDtoOut struct {
 	Name             string              `json:"name"`
 	Email            string              `json:"email"`
 	Role             string              `json:"role"`
+	EmailVerified    bool                `json:"emailVerified"`
 	Token            string              `json:"token,omitempty"`
 	Description      string              `json:"description,omitempty"`
 	ConfigVisibility ConfigVisibilityDto `json:"configVisibility,omitempty"`
@@ -14,10 +15,11 @@ type UserDtoOut struct {
 
 func (r *UserDtoOut) FromDomainUser(user *domain.UserDomain) *UserDtoOut {
 	return &UserDtoOut{
-		Id:    user.Id,
-		Name:  user.Name,
-		Email: user.Email,
-		Role:  user.Role,
+		Id:            user.Id,
+		Name:          user.Name,
+		Email:         user.Email,
+		Role:          user.Role,
+		EmailVerified: user.EmailVerified(),
 	}
 }
 

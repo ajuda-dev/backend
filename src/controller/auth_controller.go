@@ -16,6 +16,8 @@ func NewAuthController(authService service.AuthService) AuthController {
 
 type AuthController interface {
 	LoginUser() fiber.Handler
+	ForgotPassword() fiber.Handler
+	ResetPassword() fiber.Handler
 }
 
 type authController struct {
@@ -54,5 +56,58 @@ func (a *authController) LoginUser() fiber.Handler {
 			loginUserDtoOut.Token = token
 		}
 		return c.Status(fiber.StatusOK).JSON(loginUserDtoOut)
+	}
+}
+
+// ForgotPassword godoc
+// @Summary      Solicita recuperação de senha
+// @Description  Sempre responde 204. Se o e-mail existir e tiver senha, envia um código de 6 caracteres por e-mail. Não revela se a conta existe. Rate limit por e-mail (429).
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        body  body  dto.ForgotPasswordDtoIn  true  "E-mail da conta"
+// @Success      204
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      429   {object}  map[string]interface{}
+// @Router       /v1/user/forgot-password [post]
+func (a *authController) ForgotPassword() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		var body dto.ForgotPasswordDtoIn
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		if err := a.authService.ForgotPassword(body.Email); err != nil {
+			return c.Status(err.Code).JSON(err)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	}
+}
+
+// ResetPassword godoc
+// @Summary      Redefine a senha com o código recebido por e-mail
+// @Description  Valida o código HMAC (sem persistir código) e grava o novo hash bcrypt. Código inválido/expirado ou conta OAuth sem senha → 401 genérico. Rate limit de tentativas → 429.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        body  body  dto.ResetPasswordDtoIn  true  "E-mail, código e nova senha"
+// @Success      204
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Failure      429   {object}  map[string]interface{}
+// @Router       /v1/user/reset-password [post]
+func (a *authController) ResetPassword() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		var body dto.ResetPasswordDtoIn
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		if err := a.authService.ResetPassword(body.Email, body.Code, body.NewPassword); err != nil {
+			return c.Status(err.Code).JSON(err)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
 	}
 }

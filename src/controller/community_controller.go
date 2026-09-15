@@ -42,6 +42,7 @@ func NewCommunityController(communityService service.CommunityService) Community
 // @Success      201   {object}  dto.CommunityDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/community/register [post]
 func (c *communityController) RegisterCommunity() fiber.Handler {

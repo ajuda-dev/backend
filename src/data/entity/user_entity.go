@@ -18,6 +18,7 @@ type UserEntity struct {
 	Role             string               `gorm:"type:varchar(20);not null;default:('USER')"`
 	Description      string               `gorm:"type:varchar(500)"`
 	ConfigVisibility UserConfigVisibility `gorm:"type:jsonb;column:config_visibility"`
+	EmailVerifiedAt  *time.Time           `gorm:"type:timestamptz"`
 }
 
 func (UserEntity) TableName() string {
@@ -38,6 +39,7 @@ func (u *UserEntity) ToDomainUser() *domain.UserDomain {
 		Role:             u.Role,
 		Description:      u.Description,
 		ConfigVisibility: config,
+		EmailVerifiedAt:  u.EmailVerifiedAt,
 	}
 }
 
@@ -50,5 +52,6 @@ func FromDomainUser(user *domain.UserDomain) *UserEntity {
 		Role:             user.Role,
 		Description:      user.Description,
 		ConfigVisibility: UserConfigVisibilityFromDomain(user.ConfigVisibility),
+		EmailVerifiedAt:  user.EmailVerifiedAt,
 	}
 }

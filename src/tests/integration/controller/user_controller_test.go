@@ -57,13 +57,17 @@ func TestCreateUserSuccess(t *testing.T) {
 		t.Errorf("esperava 201, recebeu %d", resp.StatusCode)
 	}
 	var respBody struct {
-		Token string `json:"token"`
+		Token         string `json:"token"`
+		EmailVerified bool   `json:"emailVerified"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	if respBody.Token != "" {
 		t.Errorf("esperava response sem token (navegador usa cookie HttpOnly), recebeu '%s'", respBody.Token)
+	}
+	if respBody.EmailVerified {
+		t.Error("esperava emailVerified false no register")
 	}
 	cookie := sessionCookieFrom(t, resp)
 	if cookie == nil || cookie.Value == "" {
@@ -75,6 +79,9 @@ func TestCreateUserSuccess(t *testing.T) {
 	user, findUserError := userRepository.GetUserByEmail(testEmail)
 	if findUserError != nil || user == nil || user.Id == "" {
 		t.Fatalf("user not found in database: %v", findUserError)
+	}
+	if user.EmailVerifiedAt != nil {
+		t.Fatal("esperava email_verified_at null após o register")
 	}
 }
 
@@ -236,9 +243,10 @@ func TestLoginSuccess(t *testing.T) {
 		t.Errorf("esperava 200, recebeu %d", resp.StatusCode)
 	}
 	var respBody struct {
-		Token string `json:"token"`
-		Id    string `json:"id"`
-		Email string `json:"email"`
+		Token         string `json:"token"`
+		Id            string `json:"id"`
+		Email         string `json:"email"`
+		EmailVerified bool   `json:"emailVerified"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
@@ -251,6 +259,9 @@ func TestLoginSuccess(t *testing.T) {
 	}
 	if respBody.Email != testEmail {
 		t.Errorf("esperava email '%s', recebeu '%s'", testEmail, respBody.Email)
+	}
+	if !respBody.EmailVerified {
+		t.Error("esperava emailVerified true no login")
 	}
 	cookie := sessionCookieFrom(t, resp)
 	if cookie == nil || cookie.Value == "" {

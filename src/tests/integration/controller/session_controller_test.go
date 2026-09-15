@@ -83,6 +83,9 @@ func TestMeReturnsAuthenticatedUserFromSessionCookie(t *testing.T) {
 	if respDto.Id != user.Id || respDto.Name != user.Name || respDto.Email != user.Email || respDto.Role != domain.UserRoleUser {
 		t.Errorf("esperava o usuário da sessão no /v1/user/me, recebeu %+v", respDto)
 	}
+	if !respDto.EmailVerified {
+		t.Error("esperava emailVerified true no /v1/user/me")
+	}
 	if respDto.Token != "" {
 		t.Errorf("esperava response sem token, recebeu '%s'", respDto.Token)
 	}

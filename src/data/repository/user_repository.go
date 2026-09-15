@@ -1,7 +1,9 @@
 package repository
 
 import (
+	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/data/entity"
@@ -22,11 +24,14 @@ type UserRepository interface {
 	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
 	FindAll(filter UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr)
 	Update(id string, user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
+	UpdatePassword(id string, hashedPassword string) *rest_err.RestErr
+	MarkEmailVerified(id string, at time.Time) *rest_err.RestErr
 	SoftDeleteById(id string) *rest_err.RestErr
 }
 
 type userRepository struct {
 	database *gorm.DB
+	outbox   OutboxEventRepository
 }
 
 // FindById implements UserRepository.
@@ -115,23 +120,57 @@ func (u *userRepository) FindAll(filter UserFilter, page int, limit int) (*domai
 	return pageable, nil
 }
 
-func NewUserRepository(db *gorm.DB) UserRepository {
+func NewUserRepository(db *gorm.DB, outbox OutboxEventRepository) UserRepository {
 	return &userRepository{
 		database: db,
+		outbox:   outbox,
 	}
 }
 
 func (u *userRepository) CreateUser(user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr) {
-	var userEntity = entity.FromDomainUser(user)
+	userEntity := entity.FromDomainUser(user)
 	userEntity.Id = uuidv7.New().String()
+	enqueueCreatedAccount := u.outbox != nil && userEntity.EmailVerifiedAt == nil
+	if !enqueueCreatedAccount && userEntity.EmailVerifiedAt == nil {
+		now := time.Now()
+		userEntity.EmailVerifiedAt = &now
+	}
 
-	if err := u.database.Create(&userEntity).Error; err != nil {
-		return &domain.UserDomain{}, rest_err.NewInternalServerError(err.Error())
+	if !enqueueCreatedAccount {
+		if err := u.database.Create(userEntity).Error; err != nil {
+			return &domain.UserDomain{}, rest_err.NewInternalServerError(err.Error())
+		}
+		if userEntity.Role == "" {
+			userEntity.Role = domain.UserRoleUser
+		}
+		return userEntity.ToDomainUser(), nil
+	}
+
+	txErr := u.database.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(userEntity).Error; err != nil {
+			return rest_err.NewInternalServerError(err.Error())
+		}
+		payload, _ := json.Marshal(map[string]string{
+			"email": userEntity.Email,
+			"name":  userEntity.Name,
+		})
+		outboxEvent := &domain.OutboxEventDomain{
+			Type:    domain.OutboxTypeCreatedAccount,
+			UserId:  userEntity.Id,
+			Payload: payload,
+			Status:  domain.OutboxStatusPending,
+		}
+		if err := u.outbox.Create(tx, outboxEvent); err != nil {
+			return err
+		}
+		return nil
+	})
+	if txErr != nil {
+		return nil, toRestErr(txErr)
 	}
 	if userEntity.Role == "" {
 		userEntity.Role = domain.UserRoleUser
 	}
-
 	return userEntity.ToDomainUser(), nil
 }
 func (u *userRepository) GetUserByEmail(email string) (*domain.UserDomain, *rest_err.RestErr) {
@@ -163,6 +202,29 @@ func (u *userRepository) Update(id string, user *domain.UserDomain) (*domain.Use
 		return nil, rest_err.NewInternalServerError("Error updating user: " + result.Error.Error())
 	}
 	return u.FindById(id)
+}
+
+func (u *userRepository) UpdatePassword(id string, hashedPassword string) *rest_err.RestErr {
+	result := u.database.Model(&entity.UserEntity{}).
+		Where("id = ? AND deleted_at IS NULL", id).
+		Update("password", hashedPassword)
+	if result.Error != nil {
+		return rest_err.NewInternalServerError("Error updating password: " + result.Error.Error())
+	}
+	if result.RowsAffected == 0 {
+		return rest_err.NewNotFoundError("User not found")
+	}
+	return nil
+}
+
+func (u *userRepository) MarkEmailVerified(id string, at time.Time) *rest_err.RestErr {
+	result := u.database.Model(&entity.UserEntity{}).
+		Where("id = ? AND deleted_at IS NULL AND email_verified_at IS NULL", id).
+		Update("email_verified_at", at)
+	if result.Error != nil {
+		return rest_err.NewInternalServerError("Error verifying email: " + result.Error.Error())
+	}
+	return nil
 }
 
 func (u *userRepository) SoftDeleteById(id string) *rest_err.RestErr {

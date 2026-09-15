@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 const (
 	UserRoleUser      = "USER"
 	UserRoleModerator = "MODERATOR"
@@ -43,6 +45,11 @@ type UserDomain struct {
 	Description      string
 	ConfigVisibility ConfigVisibility
 	Skills           []SkillDomain
+	EmailVerifiedAt  *time.Time
+}
+
+func (u *UserDomain) EmailVerified() bool {
+	return u != nil && u.EmailVerifiedAt != nil
 }
 
 type PageableUser struct {

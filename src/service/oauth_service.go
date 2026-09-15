@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"strings"
+	"time"
 
 	"github.com/ajuda-dev/backend/src/client/oauth"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
@@ -132,10 +133,12 @@ func (o *oauthService) createOAuthUser(userInfo *domain.OAuthUserInfo, email str
 	if name == "" {
 		name = email
 	}
+	now := time.Now()
 	return o.userRepository.CreateUser(&domain.UserDomain{
-		Name:  truncateOAuthValue(name),
-		Email: email,
-		Role:  domain.UserRoleUser,
+		Name:            truncateOAuthValue(name),
+		Email:           email,
+		Role:            domain.UserRoleUser,
+		EmailVerifiedAt: &now,
 	})
 }
 
