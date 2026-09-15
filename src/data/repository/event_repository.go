@@ -33,7 +33,7 @@ type EventRepository interface {
 	FindAll(filter EventFilter, page int, limit int) (*domain.PageableEvent, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
 	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
-	UpdateApprovalStatus(id string, current string, status string) (*domain.EventDomain, *rest_err.RestErr)
+	UpdateApprovalStatus(id string, current string, status string, actorId string) (*domain.EventDomain, *rest_err.RestErr)
 }
 
 type eventRepository struct {
@@ -202,20 +202,56 @@ func isValidEventStatusTransition(current string, target string) bool {
 	return false
 }
 
-func (e *eventRepository) UpdateApprovalStatus(id string, current string, status string) (*domain.EventDomain, *rest_err.RestErr) {
-	result := e.database.Model(&entity.EventEntity{}).
-		Where("id = ? AND status = ? AND deleted_at IS NULL", id, current).
-		Update("status", status)
-	if result.Error != nil {
-		return nil, rest_err.NewInternalServerError("Error updating event status: " + result.Error.Error())
-	}
-	if result.RowsAffected == 0 {
-		return nil, rest_err.NewBadRequestValidationError(
-			"Invalid event data",
-			[]rest_err.Causes{{
-				Field:   "status",
-				Message: "invalid status transition from " + current + " to " + status,
-			}})
+func (e *eventRepository) UpdateApprovalStatus(id string, current string, status string, actorId string) (*domain.EventDomain, *rest_err.RestErr) {
+	txErr := e.database.Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&entity.EventEntity{}).
+			Where("id = ? AND status = ? AND deleted_at IS NULL", id, current).
+			Update("status", status)
+		if result.Error != nil {
+			return rest_err.NewInternalServerError("Error updating event status: " + result.Error.Error())
+		}
+		if result.RowsAffected == 0 {
+			return rest_err.NewBadRequestValidationError(
+				"Invalid event data",
+				[]rest_err.Causes{{
+					Field:   "status",
+					Message: "invalid status transition from " + current + " to " + status,
+				}})
+		}
+		var eventEntity entity.EventEntity
+		if err := tx.Where("id = ?", id).First(&eventEntity).Error; err != nil {
+			return rest_err.NewInternalServerError("Error getting event: " + err.Error())
+		}
+		return e.insertCommunityApprovalOutbox(tx, &eventEntity, actorId, status)
+	})
+	if txErr != nil {
+		return nil, toRestErr(txErr)
 	}
 	return e.FindById(id)
+}
+
+func (e *eventRepository) insertCommunityApprovalOutbox(tx *gorm.DB, event *entity.EventEntity, actorId, status string) error {
+	if e.outbox == nil || event == nil {
+		return nil
+	}
+	outboxType := communityApprovalOutboxType(status)
+	if outboxType == "" {
+		return nil
+	}
+	recipients, err := eventRelatedRecipientIds(tx, event.Id, event.OwnerId, actorId)
+	if err != nil {
+		return err
+	}
+	return insertOutboxForUsers(e.outbox, tx, outboxType, recipients, eventUpdateOutboxPayload(event, actorId, status))
+}
+
+func communityApprovalOutboxType(status string) string {
+	switch status {
+	case domain.EventStatusApproved:
+		return domain.OutboxTypeCommunityEventApproved
+	case domain.EventStatusRejected:
+		return domain.OutboxTypeCommunityEventRejected
+	default:
+		return ""
+	}
 }

@@ -222,5 +222,5 @@ func (e *eventService) UpdateApproval(id string, requesterId string, status stri
 				Message: "invalid status transition from " + event.Status + " to " + status,
 			}})
 	}
-	return e.eventRepository.UpdateApprovalStatus(id, event.Status, status)
+	return e.eventRepository.UpdateApprovalStatus(id, event.Status, status, requester.Id)
 }

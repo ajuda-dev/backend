@@ -11,7 +11,11 @@ const (
 
 const (
 	OutboxTypeCommunityEventPendingApproval = "COMMUNITY_EVENT_PENDING_APPROVAL"
+	OutboxTypeCommunityEventApproved        = "COMMUNITY_EVENT_APPROVED"
+	OutboxTypeCommunityEventRejected        = "COMMUNITY_EVENT_REJECTED"
 	OutboxTypeMentoringInvitePending        = "MENTORING_INVITE_PENDING"
+	OutboxTypeMentoringInviteAccepted       = "MENTORING_INVITE_ACCEPTED"
+	OutboxTypeMentoringInviteRejected       = "MENTORING_INVITE_REJECTED"
 )
 
 const (
@@ -23,7 +27,11 @@ const (
 func InboxNotificationTypes() []string {
 	return []string{
 		OutboxTypeCommunityEventPendingApproval,
+		OutboxTypeCommunityEventApproved,
+		OutboxTypeCommunityEventRejected,
 		OutboxTypeMentoringInvitePending,
+		OutboxTypeMentoringInviteAccepted,
+		OutboxTypeMentoringInviteRejected,
 	}
 }
 

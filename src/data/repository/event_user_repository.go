@@ -101,7 +101,7 @@ func (e *eventUserRepository) CountActiveByUserId(userId string) (int64, *rest_e
 func (e *eventUserRepository) CreateOrUpdate(eventUser *domain.EventUserDomain, maxSlots *int) (*domain.EventUserDomain, *rest_err.RestErr) {
 	var result *domain.EventUserDomain
 	txErr := e.database.Transaction(func(tx *gorm.DB) error {
-		if lockErr := lockEventRow(tx, eventUser.EventId); lockErr != nil {
+		if _, lockErr := lockEventRow(tx, eventUser.EventId); lockErr != nil {
 			return lockErr
 		}
 		if eventUser.Status == domain.StatusConfirmed {
@@ -171,7 +171,8 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *domain.EventUserDomain, 
 func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status string, maxSlots *int) (*domain.EventUserDomain, *rest_err.RestErr) {
 	var result *domain.EventUserDomain
 	txErr := e.database.Transaction(func(tx *gorm.DB) error {
-		if lockErr := lockEventRow(tx, eventId); lockErr != nil {
+		eventRow, lockErr := lockEventRow(tx, eventId)
+		if lockErr != nil {
 			return lockErr
 		}
 
@@ -204,6 +205,9 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 		}
 		existing.Status = status
 		result = existing.ToDomain()
+		if err := e.insertMentoringInviteResponseOutbox(tx, eventRow, userId, status); err != nil {
+			return err
+		}
 		return nil
 	})
 	if txErr != nil {
@@ -220,28 +224,46 @@ func (e *eventUserRepository) insertMentoringInviteOutbox(tx *gorm.DB, eventUser
 		"event_id": eventUser.EventId,
 		"category": domain.CategoryMentoring,
 	})
-	if err := e.outbox.Create(tx, &domain.OutboxEventDomain{
-		Type:    domain.OutboxTypeMentoringInvitePending,
-		UserId:  eventUser.UserId,
-		Payload: payload,
-		Status:  domain.OutboxStatusPending,
-	}); err != nil {
-		return err
-	}
-	return nil
+	return insertOutboxForUsers(e.outbox, tx, domain.OutboxTypeMentoringInvitePending, []string{eventUser.UserId}, payload)
 }
 
-func lockEventRow(tx *gorm.DB, eventId string) error {
+func (e *eventUserRepository) insertMentoringInviteResponseOutbox(tx *gorm.DB, event *entity.EventEntity, actorId, status string) error {
+	if e.outbox == nil || event == nil || event.Category != domain.CategoryMentoring {
+		return nil
+	}
+	outboxType := mentoringInviteResponseOutboxType(status)
+	if outboxType == "" {
+		return nil
+	}
+	recipients, err := eventRelatedRecipientIds(tx, event.Id, event.OwnerId, actorId)
+	if err != nil {
+		return err
+	}
+	return insertOutboxForUsers(e.outbox, tx, outboxType, recipients, eventUpdateOutboxPayload(event, actorId, status))
+}
+
+func mentoringInviteResponseOutboxType(status string) string {
+	switch status {
+	case domain.StatusConfirmed:
+		return domain.OutboxTypeMentoringInviteAccepted
+	case domain.StatusRejected:
+		return domain.OutboxTypeMentoringInviteRejected
+	default:
+		return ""
+	}
+}
+
+func lockEventRow(tx *gorm.DB, eventId string) (*entity.EventEntity, error) {
 	var eventEntity entity.EventEntity
 	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("id = ?", eventId).First(&eventEntity).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return rest_err.NewNotFoundError("event not found")
+			return nil, rest_err.NewNotFoundError("event not found")
 		}
-		return rest_err.NewInternalServerError("Error locking event: " + err.Error())
+		return nil, rest_err.NewInternalServerError("Error locking event: " + err.Error())
 	}
-	return nil
+	return &eventEntity, nil
 }
 
 func checkEventCapacity(tx *gorm.DB, eventId string, maxSlots *int) error {
@@ -312,4 +334,60 @@ func toRestErr(err error) *rest_err.RestErr {
 		return restErr
 	}
 	return rest_err.NewInternalServerError(err.Error())
+}
+
+func eventRelatedRecipientIds(tx *gorm.DB, eventId, ownerId, actorId string) ([]string, error) {
+	ids := map[string]struct{}{}
+	if ownerId != "" && ownerId != actorId {
+		ids[ownerId] = struct{}{}
+	}
+	var participants []entity.EventUserEntity
+	if err := tx.Select("user_id").Where("event_id = ?", eventId).Find(&participants).Error; err != nil {
+		return nil, rest_err.NewInternalServerError("Error listing event participants: " + err.Error())
+	}
+	for _, participant := range participants {
+		if participant.UserId != "" && participant.UserId != actorId {
+			ids[participant.UserId] = struct{}{}
+		}
+	}
+	recipients := make([]string, 0, len(ids))
+	for id := range ids {
+		recipients = append(recipients, id)
+	}
+	return recipients, nil
+}
+
+func eventUpdateOutboxPayload(event *entity.EventEntity, actorId, status string) json.RawMessage {
+	data := map[string]string{
+		"event_id": event.Id,
+		"title":    event.Title,
+		"category": event.Category,
+		"status":   status,
+		"actor_id": actorId,
+	}
+	if event.CommunityId != nil && *event.CommunityId != "" {
+		data["community_id"] = *event.CommunityId
+	}
+	payload, _ := json.Marshal(data)
+	return payload
+}
+
+func insertOutboxForUsers(outbox OutboxEventRepository, tx *gorm.DB, outboxType string, userIds []string, payload json.RawMessage) error {
+	if outbox == nil || outboxType == "" {
+		return nil
+	}
+	for _, userId := range userIds {
+		if userId == "" {
+			continue
+		}
+		if err := outbox.Create(tx, &domain.OutboxEventDomain{
+			Type:    outboxType,
+			UserId:  userId,
+			Payload: payload,
+			Status:  domain.OutboxStatusPending,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
