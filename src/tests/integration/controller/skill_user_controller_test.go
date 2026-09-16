@@ -8,8 +8,9 @@ import (
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	skilldto "github.com/ajuda-dev/backend/src/controller/skill/dto"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -20,9 +21,9 @@ func newAssignSkillRequest(skillId string, body []byte) *http.Request {
 	return req
 }
 
-func createSkillUserForTest(t *testing.T) *domain.UserDomain {
+func createSkillUserForTest(t *testing.T) *userdomain.UserDomain {
 	t.Helper()
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "lucas",
 		Email:    testEmail,
 		Password: "123456",
@@ -33,18 +34,18 @@ func createSkillUserForTest(t *testing.T) *domain.UserDomain {
 	return user
 }
 
-func createSkillForTest(t *testing.T, name string) *domain.SkillDomain {
+func createSkillForTest(t *testing.T, name string) *skilldomain.SkillDomain {
 	t.Helper()
-	skill, createErr := skillRepository.CreateSkill(&domain.SkillDomain{Name: name})
+	skill, createErr := skillRepository.CreateSkill(&skilldomain.SkillDomain{Name: name})
 	if createErr != nil {
 		t.Fatalf("failed to create skill: %v", createErr)
 	}
 	return skill
 }
 
-func assignSkillViaApi(t *testing.T, app *fiber.App, skillId string, userId string, level string) dto.SkillUserDto {
+func assignSkillViaApi(t *testing.T, app *fiber.App, skillId string, userId string, level string) skilldto.SkillUserDto {
 	t.Helper()
-	payload, err := json.Marshal(dto.AssignSkillDto{UserId: userId, Level: level})
+	payload, err := json.Marshal(skilldto.AssignSkillDto{UserId: userId, Level: level})
 	if err != nil {
 		t.Fatalf("erro ao montar body: %v", err)
 	}
@@ -58,14 +59,14 @@ func assignSkillViaApi(t *testing.T, app *fiber.App, skillId string, userId stri
 		json.NewDecoder(resp.Body).Decode(&respBody)
 		t.Fatalf("esperava 201 ao associar skill, recebeu %d (body: %+v)", resp.StatusCode, respBody)
 	}
-	var respDto dto.SkillUserDto
+	var respDto skilldto.SkillUserDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	return respDto
 }
 
-func getUserSkillsViaApi(t *testing.T, app *fiber.App, userId string) []dto.SkillUserDto {
+func getUserSkillsViaApi(t *testing.T, app *fiber.App, userId string) []skilldto.SkillUserDto {
 	t.Helper()
 	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/user/"+userId+"/skills", nil), validTokenFor(t, userId))
 	if err != nil {
@@ -75,14 +76,14 @@ func getUserSkillsViaApi(t *testing.T, app *fiber.App, userId string) []dto.Skil
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
 	}
-	var skills []dto.SkillUserDto
+	var skills []skilldto.SkillUserDto
 	if err := json.NewDecoder(resp.Body).Decode(&skills); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	return skills
 }
 
-func skillUserNames(skills []dto.SkillUserDto) []string {
+func skillUserNames(skills []skilldto.SkillUserDto) []string {
 	names := make([]string, len(skills))
 	for i, s := range skills {
 		names[i] = s.Skill.Name
@@ -99,7 +100,7 @@ func TestAssignSkillSuccess(t *testing.T) {
 	user := createSkillUserForTest(t)
 	skill := createSkillForTest(t, "JAVA")
 
-	skillUser := assignSkillViaApi(t, app, skill.Id, user.Id, domain.LevelWantToLearn)
+	skillUser := assignSkillViaApi(t, app, skill.Id, user.Id, skilldomain.LevelWantToLearn)
 
 	if !uuidv7.IsValidString(skillUser.Id) {
 		t.Errorf("esperava id uuid v7 válido, recebeu '%s'", skillUser.Id)
@@ -110,8 +111,8 @@ func TestAssignSkillSuccess(t *testing.T) {
 	if skillUser.UserId != user.Id {
 		t.Errorf("esperava user_id '%s', recebeu '%s'", user.Id, skillUser.UserId)
 	}
-	if skillUser.Level != domain.LevelWantToLearn {
-		t.Errorf("esperava level '%s', recebeu '%s'", domain.LevelWantToLearn, skillUser.Level)
+	if skillUser.Level != skilldomain.LevelWantToLearn {
+		t.Errorf("esperava level '%s', recebeu '%s'", skilldomain.LevelWantToLearn, skillUser.Level)
 	}
 }
 
@@ -123,9 +124,9 @@ func TestAssignSkillRejectsDuplicate(t *testing.T) {
 	app := setupApp()
 	user := createSkillUserForTest(t)
 	skill := createSkillForTest(t, "GO")
-	assignSkillViaApi(t, app, skill.Id, user.Id, domain.LevelTeach)
+	assignSkillViaApi(t, app, skill.Id, user.Id, skilldomain.LevelTeach)
 
-	payload, _ := json.Marshal(dto.AssignSkillDto{UserId: user.Id, Level: domain.LevelLearnAndTeach})
+	payload, _ := json.Marshal(skilldto.AssignSkillDto{UserId: user.Id, Level: skilldomain.LevelLearnAndTeach})
 	resp, err := doAuthedRequest(app, newAssignSkillRequest(skill.Id, payload), validTokenFor(t, user.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
@@ -155,7 +156,7 @@ func TestAssignSkillRejectsInvalidLevel(t *testing.T) {
 
 	token := validTokenFor(t, user.Id)
 	for _, level := range []string{"", "SENIOR", "want_to_learn"} {
-		payload, _ := json.Marshal(dto.AssignSkillDto{UserId: user.Id, Level: level})
+		payload, _ := json.Marshal(skilldto.AssignSkillDto{UserId: user.Id, Level: level})
 		resp, err := doAuthedRequest(app, newAssignSkillRequest(skill.Id, payload), token)
 		if err != nil {
 			t.Fatalf("erro ao executar requisição: %v", err)
@@ -234,9 +235,9 @@ func TestGetUserSkillsSortedAlphabetically(t *testing.T) {
 	spring := createSkillForTest(t, "SPRING")
 	goSkill := createSkillForTest(t, "GO")
 
-	assignSkillViaApi(t, app, java.Id, user.Id, domain.LevelWantToLearn)
-	assignSkillViaApi(t, app, spring.Id, user.Id, domain.LevelLearnAndTeach)
-	assignSkillViaApi(t, app, goSkill.Id, user.Id, domain.LevelTeach)
+	assignSkillViaApi(t, app, java.Id, user.Id, skilldomain.LevelWantToLearn)
+	assignSkillViaApi(t, app, spring.Id, user.Id, skilldomain.LevelLearnAndTeach)
+	assignSkillViaApi(t, app, goSkill.Id, user.Id, skilldomain.LevelTeach)
 
 	skills := getUserSkillsViaApi(t, app, user.Id)
 	names := skillUserNames(skills)
@@ -253,7 +254,7 @@ func TestGetUserSkillsSortedAlphabetically(t *testing.T) {
 	for _, s := range skills {
 		levelsBySkill[s.Skill.Name] = s.Level
 	}
-	if levelsBySkill["GO"] != domain.LevelTeach || levelsBySkill["JAVA"] != domain.LevelWantToLearn || levelsBySkill["SPRING"] != domain.LevelLearnAndTeach {
+	if levelsBySkill["GO"] != skilldomain.LevelTeach || levelsBySkill["JAVA"] != skilldomain.LevelWantToLearn || levelsBySkill["SPRING"] != skilldomain.LevelLearnAndTeach {
 		t.Errorf("esperava níveis preservados, recebeu %+v", levelsBySkill)
 	}
 
@@ -272,8 +273,8 @@ func TestRemoveSkillFromUser(t *testing.T) {
 	user := createSkillUserForTest(t)
 	java := createSkillForTest(t, "JAVA")
 	goSkill := createSkillForTest(t, "GO")
-	assignSkillViaApi(t, app, java.Id, user.Id, domain.LevelWantToLearn)
-	assignSkillViaApi(t, app, goSkill.Id, user.Id, domain.LevelTeach)
+	assignSkillViaApi(t, app, java.Id, user.Id, skilldomain.LevelWantToLearn)
+	assignSkillViaApi(t, app, goSkill.Id, user.Id, skilldomain.LevelTeach)
 
 	token := validTokenFor(t, user.Id)
 	req := httptest.NewRequest("DELETE", "/v1/user/"+user.Id+"/skills/"+java.Id, nil)

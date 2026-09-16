@@ -9,8 +9,14 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
+	eventdto "github.com/ajuda-dev/backend/src/controller/event/dto"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
+	skilldto "github.com/ajuda-dev/backend/src/controller/skill/dto"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 	"golang.org/x/crypto/bcrypt"
@@ -25,9 +31,9 @@ func cleanAuthorizationData() {
 	cleanAddressesTable()
 }
 
-func createCommunityOwnedByUserForTest(t *testing.T, name string, owner *domain.UserDomain) string {
+func createCommunityOwnedByUserForTest(t *testing.T, name string, owner *userdomain.UserDomain) string {
 	t.Helper()
-	address, aErr := addressRepository.CreateAddress(&domain.AddressDomain{
+	address, aErr := addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    "test_city",
 		State:   "test_state",
 		Street:  "test_street",
@@ -36,7 +42,7 @@ func createCommunityOwnedByUserForTest(t *testing.T, name string, owner *domain.
 	if aErr != nil {
 		t.Fatalf("failed to create address: %v", aErr)
 	}
-	community, cErr := communityRepository.CreateCommunity(&domain.CommunityDomain{
+	community, cErr := communityRepository.CreateCommunity(&communitydomain.CommunityDomain{
 		Name:        name,
 		Description: "comunidade de teste",
 		Owner:       *owner,
@@ -75,9 +81,9 @@ func TestDeleteSkillAuthorization(t *testing.T) {
 	t.Cleanup(skillCleanups)
 
 	app := setupApp()
-	common := createUserWithRole(t, "skill_auth_user@ajuda.dev", domain.UserRoleUser)
-	moderator := createUserWithRole(t, "skill_auth_mod@ajuda.dev", domain.UserRoleModerator)
-	admin := createUserWithRole(t, "skill_auth_admin@ajuda.dev", domain.UserRoleAdmin)
+	common := createUserWithRole(t, "skill_auth_user@ajuda.dev", userdomain.UserRoleUser)
+	moderator := createUserWithRole(t, "skill_auth_mod@ajuda.dev", userdomain.UserRoleModerator)
+	admin := createUserWithRole(t, "skill_auth_admin@ajuda.dev", userdomain.UserRoleAdmin)
 
 	skill := registerSkillViaApi(t, app, "go")
 
@@ -159,7 +165,7 @@ func getSkillNameViaApi(t *testing.T, app *fiber.App, id string, token string) s
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 no GET da skill, recebeu %d", resp.StatusCode)
 	}
-	var skillDto dto.SkillDto
+	var skillDto skilldto.SkillDto
 	if err := json.NewDecoder(resp.Body).Decode(&skillDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -170,9 +176,9 @@ func TestUpdateSkillAuthorization(t *testing.T) {
 	t.Cleanup(skillCleanups)
 
 	app := setupApp()
-	common := createUserWithRole(t, "upd_auth_user@ajuda.dev", domain.UserRoleUser)
-	moderator := createUserWithRole(t, "upd_auth_mod@ajuda.dev", domain.UserRoleModerator)
-	admin := createUserWithRole(t, "upd_auth_admin@ajuda.dev", domain.UserRoleAdmin)
+	common := createUserWithRole(t, "upd_auth_user@ajuda.dev", userdomain.UserRoleUser)
+	moderator := createUserWithRole(t, "upd_auth_mod@ajuda.dev", userdomain.UserRoleModerator)
+	admin := createUserWithRole(t, "upd_auth_admin@ajuda.dev", userdomain.UserRoleAdmin)
 
 	skill := registerSkillViaApi(t, app, "go")
 
@@ -198,7 +204,7 @@ func TestUpdateSkillAuthorization(t *testing.T) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Errorf("esperava 200 no update de skill por MODERATOR, recebeu %d", resp.StatusCode)
 	}
-	var respDto dto.RegisterSkillDto
+	var respDto skilldto.RegisterSkillDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -211,7 +217,7 @@ func TestUpdateSkillAuthorization(t *testing.T) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Errorf("esperava 200 no update de skill por ADMIN, recebeu %d", resp.StatusCode)
 	}
-	respDto = dto.RegisterSkillDto{}
+	respDto = skilldto.RegisterSkillDto{}
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -265,8 +271,8 @@ func TestDeleteCommunityOnlyOwnerOrStaff(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	owner := createUserWithRole(t, "com_del_owner@ajuda.dev", domain.UserRoleUser)
-	stranger := createUserWithRole(t, "com_del_stranger@ajuda.dev", domain.UserRoleUser)
+	owner := createUserWithRole(t, "com_del_owner@ajuda.dev", userdomain.UserRoleUser)
+	stranger := createUserWithRole(t, "com_del_stranger@ajuda.dev", userdomain.UserRoleUser)
 	communityId := createCommunityOwnedByUserForTest(t, "Comunidade do Dono", owner)
 
 	resp := doDelete(t, app, "/v1/community/"+communityId, validTokenFor(t, stranger.Id))
@@ -326,9 +332,9 @@ func TestDeleteCommunityBlockedByMembersUntilTheyLeave(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	owner := createUserWithRole(t, "com_members_owner@ajuda.dev", domain.UserRoleUser)
-	member := createUserWithRole(t, "com_members_member@ajuda.dev", domain.UserRoleUser)
-	stranger := createUserWithRole(t, "com_members_stranger@ajuda.dev", domain.UserRoleUser)
+	owner := createUserWithRole(t, "com_members_owner@ajuda.dev", userdomain.UserRoleUser)
+	member := createUserWithRole(t, "com_members_member@ajuda.dev", userdomain.UserRoleUser)
+	stranger := createUserWithRole(t, "com_members_stranger@ajuda.dev", userdomain.UserRoleUser)
 	communityId := createCommunityOwnedByUserForTest(t, "Comunidade com Membros", owner)
 
 	joinCommunityViaApi(t, app, communityId, validTokenFor(t, member.Id))
@@ -375,10 +381,10 @@ func TestDeleteCommunityStaffCanDeleteWithMembers(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	moderator := createUserWithRole(t, "com_staff_mod@ajuda.dev", domain.UserRoleModerator)
-	admin := createUserWithRole(t, "com_staff_admin@ajuda.dev", domain.UserRoleAdmin)
-	owner := createUserWithRole(t, "com_staff_owner@ajuda.dev", domain.UserRoleUser)
-	member := createUserWithRole(t, "com_staff_member@ajuda.dev", domain.UserRoleUser)
+	moderator := createUserWithRole(t, "com_staff_mod@ajuda.dev", userdomain.UserRoleModerator)
+	admin := createUserWithRole(t, "com_staff_admin@ajuda.dev", userdomain.UserRoleAdmin)
+	owner := createUserWithRole(t, "com_staff_owner@ajuda.dev", userdomain.UserRoleUser)
+	member := createUserWithRole(t, "com_staff_member@ajuda.dev", userdomain.UserRoleUser)
 
 	communityMod := createCommunityOwnedByUserForTest(t, "Comunidade Staff Mod", owner)
 	joinCommunityViaApi(t, app, communityMod, validTokenFor(t, member.Id))
@@ -401,10 +407,10 @@ func TestDeleteUserRequiresAdminRole(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	common := createUserWithRole(t, "user_del_common@ajuda.dev", domain.UserRoleUser)
-	other := createUserWithRole(t, "user_del_other@ajuda.dev", domain.UserRoleUser)
-	moderator := createUserWithRole(t, "user_del_mod@ajuda.dev", domain.UserRoleModerator)
-	admin := createUserWithRole(t, "user_del_admin@ajuda.dev", domain.UserRoleAdmin)
+	common := createUserWithRole(t, "user_del_common@ajuda.dev", userdomain.UserRoleUser)
+	other := createUserWithRole(t, "user_del_other@ajuda.dev", userdomain.UserRoleUser)
+	moderator := createUserWithRole(t, "user_del_mod@ajuda.dev", userdomain.UserRoleModerator)
+	admin := createUserWithRole(t, "user_del_admin@ajuda.dev", userdomain.UserRoleAdmin)
 
 	resp := doDelete(t, app, "/v1/user/"+other.Id, validTokenFor(t, common.Id))
 	if resp.StatusCode != fiber.StatusForbidden {
@@ -458,7 +464,7 @@ func TestDeleteUserRequiresAdminRole(t *testing.T) {
 	if respRegister.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 no register do alvo, recebeu %d", respRegister.StatusCode)
 	}
-	var targetDto dto.UserDtoOut
+	var targetDto userdto.UserDtoOut
 	if err := json.NewDecoder(respRegister.Body).Decode(&targetDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -489,8 +495,8 @@ func TestDeleteUserBlockedByActiveAssociations(t *testing.T) {
 	app := setupApp()
 
 	t.Run("owner de comunidade ativa", func(t *testing.T) {
-		admin := createUserWithRole(t, "user_links_admin1@ajuda.dev", domain.UserRoleAdmin)
-		target := createUserWithRole(t, "user_links_target1@ajuda.dev", domain.UserRoleUser)
+		admin := createUserWithRole(t, "user_links_admin1@ajuda.dev", userdomain.UserRoleAdmin)
+		target := createUserWithRole(t, "user_links_target1@ajuda.dev", userdomain.UserRoleUser)
 		createCommunityOwnedByUserForTest(t, "Comunidade do Alvo 1", target)
 
 		resp := doDelete(t, app, "/v1/user/"+target.Id, validTokenFor(t, admin.Id))
@@ -508,12 +514,12 @@ func TestDeleteUserBlockedByActiveAssociations(t *testing.T) {
 	})
 
 	t.Run("owner de evento ativo", func(t *testing.T) {
-		admin := createUserWithRole(t, "user_links_admin2@ajuda.dev", domain.UserRoleAdmin)
-		target := createUserWithRole(t, "user_links_target2@ajuda.dev", domain.UserRoleUser)
-		if _, cErr := eventRepository.CreateEvent(&domain.EventDomain{
+		admin := createUserWithRole(t, "user_links_admin2@ajuda.dev", userdomain.UserRoleAdmin)
+		target := createUserWithRole(t, "user_links_target2@ajuda.dev", userdomain.UserRoleUser)
+		if _, cErr := eventRepository.CreateEvent(&eventdomain.EventDomain{
 			Owner:       *target,
-			Category:    domain.CategoryCommunityEvent,
-			Type:        domain.TypeOnline,
+			Category:    eventdomain.CategoryCommunityEvent,
+			Type:        eventdomain.TypeOnline,
 			Title:       "Evento do Alvo 2",
 			Description: "evento ativo",
 			StartAt:     time.Now().Add(48 * time.Hour),
@@ -534,13 +540,13 @@ func TestDeleteUserBlockedByActiveAssociations(t *testing.T) {
 	})
 
 	t.Run("participacao ativa em evento", func(t *testing.T) {
-		admin := createUserWithRole(t, "user_links_admin3@ajuda.dev", domain.UserRoleAdmin)
-		target := createUserWithRole(t, "user_links_target3@ajuda.dev", domain.UserRoleUser)
-		owner := createUserWithRole(t, "user_links_evowner3@ajuda.dev", domain.UserRoleUser)
-		event, cErr := eventRepository.CreateEvent(&domain.EventDomain{
+		admin := createUserWithRole(t, "user_links_admin3@ajuda.dev", userdomain.UserRoleAdmin)
+		target := createUserWithRole(t, "user_links_target3@ajuda.dev", userdomain.UserRoleUser)
+		owner := createUserWithRole(t, "user_links_evowner3@ajuda.dev", userdomain.UserRoleUser)
+		event, cErr := eventRepository.CreateEvent(&eventdomain.EventDomain{
 			Owner:       *owner,
-			Category:    domain.CategoryCommunityEvent,
-			Type:        domain.TypeOnline,
+			Category:    eventdomain.CategoryCommunityEvent,
+			Type:        eventdomain.TypeOnline,
 			Title:       "Evento do Outro 3",
 			Description: "evento ativo",
 			StartAt:     time.Now().Add(48 * time.Hour),
@@ -549,11 +555,11 @@ func TestDeleteUserBlockedByActiveAssociations(t *testing.T) {
 		if cErr != nil {
 			t.Fatalf("failed to create event: %v", cErr)
 		}
-		if _, pErr := eventUserRepository.CreateOrUpdate(&domain.EventUserDomain{
+		if _, pErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
 			EventId: event.Id,
 			UserId:  target.Id,
-			Role:    domain.RoleAttendee,
-			Status:  domain.StatusRequested,
+			Role:    eventdomain.RoleAttendee,
+			Status:  eventdomain.StatusRequested,
 		}, nil); pErr != nil {
 			t.Fatalf("failed to create participation: %v", pErr)
 		}
@@ -570,9 +576,9 @@ func TestDeleteUserBlockedByActiveAssociations(t *testing.T) {
 	})
 
 	t.Run("membro de comunidade ativa", func(t *testing.T) {
-		admin := createUserWithRole(t, "user_links_admin4@ajuda.dev", domain.UserRoleAdmin)
-		target := createUserWithRole(t, "user_links_target4@ajuda.dev", domain.UserRoleUser)
-		owner := createUserWithRole(t, "user_links_owner4@ajuda.dev", domain.UserRoleUser)
+		admin := createUserWithRole(t, "user_links_admin4@ajuda.dev", userdomain.UserRoleAdmin)
+		target := createUserWithRole(t, "user_links_target4@ajuda.dev", userdomain.UserRoleUser)
+		owner := createUserWithRole(t, "user_links_owner4@ajuda.dev", userdomain.UserRoleUser)
 		communityId := createCommunityOwnedByUserForTest(t, "Comunidade do Outro 4", owner)
 		joinCommunityViaApi(t, app, communityId, validTokenFor(t, target.Id))
 
@@ -592,9 +598,9 @@ func TestCommunityRegisterUsesAuthenticatedUserAsOwner(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	userA := createUserWithRole(t, "reg_com_a@ajuda.dev", domain.UserRoleUser)
-	userB := createUserWithRole(t, "reg_com_b@ajuda.dev", domain.UserRoleUser)
-	address, aErr := addressRepository.CreateAddress(&domain.AddressDomain{
+	userA := createUserWithRole(t, "reg_com_a@ajuda.dev", userdomain.UserRoleUser)
+	userB := createUserWithRole(t, "reg_com_b@ajuda.dev", userdomain.UserRoleUser)
+	address, aErr := addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    "test_city",
 		State:   "test_state",
 		Street:  "test_street",
@@ -618,7 +624,7 @@ func TestCommunityRegisterUsesAuthenticatedUserAsOwner(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 no register com owner_id de outro usuário, recebeu %d", resp.StatusCode)
 	}
-	var respDto dto.CommunityDto
+	var respDto communitydto.CommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -640,7 +646,7 @@ func TestCommunityRegisterUsesAuthenticatedUserAsOwner(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 no register sem owner_id, recebeu %d", resp.StatusCode)
 	}
-	respDto = dto.CommunityDto{}
+	respDto = communitydto.CommunityDto{}
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -654,13 +660,13 @@ func TestEventRegisterUsesAuthenticatedUserAsOwner(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	userA := createUserWithRole(t, "reg_event_a@ajuda.dev", domain.UserRoleUser)
-	userB := createUserWithRole(t, "reg_event_b@ajuda.dev", domain.UserRoleUser)
+	userA := createUserWithRole(t, "reg_event_a@ajuda.dev", userdomain.UserRoleUser)
+	userB := createUserWithRole(t, "reg_event_b@ajuda.dev", userdomain.UserRoleUser)
 
 	payload, err := json.Marshal(eventTestRequest{
 		OwnerId:     userB.Id,
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Evento Token Owner",
 		Description: "owner deve vir do token",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -676,7 +682,7 @@ func TestEventRegisterUsesAuthenticatedUserAsOwner(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 no register com owner_id de outro usuário, recebeu %d", resp.StatusCode)
 	}
-	var respDto dto.RegisterEventDto
+	var respDto eventdto.RegisterEventDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -686,8 +692,8 @@ func TestEventRegisterUsesAuthenticatedUserAsOwner(t *testing.T) {
 	}
 
 	payload, err = json.Marshal(eventTestRequest{
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Evento Sem Owner",
 		Description: "owner deve vir do token",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -703,7 +709,7 @@ func TestEventRegisterUsesAuthenticatedUserAsOwner(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 no register sem owner_id, recebeu %d", resp.StatusCode)
 	}
-	respDto = dto.RegisterEventDto{}
+	respDto = eventdto.RegisterEventDto{}
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -731,11 +737,11 @@ func TestRegisterAndLoginReturnRole(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 no register, recebeu %d", resp.StatusCode)
 	}
-	var registerDto dto.UserDtoOut
+	var registerDto userdto.UserDtoOut
 	if err := json.NewDecoder(resp.Body).Decode(&registerDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
-	if registerDto.Role != domain.UserRoleUser {
+	if registerDto.Role != userdomain.UserRoleUser {
 		t.Errorf("esperava role 'USER' na resposta do register, recebeu '%s'", registerDto.Role)
 	}
 
@@ -743,11 +749,11 @@ func TestRegisterAndLoginReturnRole(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
-	if _, createErr := userRepository.CreateUser(&domain.UserDomain{
+	if _, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "moderador",
 		Email:    "role_mod@ajuda.dev",
 		Password: string(hashedPassword),
-		Role:     domain.UserRoleModerator,
+		Role:     userdomain.UserRoleModerator,
 	}); createErr != nil {
 		t.Fatalf("failed to create user: %v", createErr)
 	}
@@ -764,11 +770,11 @@ func TestRegisterAndLoginReturnRole(t *testing.T) {
 	if respLogin.StatusCode != fiber.StatusOK {
 		t.Errorf("esperava 200 no login, recebeu %d", respLogin.StatusCode)
 	}
-	var loginDto dto.LoginUserDtoOut
+	var loginDto userdto.LoginUserDtoOut
 	if err := json.NewDecoder(respLogin.Body).Decode(&loginDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
-	if loginDto.Role != domain.UserRoleModerator {
+	if loginDto.Role != userdomain.UserRoleModerator {
 		t.Errorf("esperava role 'MODERATOR' na resposta do login, recebeu '%s'", loginDto.Role)
 	}
 }

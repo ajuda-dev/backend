@@ -4,20 +4,20 @@ import (
 	"errors"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communityentity "github.com/ajuda-dev/backend/src/data/community/entity"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
 	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
 )
 
 type CommunityUserRepository interface {
-	Create(communityUser *domain.CommunityUserDomain) (*domain.CommunityUserDomain, *rest_err.RestErr)
+	Create(communityUser *communitydomain.CommunityUserDomain) (*communitydomain.CommunityUserDomain, *rest_err.RestErr)
 	DeleteByCommunityAndUser(communityId string, userId string) *rest_err.RestErr
 	CountByCommunity(communityId string) (int64, *rest_err.RestErr)
 	CountByUserId(userId string) (int64, *rest_err.RestErr)
 	ExistsByCommunityAndUser(communityId string, userId string) (bool, *rest_err.RestErr)
-	FindMembersByCommunity(communityId string, page int, limit int) (*domain.PageableCommunityMember, *rest_err.RestErr)
-	FindCommunitiesByUser(userId string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
+	FindMembersByCommunity(communityId string, page int, limit int) (*communitydomain.PageableCommunityMember, *rest_err.RestErr)
+	FindCommunitiesByUser(userId string, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr)
 }
 
 type communityUserRepository struct {
@@ -30,8 +30,8 @@ func NewCommunityUserRepository(db *gorm.DB) CommunityUserRepository {
 	}
 }
 
-func (c *communityUserRepository) Create(communityUser *domain.CommunityUserDomain) (*domain.CommunityUserDomain, *rest_err.RestErr) {
-	var existing entity.CommunityUserEntity
+func (c *communityUserRepository) Create(communityUser *communitydomain.CommunityUserDomain) (*communitydomain.CommunityUserDomain, *rest_err.RestErr) {
+	var existing communityentity.CommunityUserEntity
 	queryErr := c.database.Where("community_id = ? AND user_id = ?", communityUser.CommunityId, communityUser.UserId).
 		First(&existing).Error
 	if queryErr != nil && !errors.Is(queryErr, gorm.ErrRecordNotFound) {
@@ -46,7 +46,7 @@ func (c *communityUserRepository) Create(communityUser *domain.CommunityUserDoma
 			}})
 	}
 
-	communityUserEntity := (&entity.CommunityUserEntity{}).FromDomain(*communityUser)
+	communityUserEntity := (&communityentity.CommunityUserEntity{}).FromDomain(*communityUser)
 	communityUserEntity.Id = uuidv7.New().String()
 	if err := c.database.Create(communityUserEntity).Error; err != nil {
 		return nil, rest_err.NewInternalServerError("Error creating membership: " + err.Error())
@@ -56,7 +56,7 @@ func (c *communityUserRepository) Create(communityUser *domain.CommunityUserDoma
 
 func (c *communityUserRepository) DeleteByCommunityAndUser(communityId string, userId string) *rest_err.RestErr {
 	result := c.database.Where("community_id = ? AND user_id = ?", communityId, userId).
-		Delete(&entity.CommunityUserEntity{})
+		Delete(&communityentity.CommunityUserEntity{})
 	if result.Error != nil {
 		return rest_err.NewInternalServerError("Error deleting membership: " + result.Error.Error())
 	}
@@ -68,7 +68,7 @@ func (c *communityUserRepository) DeleteByCommunityAndUser(communityId string, u
 
 func (c *communityUserRepository) CountByCommunity(communityId string) (int64, *rest_err.RestErr) {
 	var count int64
-	if err := c.database.Model(&entity.CommunityUserEntity{}).
+	if err := c.database.Model(&communityentity.CommunityUserEntity{}).
 		Where("community_id = ?", communityId).
 		Count(&count).Error; err != nil {
 		return 0, rest_err.NewInternalServerError("Error counting memberships: " + err.Error())
@@ -78,7 +78,7 @@ func (c *communityUserRepository) CountByCommunity(communityId string) (int64, *
 
 func (c *communityUserRepository) CountByUserId(userId string) (int64, *rest_err.RestErr) {
 	var count int64
-	if err := c.database.Model(&entity.CommunityUserEntity{}).
+	if err := c.database.Model(&communityentity.CommunityUserEntity{}).
 		Joins("JOIN community ON community.id = community_users.community_id").
 		Where("community.deleted_at IS NULL AND community_users.user_id = ?", userId).
 		Count(&count).Error; err != nil {
@@ -89,7 +89,7 @@ func (c *communityUserRepository) CountByUserId(userId string) (int64, *rest_err
 
 func (c *communityUserRepository) ExistsByCommunityAndUser(communityId string, userId string) (bool, *rest_err.RestErr) {
 	var count int64
-	if err := c.database.Model(&entity.CommunityUserEntity{}).
+	if err := c.database.Model(&communityentity.CommunityUserEntity{}).
 		Where("community_id = ? AND user_id = ?", communityId, userId).
 		Count(&count).Error; err != nil {
 		return false, rest_err.NewInternalServerError("Error getting membership: " + err.Error())
@@ -97,15 +97,15 @@ func (c *communityUserRepository) ExistsByCommunityAndUser(communityId string, u
 	return count > 0, nil
 }
 
-func (c *communityUserRepository) FindMembersByCommunity(communityId string, page int, limit int) (*domain.PageableCommunityMember, *rest_err.RestErr) {
+func (c *communityUserRepository) FindMembersByCommunity(communityId string, page int, limit int) (*communitydomain.PageableCommunityMember, *rest_err.RestErr) {
 	if page <= 0 {
 		page = 1
 	}
 	if limit <= 0 {
 		limit = 10
 	}
-	var entities []entity.CommunityUserEntity
-	err := c.database.Model(&entity.CommunityUserEntity{}).
+	var entities []communityentity.CommunityUserEntity
+	err := c.database.Model(&communityentity.CommunityUserEntity{}).
 		Joins("JOIN users ON users.id = community_users.user_id").
 		Where("community_users.community_id = ? AND users.deleted_at IS NULL", communityId).
 		Preload("User").
@@ -119,17 +119,17 @@ func (c *communityUserRepository) FindMembersByCommunity(communityId string, pag
 	if hasNext {
 		entities = entities[:limit]
 	}
-	return &domain.PageableCommunityMember{HasNext: hasNext, Data: entity.ToCommunityUserDomainList(entities)}, nil
+	return &communitydomain.PageableCommunityMember{HasNext: hasNext, Data: communityentity.ToCommunityUserDomainList(entities)}, nil
 }
 
-func (c *communityUserRepository) FindCommunitiesByUser(userId string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
+func (c *communityUserRepository) FindCommunitiesByUser(userId string, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr) {
 	if page <= 0 {
 		page = 1
 	}
 	if limit <= 0 {
 		limit = 10
 	}
-	var communities []entity.CommunityEntity
+	var communities []communityentity.CommunityEntity
 	err := c.database.Model(&communities).
 		Joins("JOIN community_users ON community_users.community_id = community.id").
 		Where("community_users.user_id = ?", userId).
@@ -138,11 +138,11 @@ func (c *communityUserRepository) FindCommunitiesByUser(userId string, page int,
 		Offset((page - 1) * limit).Limit(limit + 1).
 		Find(&communities).Error
 	if err != nil {
-		return &domain.PageableCommunity{}, rest_err.NewInternalServerError("Error getting user communities: " + err.Error())
+		return &communitydomain.PageableCommunity{}, rest_err.NewInternalServerError("Error getting user communities: " + err.Error())
 	}
 	hasNext := len(communities) > limit
 	if hasNext {
 		communities = communities[:limit]
 	}
-	return &domain.PageableCommunity{HasNext: hasNext, Data: entity.ToCommunityDomainList(communities)}, nil
+	return &communitydomain.PageableCommunity{HasNext: hasNext, Data: communityentity.ToCommunityDomainList(communities)}, nil
 }

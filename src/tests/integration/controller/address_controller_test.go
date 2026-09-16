@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	addressdto "github.com/ajuda-dev/backend/src/controller/address/dto"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -39,7 +39,7 @@ func TestRegisterAddressSuccess(t *testing.T) {
 		t.Errorf("esperava 201, recebeu %d", resp.StatusCode)
 	}
 
-	var respDto dto.AddressDto
+	var respDto addressdto.AddressDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestRegisterAddressAlreadyExist(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	app := setupApp()
 	token := validTokenFor(t, uuidv7.New().String())
-	addressRepository.CreateAddress(&domain.AddressDomain{
+	addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    "test_city",
 		State:   "test_state",
 		ZipCode: "test_zip_code",
@@ -244,7 +244,7 @@ func TestRegisterAddressSameCepDifferentNumber(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 para number 100, recebeu %d", resp.StatusCode)
 	}
-	var firstDto dto.AddressDto
+	var firstDto addressdto.AddressDto
 	if err := json.NewDecoder(resp.Body).Decode(&firstDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestRegisterAddressSameCepDifferentNumber(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 para number 200, recebeu %d", resp.StatusCode)
 	}
-	var secondDto dto.AddressDto
+	var secondDto addressdto.AddressDto
 	if err := json.NewDecoder(resp.Body).Decode(&secondDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestRegisterAddressPersistenceRoundTrip(t *testing.T) {
 		t.Errorf("esperava 201, recebeu %d", resp.StatusCode)
 	}
 
-	var respDto dto.AddressDto
+	var respDto addressdto.AddressDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -320,10 +320,10 @@ func TestRegisterAddressPersistenceRoundTrip(t *testing.T) {
 	}
 }
 
-func createAddressForSearch(t *testing.T, city string, state string, zipCode string, street string, number string) *domain.AddressDomain {
+func createAddressForSearch(t *testing.T, city string, state string, zipCode string, street string, number string) *addressdomain.AddressDomain {
 	t.Helper()
 	t.Cleanup(cleanAddressesTable)
-	address, aErr := addressRepository.CreateAddress(&domain.AddressDomain{
+	address, aErr := addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    city,
 		State:   state,
 		Street:  street,
@@ -336,7 +336,7 @@ func createAddressForSearch(t *testing.T, city string, state string, zipCode str
 	return address
 }
 
-func listAddresses(t *testing.T, app *fiber.App, token string, query string) dto.PageableAddressDto {
+func listAddresses(t *testing.T, app *fiber.App, token string, query string) addressdto.PageableAddressDto {
 	t.Helper()
 	req := httptest.NewRequest("GET", "/v1/address?"+query, nil)
 	resp, err := doAuthedRequest(app, req, token)
@@ -347,7 +347,7 @@ func listAddresses(t *testing.T, app *fiber.App, token string, query string) dto
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
 	}
-	var page dto.PageableAddressDto
+	var page addressdto.PageableAddressDto
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -482,7 +482,7 @@ func TestListAddressesByStateFromApi(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Fatalf("esperava 201, recebeu %d", resp.StatusCode)
 	}
-	var created dto.AddressDto
+	var created addressdto.AddressDto
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -583,7 +583,7 @@ func TestListAddressesCombinedFilters(t *testing.T) {
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Fatalf("esperava 201, recebeu %d", resp.StatusCode)
 	}
-	var created dto.AddressDto
+	var created addressdto.AddressDto
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -642,7 +642,7 @@ func TestListAddressesPaginationWithFilter(t *testing.T) {
 	}
 
 	seen := map[string]bool{}
-	for _, page := range []dto.PageableAddressDto{pageOne, pageTwo, pageThree} {
+	for _, page := range []addressdto.PageableAddressDto{pageOne, pageTwo, pageThree} {
 		for _, item := range page.Data {
 			if seen[item.Id] {
 				t.Errorf("id '%s' repetido entre páginas (ordem não determinística)", item.Id)

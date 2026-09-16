@@ -1,6 +1,8 @@
 package dto
 
-import "github.com/ajuda-dev/backend/src/service/domain"
+import (
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+)
 
 type LoginUserDtoOut struct {
 	Token         string `json:"token,omitempty"`
@@ -11,7 +13,7 @@ type LoginUserDtoOut struct {
 	EmailVerified bool   `json:"emailVerified"`
 }
 
-func (l *LoginUserDtoOut) FromDomainUser(user *domain.UserDomain) *LoginUserDtoOut {
+func (l *LoginUserDtoOut) FromDomainUser(user *userdomain.UserDomain) *LoginUserDtoOut {
 	return &LoginUserDtoOut{
 		Id:            user.Id,
 		Name:          user.Name,

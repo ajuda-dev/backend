@@ -10,8 +10,9 @@ import (
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	skilldto "github.com/ajuda-dev/backend/src/controller/skill/dto"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -22,9 +23,9 @@ func newSkillRegisterRequest(body []byte) *http.Request {
 	return req
 }
 
-func registerSkillViaApi(t *testing.T, app *fiber.App, name string) dto.RegisterSkillDto {
+func registerSkillViaApi(t *testing.T, app *fiber.App, name string) skilldto.RegisterSkillDto {
 	t.Helper()
-	payload, err := json.Marshal(dto.RegisterSkillDto{Name: name})
+	payload, err := json.Marshal(skilldto.RegisterSkillDto{Name: name})
 	if err != nil {
 		t.Fatalf("erro ao montar body: %v", err)
 	}
@@ -38,7 +39,7 @@ func registerSkillViaApi(t *testing.T, app *fiber.App, name string) dto.Register
 		json.NewDecoder(resp.Body).Decode(&respBody)
 		t.Fatalf("esperava 201 ao registrar skill '%s', recebeu %d (body: %+v)", name, resp.StatusCode, respBody)
 	}
-	var respDto dto.RegisterSkillDto
+	var respDto skilldto.RegisterSkillDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -111,7 +112,7 @@ func TestRegisterSkillRejectsInvalidNames(t *testing.T) {
 		strings.Repeat(" ", 10),
 	}
 	for _, name := range invalidNames {
-		payload, _ := json.Marshal(dto.RegisterSkillDto{Name: name})
+		payload, _ := json.Marshal(skilldto.RegisterSkillDto{Name: name})
 		respBody := skillReqValidation(t, app, payload)
 		causes := getCauseByField("name", respBody.Causes)
 		if len(causes) == 0 {
@@ -142,7 +143,7 @@ func TestListSkillsByPrefix(t *testing.T) {
 	registerSkillViaApi(t, app, "java")
 	registerSkillViaApi(t, app, "spring")
 
-	listSkills := func(query string) dto.PageableSkillDto {
+	listSkills := func(query string) skilldto.PageableSkillDto {
 		t.Helper()
 		resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/skill"+query, nil), validTokenFor(t, uuidv7.New().String()))
 		if err != nil {
@@ -152,7 +153,7 @@ func TestListSkillsByPrefix(t *testing.T) {
 		if resp.StatusCode != fiber.StatusOK {
 			t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
 		}
-		var page dto.PageableSkillDto
+		var page skilldto.PageableSkillDto
 		if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 			t.Fatalf("erro ao decodificar body: %v", err)
 		}
@@ -191,7 +192,7 @@ func TestListSkillsPagination(t *testing.T) {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
 	defer resp.Body.Close()
-	var page dto.PageableSkillDto
+	var page skilldto.PageableSkillDto
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -207,7 +208,7 @@ func TestListSkillsPagination(t *testing.T) {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
 	defer resp.Body.Close()
-	page = dto.PageableSkillDto{}
+	page = skilldto.PageableSkillDto{}
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -223,7 +224,7 @@ func TestUpdateSkillRenamesNormalized(t *testing.T) {
 	t.Cleanup(skillCleanups)
 
 	app := setupApp()
-	moderator := createUserWithRole(t, "upd_skill_mod@ajuda.dev", domain.UserRoleModerator)
+	moderator := createUserWithRole(t, "upd_skill_mod@ajuda.dev", userdomain.UserRoleModerator)
 	skill := registerSkillViaApi(t, app, "java")
 
 	payload := []byte(`{"name": " kotlin "}`)
@@ -237,7 +238,7 @@ func TestUpdateSkillRenamesNormalized(t *testing.T) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
 	}
-	var respDto dto.RegisterSkillDto
+	var respDto skilldto.RegisterSkillDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -250,7 +251,7 @@ func TestUpdateSkillRejectsConflictAndNotFound(t *testing.T) {
 	t.Cleanup(skillCleanups)
 
 	app := setupApp()
-	moderator := createUserWithRole(t, "upd_skill_conflict_mod@ajuda.dev", domain.UserRoleModerator)
+	moderator := createUserWithRole(t, "upd_skill_conflict_mod@ajuda.dev", userdomain.UserRoleModerator)
 	java := registerSkillViaApi(t, app, "java")
 	registerSkillViaApi(t, app, "go")
 
@@ -291,8 +292,8 @@ func TestDeleteSkillRemovesAssociationsAndAllowsNameReuse(t *testing.T) {
 	app := setupApp()
 	skill := registerSkillViaApi(t, app, "go")
 	user := createSkillUserForTest(t)
-	assignSkillViaApi(t, app, skill.Id, user.Id, domain.LevelTeach)
-	moderator := createUserWithRole(t, "mod_delete_skill@ajuda.dev", domain.UserRoleModerator)
+	assignSkillViaApi(t, app, skill.Id, user.Id, skilldomain.LevelTeach)
+	moderator := createUserWithRole(t, "mod_delete_skill@ajuda.dev", userdomain.UserRoleModerator)
 
 	resp, err := doAuthedRequest(app, httptest.NewRequest("DELETE", "/v1/skill/"+skill.Id, nil), validTokenFor(t, moderator.Id))
 	if err != nil {

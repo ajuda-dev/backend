@@ -9,9 +9,12 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	eventdto "github.com/ajuda-dev/backend/src/controller/event/dto"
+	evententity "github.com/ajuda-dev/backend/src/data/event/entity"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -37,9 +40,9 @@ func newEventRegisterRequest(body []byte) *http.Request {
 	return req
 }
 
-func createEventOwner(t *testing.T) *domain.UserDomain {
+func createEventOwner(t *testing.T) *userdomain.UserDomain {
 	t.Helper()
-	user, err := userRepository.CreateUser(&domain.UserDomain{
+	user, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "dono do evento",
 		Email:    testEmail,
 		Password: "123456",
@@ -50,9 +53,9 @@ func createEventOwner(t *testing.T) *domain.UserDomain {
 	return user
 }
 
-func createEventAddress(t *testing.T, city string) *domain.AddressDomain {
+func createEventAddress(t *testing.T, city string) *addressdomain.AddressDomain {
 	t.Helper()
-	address, err := addressRepository.CreateAddress(&domain.AddressDomain{
+	address, err := addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    city,
 		State:   "sp",
 		Street:  "rua teste",
@@ -64,9 +67,9 @@ func createEventAddress(t *testing.T, city string) *domain.AddressDomain {
 	return address
 }
 
-func createEventCommunity(t *testing.T, name string, owner *domain.UserDomain, address *domain.AddressDomain) *domain.CommunityDomain {
+func createEventCommunity(t *testing.T, name string, owner *userdomain.UserDomain, address *addressdomain.AddressDomain) *communitydomain.CommunityDomain {
 	t.Helper()
-	community, err := communityRepository.CreateCommunity(&domain.CommunityDomain{
+	community, err := communityRepository.CreateCommunity(&communitydomain.CommunityDomain{
 		Name:        name,
 		Description: "comunidade de teste de eventos",
 		Owner:       *owner,
@@ -82,7 +85,7 @@ func strPtr(s string) *string {
 	return &s
 }
 
-func registerEventViaApi(t *testing.T, app *fiber.App, body eventTestRequest) dto.RegisterEventDto {
+func registerEventViaApi(t *testing.T, app *fiber.App, body eventTestRequest) eventdto.RegisterEventDto {
 	t.Helper()
 	payload, err := json.Marshal(body)
 	if err != nil {
@@ -99,7 +102,7 @@ func registerEventViaApi(t *testing.T, app *fiber.App, body eventTestRequest) dt
 		json.NewDecoder(resp.Body).Decode(&respBody)
 		t.Fatalf("esperava 201, recebeu %d (body: %+v)", resp.StatusCode, respBody)
 	}
-	var respDto dto.RegisterEventDto
+	var respDto eventdto.RegisterEventDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -144,8 +147,8 @@ func TestCreateOnlineEventSuccess(t *testing.T) {
 
 	respDto := registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     user.Id,
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Encontro online da comunidade",
 		Description: "evento online de testes",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -174,8 +177,8 @@ func TestCreateInpersonEventRequiresAddress(t *testing.T) {
 
 	eventReqValidation(t, app, eventTestRequest{
 		OwnerId:     user.Id,
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeInperson,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeInperson,
 		Title:       "Encontro presencial",
 		Description: "evento presencial sem endereço",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -195,8 +198,8 @@ func TestCreateInpersonEventWithInexistentAddress(t *testing.T) {
 	respBody := eventReqValidation(t, app, eventTestRequest{
 		OwnerId:     user.Id,
 		AddressId:   strPtr(uuidv7.New().String()),
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeInperson,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeInperson,
 		Title:       "Encontro presencial",
 		Description: "evento presencial com endereço inexistente",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -221,8 +224,8 @@ func TestCreateEventWithInexistentCommunity(t *testing.T) {
 	respBody := eventReqValidation(t, app, eventTestRequest{
 		OwnerId:     user.Id,
 		CommunityId: strPtr(uuidv7.New().String()),
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Evento de comunidade inexistente",
 		Description: "evento online",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -247,7 +250,7 @@ func TestCreateEventInvalidCategoryAndType(t *testing.T) {
 	eventReqValidation(t, app, eventTestRequest{
 		OwnerId:     user.Id,
 		Category:    "MEETUP",
-		Type:        domain.TypeOnline,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Categoria inválida",
 		Description: "evento online",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -256,7 +259,7 @@ func TestCreateEventInvalidCategoryAndType(t *testing.T) {
 
 	eventReqValidation(t, app, eventTestRequest{
 		OwnerId:     user.Id,
-		Category:    domain.CategoryCommunityEvent,
+		Category:    eventdomain.CategoryCommunityEvent,
 		Type:        "PHYSICAL",
 		Title:       "Tipo inválido",
 		Description: "evento online",
@@ -276,8 +279,8 @@ func TestCreateEventWithPastStart(t *testing.T) {
 
 	eventReqValidation(t, app, eventTestRequest{
 		OwnerId:     user.Id,
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Evento no passado",
 		Description: "evento online",
 		StartAt:     time.Now().Add(-24 * time.Hour),
@@ -301,18 +304,18 @@ func TestListEventsByCommunityAndUpcoming(t *testing.T) {
 	futureEvent := registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     user.Id,
 		CommunityId: strPtr(communityFuture.Id),
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Evento futuro da comunidade",
 		Description: "evento online",
 		StartAt:     time.Now().Add(48 * time.Hour),
 		DurationMin: 60,
 	})
-	pastEvent, createErr := eventRepository.CreateEvent(&domain.EventDomain{
+	pastEvent, createErr := eventRepository.CreateEvent(&eventdomain.EventDomain{
 		Owner:       *user,
-		Community:   &domain.CommunityDomain{Id: communityPast.Id},
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Community:   &communitydomain.CommunityDomain{Id: communityPast.Id},
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Evento passado da comunidade",
 		Description: "evento online",
 		StartAt:     time.Now().Add(-24 * time.Hour),
@@ -330,7 +333,7 @@ func TestListEventsByCommunityAndUpcoming(t *testing.T) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
 	}
-	var page dto.PageableEventDto
+	var page eventdto.PageableEventDto
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -349,7 +352,7 @@ func TestListEventsByCommunityAndUpcoming(t *testing.T) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
 	}
-	page = dto.PageableEventDto{}
+	page = eventdto.PageableEventDto{}
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -362,7 +365,7 @@ func TestListEventsByCommunityAndUpcoming(t *testing.T) {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
 	defer resp.Body.Close()
-	page = dto.PageableEventDto{}
+	page = eventdto.PageableEventDto{}
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -385,8 +388,8 @@ func TestListEventsByCity(t *testing.T) {
 	spEvent := registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     user.Id,
 		AddressId:   strPtr(addressSaoPaulo.Id),
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeInperson,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeInperson,
 		Title:       "Presencial em sao paulo",
 		Description: "evento presencial",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -395,8 +398,8 @@ func TestListEventsByCity(t *testing.T) {
 	registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     user.Id,
 		AddressId:   strPtr(addressCampinas.Id),
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeInperson,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeInperson,
 		Title:       "Presencial em campinas",
 		Description: "evento presencial",
 		StartAt:     time.Now().Add(72 * time.Hour),
@@ -404,8 +407,8 @@ func TestListEventsByCity(t *testing.T) {
 	})
 	registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     user.Id,
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Online sem cidade",
 		Description: "evento online",
 		StartAt:     time.Now().Add(96 * time.Hour),
@@ -420,7 +423,7 @@ func TestListEventsByCity(t *testing.T) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
 	}
-	var page dto.PageableEventDto
+	var page eventdto.PageableEventDto
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -440,8 +443,8 @@ func TestDeleteEventSoftDelete(t *testing.T) {
 	token := validTokenFor(t, user.Id)
 	created := registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     user.Id,
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Evento para deletar",
 		Description: "evento online",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -467,7 +470,7 @@ func TestDeleteEventSoftDelete(t *testing.T) {
 		t.Errorf("esperava 404 no GET após delete, recebeu %d", resp.StatusCode)
 	}
 
-	var deletedEvent entity.EventEntity
+	var deletedEvent evententity.EventEntity
 	if err := db.Unscoped().Where("id = ?", created.Id).First(&deletedEvent).Error; err != nil {
 		t.Fatalf("esperava achar o evento arquivado via Unscoped, recebeu %v", err)
 	}

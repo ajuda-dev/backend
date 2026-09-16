@@ -4,12 +4,13 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	"github.com/ajuda-dev/backend/src/service/validation"
 	"github.com/samborkent/uuidv7"
 )
 
 type EventValidator interface {
-	ValidatorRegisterEvent(event domain.EventDomain) *rest_err.RestErr
+	ValidatorRegisterEvent(event eventdomain.EventDomain) *rest_err.RestErr
 }
 
 type eventValidator struct{}
@@ -18,26 +19,26 @@ func NewEventValidator() EventValidator {
 	return &eventValidator{}
 }
 
-func (e *eventValidator) ValidatorRegisterEvent(event domain.EventDomain) *rest_err.RestErr {
+func (e *eventValidator) ValidatorRegisterEvent(event eventdomain.EventDomain) *rest_err.RestErr {
 	causes := []rest_err.Causes{}
 
-	if !isValidName(event.Title, true) {
+	if !validation.IsValidName(event.Title, true) {
 		causes = append(causes, rest_err.Causes{
 			Field:   "title",
 			Message: "Title is not valid",
 		})
 	}
-	if event.Category != domain.CategoryCommunityEvent &&
-		event.Category != domain.CategoryMentoring &&
-		event.Category != domain.CategoryWebinar {
+	if event.Category != eventdomain.CategoryCommunityEvent &&
+		event.Category != eventdomain.CategoryMentoring &&
+		event.Category != eventdomain.CategoryWebinar {
 		causes = append(causes, rest_err.Causes{
 			Field:   "category",
 			Message: "Category is not valid",
 		})
 	}
-	if event.Type != domain.TypeOnline &&
-		event.Type != domain.TypeInperson &&
-		event.Type != domain.TypeHybrid {
+	if event.Type != eventdomain.TypeOnline &&
+		event.Type != eventdomain.TypeInperson &&
+		event.Type != eventdomain.TypeHybrid {
 		causes = append(causes, rest_err.Causes{
 			Field:   "type",
 			Message: "Type is not valid",
@@ -73,7 +74,7 @@ func (e *eventValidator) ValidatorRegisterEvent(event domain.EventDomain) *rest_
 			Message: "DurationMin must be greater than zero",
 		})
 	}
-	if event.Type == domain.TypeInperson || event.Type == domain.TypeHybrid {
+	if event.Type == eventdomain.TypeInperson || event.Type == eventdomain.TypeHybrid {
 		if event.Address == nil {
 			causes = append(causes, rest_err.Causes{
 				Field:   "address_id",
@@ -81,19 +82,19 @@ func (e *eventValidator) ValidatorRegisterEvent(event domain.EventDomain) *rest_
 			})
 		}
 	}
-	if event.Type == domain.TypeOnline && event.Address != nil {
+	if event.Type == eventdomain.TypeOnline && event.Address != nil {
 		causes = append(causes, rest_err.Causes{
 			Field:   "address_id",
 			Message: "AddressId must be empty for ONLINE events",
 		})
 	}
 	if event.CreatorRole != "" {
-		if event.Category != domain.CategoryMentoring {
+		if event.Category != eventdomain.CategoryMentoring {
 			causes = append(causes, rest_err.Causes{
 				Field:   "creator_role",
 				Message: "CreatorRole is only allowed for MENTORING events",
 			})
-		} else if event.CreatorRole != domain.RoleMentor && event.CreatorRole != domain.RoleMentee {
+		} else if event.CreatorRole != eventdomain.RoleMentor && event.CreatorRole != eventdomain.RoleMentee {
 			causes = append(causes, rest_err.Causes{
 				Field:   "creator_role",
 				Message: "CreatorRole is not valid, use MENTOR or MENTEE",

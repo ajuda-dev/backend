@@ -3,7 +3,7 @@ package entity
 import (
 	"time"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 type EmailCodeEntity struct {
@@ -21,7 +21,7 @@ type EmailCodeEntity struct {
 
 func (EmailCodeEntity) TableName() string { return "email_codes" }
 
-func (e *EmailCodeEntity) FromDomain(code domain.EmailCodeDomain) *EmailCodeEntity {
+func (e *EmailCodeEntity) FromDomain(code userdomain.EmailCodeDomain) *EmailCodeEntity {
 	return &EmailCodeEntity{
 		Id:         code.Id,
 		UserId:     code.UserId,
@@ -32,8 +32,8 @@ func (e *EmailCodeEntity) FromDomain(code domain.EmailCodeDomain) *EmailCodeEnti
 	}
 }
 
-func (e EmailCodeEntity) ToDomain() *domain.EmailCodeDomain {
-	return &domain.EmailCodeDomain{
+func (e EmailCodeEntity) ToDomain() *userdomain.EmailCodeDomain {
+	return &userdomain.EmailCodeDomain{
 		Id:         e.Id,
 		UserId:     e.UserId,
 		Purpose:    e.Purpose,

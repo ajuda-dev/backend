@@ -7,8 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -16,7 +17,7 @@ func newGetUserCommunitiesRequest(userId string, query string) *http.Request {
 	return httptest.NewRequest(http.MethodGet, "/v1/user/"+userId+"/communities"+query, nil)
 }
 
-func getUserCommunitiesViaApi(t *testing.T, app *fiber.App, userId string, query string, token string) dto.PageableCommunityDto {
+func getUserCommunitiesViaApi(t *testing.T, app *fiber.App, userId string, query string, token string) communitydto.PageableCommunityDto {
 	t.Helper()
 	resp, err := doAuthedRequest(app, newGetUserCommunitiesRequest(userId, query), token)
 	if err != nil {
@@ -27,7 +28,7 @@ func getUserCommunitiesViaApi(t *testing.T, app *fiber.App, userId string, query
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("esperava 200 ao listar comunidades do usuário, recebeu %d (body: %s)", resp.StatusCode, string(body))
 	}
-	var respDto dto.PageableCommunityDto
+	var respDto communitydto.PageableCommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -124,7 +125,7 @@ func TestGetUserCommunitiesIgnoresOwnedCommunities(t *testing.T) {
 	app := setupApp()
 
 	owner := createUserWithRole(t, "owner_owned_user_communities@ajuda.dev", "USER")
-	address, aErr := addressRepository.CreateAddress(&domain.AddressDomain{
+	address, aErr := addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    "test_city",
 		State:   "test_state",
 		Street:  "test_street",
@@ -133,7 +134,7 @@ func TestGetUserCommunitiesIgnoresOwnedCommunities(t *testing.T) {
 	if aErr != nil {
 		t.Fatalf("failed to create address: %v", aErr)
 	}
-	if _, cErr := communityRepository.CreateCommunity(&domain.CommunityDomain{
+	if _, cErr := communityRepository.CreateCommunity(&communitydomain.CommunityDomain{
 		Name:        "Comunidade Própria",
 		Description: "comunidade de teste",
 		Owner:       *owner,

@@ -4,13 +4,13 @@ import (
 	"strings"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service"
+	"github.com/ajuda-dev/backend/src/service/identity"
 	"github.com/gofiber/fiber/v2"
 )
 
 const UserIdKey = "user_id"
 
-func VerifyJWT(authService service.AuthService) fiber.Handler {
+func VerifyJWT(authService identity.AuthService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		token, fromCookie := requestToken(c)
 		if token == "" {

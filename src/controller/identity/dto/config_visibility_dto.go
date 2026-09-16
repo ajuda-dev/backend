@@ -1,6 +1,8 @@
 package dto
 
-import "github.com/ajuda-dev/backend/src/service/domain"
+import (
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+)
 
 type VisibilityConfigDto struct {
 	Value              string `json:"value"`
@@ -9,13 +11,13 @@ type VisibilityConfigDto struct {
 
 type ConfigVisibilityDto map[string]VisibilityConfigDto
 
-func (c ConfigVisibilityDto) ToDomain() domain.ConfigVisibility {
+func (c ConfigVisibilityDto) ToDomain() userdomain.ConfigVisibility {
 	if c == nil {
 		return nil
 	}
-	config := domain.ConfigVisibility{}
+	config := userdomain.ConfigVisibility{}
 	for key, item := range c {
-		config[key] = domain.VisibilityConfig{
+		config[key] = userdomain.VisibilityConfig{
 			Value:              item.Value,
 			ShareWithCommunity: item.ShareWithCommunity,
 		}
@@ -23,7 +25,7 @@ func (c ConfigVisibilityDto) ToDomain() domain.ConfigVisibility {
 	return config
 }
 
-func ConfigVisibilityDtoFromDomain(config domain.ConfigVisibility) ConfigVisibilityDto {
+func ConfigVisibilityDtoFromDomain(config userdomain.ConfigVisibility) ConfigVisibilityDto {
 	if config == nil {
 		return nil
 	}

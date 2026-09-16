@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 )
 
 type OutboxEventEntity struct {
@@ -17,14 +18,14 @@ type OutboxEventEntity struct {
 	CreatedAt time.Time       `gorm:"not null;index:idx_outbox_events_status_created,priority:2;index:idx_outbox_events_user_read_created,priority:3"`
 	UpdatedAt time.Time       `gorm:"not null"`
 
-	User UserEntity `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:RESTRICT"`
+	User userentity.UserEntity `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:RESTRICT"`
 }
 
 func (OutboxEventEntity) TableName() string {
 	return "outbox_events"
 }
 
-func (e *OutboxEventEntity) FromDomain(d domain.OutboxEventDomain) *OutboxEventEntity {
+func (e *OutboxEventEntity) FromDomain(d notificationdomain.OutboxEventDomain) *OutboxEventEntity {
 	return &OutboxEventEntity{
 		Id:      d.Id,
 		Type:    d.Type,
@@ -34,12 +35,12 @@ func (e *OutboxEventEntity) FromDomain(d domain.OutboxEventDomain) *OutboxEventE
 	}
 }
 
-func (e OutboxEventEntity) ToDomain() *domain.OutboxEventDomain {
+func (e OutboxEventEntity) ToDomain() *notificationdomain.OutboxEventDomain {
 	readAt := ""
 	if e.ReadAt != nil {
 		readAt = e.ReadAt.UTC().Format(time.RFC3339Nano)
 	}
-	return &domain.OutboxEventDomain{
+	return &notificationdomain.OutboxEventDomain{
 		Id:        e.Id,
 		Type:      e.Type,
 		UserId:    e.UserId,

@@ -1,4 +1,4 @@
-package service
+package identity
 
 import (
 	"encoding/json"
@@ -6,19 +6,23 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
-	"github.com/ajuda-dev/backend/src/service/validator"
+	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
+	eventrepo "github.com/ajuda-dev/backend/src/data/event/repository"
+	userrepo "github.com/ajuda-dev/backend/src/data/identity/repository"
+	notificationrepo "github.com/ajuda-dev/backend/src/data/notification/repository"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	identityvalidator "github.com/ajuda-dev/backend/src/service/identity/validator"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func NewUserService(userRepository repository.UserRepository, validator validator.UserValidator, authService AuthService,
-	communityRepository repository.CommunityRepository,
-	eventRepository repository.EventRepository,
-	eventUserRepository repository.EventUserRepository,
-	communityUserRepository repository.CommunityUserRepository,
-	outboxEventRepository repository.OutboxEventRepository,
-	emailCodeRepository repository.EmailCodeRepository) UserService {
+func NewUserService(userRepository userrepo.UserRepository, validator identityvalidator.UserValidator, authService AuthService,
+	communityRepository communityrepo.CommunityRepository,
+	eventRepository eventrepo.EventRepository,
+	eventUserRepository eventrepo.EventUserRepository,
+	communityUserRepository communityrepo.CommunityUserRepository,
+	outboxEventRepository notificationrepo.OutboxEventRepository,
+	emailCodeRepository userrepo.EmailCodeRepository) UserService {
 	cfg := EmailCodeConfigFromEnv()
 	return &userService{
 		userRepository:          userRepository,
@@ -36,38 +40,38 @@ func NewUserService(userRepository repository.UserRepository, validator validato
 }
 
 type UserService interface {
-	CreateUser(user *domain.UserDomain) (*domain.UserDomain, string, *rest_err.RestErr)
-	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
-	GetUserById(targetId string, requesterId string) (*domain.UserDomain, *rest_err.RestErr)
-	GetAllUsers(filter repository.UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr)
-	UpdateUser(targetId string, requesterId string, changes *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
+	CreateUser(user *userdomain.UserDomain) (*userdomain.UserDomain, string, *rest_err.RestErr)
+	FindById(id string) (*userdomain.UserDomain, *rest_err.RestErr)
+	GetUserById(targetId string, requesterId string) (*userdomain.UserDomain, *rest_err.RestErr)
+	GetAllUsers(filter userrepo.UserFilter, page int, limit int) (*userdomain.PageableUser, *rest_err.RestErr)
+	UpdateUser(targetId string, requesterId string, changes *userdomain.UserDomain) (*userdomain.UserDomain, *rest_err.RestErr)
 	DeleteUser(targetId string, requesterId string) *rest_err.RestErr
-	VerifyEmail(userId, code string) (*domain.UserDomain, *rest_err.RestErr)
+	VerifyEmail(userId, code string) (*userdomain.UserDomain, *rest_err.RestErr)
 	ResendVerification(userId string) *rest_err.RestErr
 }
 
 type userService struct {
-	userRepository          repository.UserRepository
-	validator               validator.UserValidator
+	userRepository          userrepo.UserRepository
+	validator               identityvalidator.UserValidator
 	authService             AuthService
-	communityRepository     repository.CommunityRepository
-	eventRepository         repository.EventRepository
-	eventUserRepository     repository.EventUserRepository
-	communityUserRepository repository.CommunityUserRepository
-	outboxEventRepository   repository.OutboxEventRepository
-	emailCodeRepository     repository.EmailCodeRepository
+	communityRepository     communityrepo.CommunityRepository
+	eventRepository         eventrepo.EventRepository
+	eventUserRepository     eventrepo.EventUserRepository
+	communityUserRepository communityrepo.CommunityUserRepository
+	outboxEventRepository   notificationrepo.OutboxEventRepository
+	emailCodeRepository     userrepo.EmailCodeRepository
 	emailCodeCfg            EmailCodeConfig
 	rateLimiter             *emailCodeRateLimiter
 }
 
 // FindById implements UserService.
-func (u *userService) FindById(id string) (*domain.UserDomain, *rest_err.RestErr) {
+func (u *userService) FindById(id string) (*userdomain.UserDomain, *rest_err.RestErr) {
 	return u.userRepository.FindById(id)
 }
 
 // GetUserById implements UserService.
-func (u *userService) GetUserById(targetId string, requesterId string) (*domain.UserDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(u, requesterId)
+func (u *userService) GetUserById(targetId string, requesterId string) (*userdomain.UserDomain, *rest_err.RestErr) {
+	requester, err := AuthenticatedUser(u, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -75,12 +79,16 @@ func (u *userService) GetUserById(targetId string, requesterId string) (*domain.
 	if err != nil {
 		return nil, err
 	}
-	applyVisibilityFilter(target, requester)
+	ApplyVisibilityFilter(target, requester)
 	return target, nil
 }
 
+func normalizeSkillName(raw string) string {
+	return strings.ToUpper(strings.TrimSpace(raw))
+}
+
 // GetAllUsers implements UserService.
-func (u *userService) GetAllUsers(filter repository.UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr) {
+func (u *userService) GetAllUsers(filter userrepo.UserFilter, page int, limit int) (*userdomain.PageableUser, *rest_err.RestErr) {
 	skillName := normalizeSkillName(filter.SkillName)
 	if len(skillName) > 50 {
 		return nil, rest_err.NewBadRequestValidationError(
@@ -90,7 +98,7 @@ func (u *userService) GetAllUsers(filter repository.UserFilter, page int, limit 
 				Message: "Skill name is not valid",
 			}})
 	}
-	return u.userRepository.FindAll(repository.UserFilter{
+	return u.userRepository.FindAll(userrepo.UserFilter{
 		SkillName: skillName,
 		Name:      filter.Name,
 		Email:     filter.Email,
@@ -98,7 +106,7 @@ func (u *userService) GetAllUsers(filter repository.UserFilter, page int, limit 
 }
 
 // CreateUser implements UserService.
-func (u *userService) CreateUser(user *domain.UserDomain) (*domain.UserDomain, string, *rest_err.RestErr) {
+func (u *userService) CreateUser(user *userdomain.UserDomain) (*userdomain.UserDomain, string, *rest_err.RestErr) {
 	err := u.validator.ValidateRegisterUser(*user)
 	if err != nil {
 		return nil, "", err
@@ -134,7 +142,7 @@ func (u *userService) CreateUser(user *domain.UserDomain) (*domain.UserDomain, s
 	return user, token, nil
 }
 
-func (u *userService) VerifyEmail(userId, code string) (*domain.UserDomain, *rest_err.RestErr) {
+func (u *userService) VerifyEmail(userId, code string) (*userdomain.UserDomain, *rest_err.RestErr) {
 	user, err := u.userRepository.FindById(userId)
 	if err != nil {
 		return nil, err
@@ -156,7 +164,7 @@ func (u *userService) VerifyEmail(userId, code string) (*domain.UserDomain, *res
 	}
 
 	invalid := rest_err.NewUnauthorizedError("invalid or expired code")
-	stored, findErr := u.emailCodeRepository.FindActive(user.Id, domain.EmailCodePurposeConfirm, now)
+	stored, findErr := u.emailCodeRepository.FindActive(user.Id, userdomain.EmailCodePurposeConfirm, now)
 	expected := strings.Repeat("0", 64)
 	if stored != nil {
 		expected = stored.CodeHash
@@ -199,21 +207,21 @@ func (u *userService) ResendVerification(userId string) *rest_err.RestErr {
 		"email": user.Email,
 		"name":  user.Name,
 	})
-	return u.outboxEventRepository.Create(nil, &domain.OutboxEventDomain{
-		Type:    domain.OutboxTypeCreatedAccount,
+	return u.outboxEventRepository.Create(nil, &notificationdomain.OutboxEventDomain{
+		Type:    notificationdomain.OutboxTypeCreatedAccount,
 		UserId:  user.Id,
 		Payload: payload,
-		Status:  domain.OutboxStatusPending,
+		Status:  notificationdomain.OutboxStatusPending,
 	})
 }
 
 // UpdateUser implements UserService.
-func (u *userService) UpdateUser(targetId string, requesterId string, changes *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(u, requesterId)
+func (u *userService) UpdateUser(targetId string, requesterId string, changes *userdomain.UserDomain) (*userdomain.UserDomain, *rest_err.RestErr) {
+	requester, err := AuthenticatedUser(u, requesterId)
 	if err != nil {
 		return nil, err
 	}
-	if requester.Id != targetId && requester.Role != domain.UserRoleAdmin {
+	if requester.Id != targetId && requester.Role != userdomain.UserRoleAdmin {
 		return nil, rest_err.NewForbiddenError("only the user themselves or an admin can update this user")
 	}
 	current, err := u.userRepository.FindById(targetId)
@@ -228,9 +236,9 @@ func (u *userService) UpdateUser(targetId string, requesterId string, changes *d
 		for key, item := range changes.ConfigVisibility {
 			merged[key] = item
 		}
-		merged[domain.VisibilityKeyEmail] = domain.VisibilityConfig{
+		merged[userdomain.VisibilityKeyEmail] = userdomain.VisibilityConfig{
 			Value:              current.Email,
-			ShareWithCommunity: merged[domain.VisibilityKeyEmail].ShareWithCommunity,
+			ShareWithCommunity: merged[userdomain.VisibilityKeyEmail].ShareWithCommunity,
 		}
 		changes.ConfigVisibility = merged
 	}
@@ -242,11 +250,11 @@ func (u *userService) UpdateUser(targetId string, requesterId string, changes *d
 
 // DeleteUser implements UserService.
 func (u *userService) DeleteUser(targetId string, requesterId string) *rest_err.RestErr {
-	requester, err := authenticatedUser(u, requesterId)
+	requester, err := AuthenticatedUser(u, requesterId)
 	if err != nil {
 		return err
 	}
-	if requester.Role != domain.UserRoleAdmin {
+	if requester.Role != userdomain.UserRoleAdmin {
 		return rest_err.NewForbiddenError("only admins can delete users")
 	}
 	if _, err := u.userRepository.FindById(targetId); err != nil {

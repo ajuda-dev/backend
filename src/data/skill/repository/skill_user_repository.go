@@ -4,15 +4,15 @@ import (
 	"errors"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	skillentity "github.com/ajuda-dev/backend/src/data/skill/entity"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
 )
 
 type SkillUserRepository interface {
-	Create(skillUser *domain.SkillUserDomain) (*domain.SkillUserDomain, *rest_err.RestErr)
-	FindByUser(userId string) ([]*domain.SkillUserDomain, *rest_err.RestErr)
+	Create(skillUser *skilldomain.SkillUserDomain) (*skilldomain.SkillUserDomain, *rest_err.RestErr)
+	FindByUser(userId string) ([]*skilldomain.SkillUserDomain, *rest_err.RestErr)
 	DeleteByUserAndSkill(userId string, skillId string) *rest_err.RestErr
 }
 
@@ -26,8 +26,8 @@ func NewSkillUserRepository(db *gorm.DB) SkillUserRepository {
 	}
 }
 
-func (s *skillUserRepository) Create(skillUser *domain.SkillUserDomain) (*domain.SkillUserDomain, *rest_err.RestErr) {
-	var existing entity.SkillUserEntity
+func (s *skillUserRepository) Create(skillUser *skilldomain.SkillUserDomain) (*skilldomain.SkillUserDomain, *rest_err.RestErr) {
+	var existing skillentity.SkillUserEntity
 	queryErr := s.database.Where("skill_id = ? AND user_id = ?", skillUser.SkillId, skillUser.UserId).
 		First(&existing).Error
 	if queryErr != nil && !errors.Is(queryErr, gorm.ErrRecordNotFound) {
@@ -42,7 +42,7 @@ func (s *skillUserRepository) Create(skillUser *domain.SkillUserDomain) (*domain
 			}})
 	}
 
-	skillUserEntity := (&entity.SkillUserEntity{}).FromDomain(*skillUser)
+	skillUserEntity := (&skillentity.SkillUserEntity{}).FromDomain(*skillUser)
 	skillUserEntity.Id = uuidv7.New().String()
 	if err := s.database.Create(skillUserEntity).Error; err != nil {
 		return nil, rest_err.NewInternalServerError("Error creating skill user: " + err.Error())
@@ -50,20 +50,20 @@ func (s *skillUserRepository) Create(skillUser *domain.SkillUserDomain) (*domain
 	return skillUserEntity.ToDomain(), nil
 }
 
-func (s *skillUserRepository) FindByUser(userId string) ([]*domain.SkillUserDomain, *rest_err.RestErr) {
-	var entities []entity.SkillUserEntity
+func (s *skillUserRepository) FindByUser(userId string) ([]*skilldomain.SkillUserDomain, *rest_err.RestErr) {
+	var entities []skillentity.SkillUserEntity
 	query := s.database.Preload("Skill").
 		Joins("JOIN skills ON skills.id = skill_users.skill_id").
 		Where("skill_users.user_id = ?", userId)
 	if err := query.Order("skills.name").Find(&entities).Error; err != nil {
 		return nil, rest_err.NewInternalServerError("Error getting user skills: " + err.Error())
 	}
-	return entity.ToSkillUserDomainList(entities), nil
+	return skillentity.ToSkillUserDomainList(entities), nil
 }
 
 func (s *skillUserRepository) DeleteByUserAndSkill(userId string, skillId string) *rest_err.RestErr {
 	result := s.database.Where("user_id = ? AND skill_id = ?", userId, skillId).
-		Delete(&entity.SkillUserEntity{})
+		Delete(&skillentity.SkillUserEntity{})
 	if result.Error != nil {
 		return rest_err.NewInternalServerError("Error deleting skill user: " + result.Error.Error())
 	}

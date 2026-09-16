@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/ajuda-dev/backend/src/service/domain"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
 )
 
 type ParticipantUserDto struct {
@@ -19,7 +19,7 @@ type EventParticipantDto struct {
 	User    *ParticipantUserDto `json:"user,omitempty"`
 }
 
-func (e EventParticipantDto) FromDomain(eventUser *domain.EventUserDomain) EventParticipantDto {
+func (e EventParticipantDto) FromDomain(eventUser *eventdomain.EventUserDomain) EventParticipantDto {
 	dtoParticipant := EventParticipantDto{
 		Id:      eventUser.Id,
 		EventId: eventUser.EventId,
@@ -37,7 +37,7 @@ func (e EventParticipantDto) FromDomain(eventUser *domain.EventUserDomain) Event
 	return dtoParticipant
 }
 
-func ToEventParticipantDtoList(eventUsers []*domain.EventUserDomain) []EventParticipantDto {
+func ToEventParticipantDtoList(eventUsers []*eventdomain.EventUserDomain) []EventParticipantDto {
 	dtos := make([]EventParticipantDto, len(eventUsers))
 	for i, eu := range eventUsers {
 		dtos[i] = EventParticipantDto{}.FromDomain(eu)

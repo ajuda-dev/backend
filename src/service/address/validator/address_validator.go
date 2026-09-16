@@ -4,11 +4,11 @@ import (
 	"strings"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
 )
 
 type AddressValidator interface {
-	ValidatorSearchAddress(address domain.AddressDomain) *rest_err.RestErr
+	ValidatorSearchAddress(address addressdomain.AddressDomain) *rest_err.RestErr
 }
 
 type addressValidator struct{}
@@ -17,7 +17,7 @@ func NewAddressValidator() AddressValidator {
 	return &addressValidator{}
 }
 
-func (a *addressValidator) ValidatorSearchAddress(address domain.AddressDomain) *rest_err.RestErr {
+func (a *addressValidator) ValidatorSearchAddress(address addressdomain.AddressDomain) *rest_err.RestErr {
 	causes := []rest_err.Causes{}
 
 	if address.ZipCode == "" && address.City == "" && address.State == "" && address.Street == "" {

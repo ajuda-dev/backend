@@ -11,11 +11,14 @@ import (
 	"github.com/ajuda-dev/backend/src/client/email"
 	"github.com/ajuda-dev/backend/src/config/job"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	userrepo "github.com/ajuda-dev/backend/src/data/identity/repository"
+	notificationentity "github.com/ajuda-dev/backend/src/data/notification/entity"
+	"github.com/ajuda-dev/backend/src/service/identity"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	"github.com/ajuda-dev/backend/src/service/notification"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 	"github.com/stretchr/testify/assert"
@@ -37,13 +40,13 @@ func processCreatedAccountOutbox(t *testing.T, sender email.EmailSender) {
 		sender = email.NewNoopSender()
 	}
 	handler := job.NewDispatchingOutboxHandler(
-		job.NewSSEOutboxHandler(service.NewNotificationHub()),
-		service.NewCreatedAccountHandler(userRepository, emailCodeRepository, sender, service.EmailCodeConfigFromEnv()),
+		job.NewSSEOutboxHandler(notification.NewNotificationHub()),
+		identity.NewCreatedAccountHandler(userRepository, emailCodeRepository, sender, identity.EmailCodeConfigFromEnv()),
 	)
 	job.RunOutboxOnce(outboxEventRepository, handler, 50)
 }
 
-func registerConfirmUser(t *testing.T, app *fiber.App, addr string) (*http.Response, *domain.UserDomain) {
+func registerConfirmUser(t *testing.T, app *fiber.App, addr string) (*http.Response, *userdomain.UserDomain) {
 	t.Helper()
 	resp, err := app.Test(newUserRegisterRequest([]byte(`{
 		"name": "confirm user",
@@ -59,10 +62,10 @@ func registerConfirmUser(t *testing.T, app *fiber.App, addr string) (*http.Respo
 	return resp, user
 }
 
-func createdAccountEvents(t *testing.T, userId string) []entity.OutboxEventEntity {
+func createdAccountEvents(t *testing.T, userId string) []notificationentity.OutboxEventEntity {
 	t.Helper()
-	var events []entity.OutboxEventEntity
-	require.NoError(t, db.Where("user_id = ? AND type = ?", userId, domain.OutboxTypeCreatedAccount).
+	var events []notificationentity.OutboxEventEntity
+	require.NoError(t, db.Where("user_id = ? AND type = ?", userId, notificationdomain.OutboxTypeCreatedAccount).
 		Order("id ASC").Find(&events).Error)
 	return events
 }
@@ -88,7 +91,7 @@ func TestRegisterInsertsCreatedAccountPending(t *testing.T) {
 
 	events := createdAccountEvents(t, user.Id)
 	require.Len(t, events, 1)
-	assert.Equal(t, domain.OutboxStatusPending, events[0].Status)
+	assert.Equal(t, notificationdomain.OutboxStatusPending, events[0].Status)
 	assert.Nil(t, user.EmailVerifiedAt)
 
 	var payload map[string]string
@@ -105,14 +108,14 @@ func TestRegisterOutboxFailureRollsBackUser(t *testing.T) {
 		cleanUsersTable()
 	})
 	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("fail_created_account_outbox", func(tx *gorm.DB) {
-		if _, ok := tx.Statement.Dest.(*entity.OutboxEventEntity); ok {
+		if _, ok := tx.Statement.Dest.(*notificationentity.OutboxEventEntity); ok {
 			tx.Error = gorm.ErrInvalidData
 		}
 	}))
 
 	addr := "confirm_rb_" + uuidv7.New().String() + "@ajuda.dev"
-	repo := repository.NewUserRepository(db, outboxEventRepository)
-	_, createErr := repo.CreateUser(&domain.UserDomain{
+	repo := userrepo.NewUserRepository(db, outboxEventRepository)
+	_, createErr := repo.CreateUser(&userdomain.UserDomain{
 		Name:     "rollback user",
 		Email:    addr,
 		Password: "123456",
@@ -120,7 +123,7 @@ func TestRegisterOutboxFailureRollsBackUser(t *testing.T) {
 	require.NotNil(t, createErr)
 
 	var count int64
-	require.NoError(t, db.Model(&entity.UserEntity{}).Where("email = ?", addr).Count(&count).Error)
+	require.NoError(t, db.Model(&userentity.UserEntity{}).Where("email = ?", addr).Count(&count).Error)
 	assert.Equal(t, int64(0), count)
 }
 
@@ -135,7 +138,7 @@ func TestCreatedAccountWorkerSendsEmailAndHidesFromInbox(t *testing.T) {
 
 	events := createdAccountEvents(t, user.Id)
 	require.Len(t, events, 1)
-	assert.Equal(t, domain.OutboxStatusSent, events[0].Status)
+	assert.Equal(t, notificationdomain.OutboxStatusSent, events[0].Status)
 	require.Equal(t, 1, mailer.count())
 	code := mailer.lastCode(t)
 	assert.NotContains(t, string(events[0].Payload), code)
@@ -154,7 +157,7 @@ func TestCreatedAccountWorkerSmtpFailureMarksFailed(t *testing.T) {
 
 	events := createdAccountEvents(t, user.Id)
 	require.Len(t, events, 1)
-	assert.Equal(t, domain.OutboxStatusFailed, events[0].Status)
+	assert.Equal(t, notificationdomain.OutboxStatusFailed, events[0].Status)
 }
 
 func TestVerifyEmailSuccess(t *testing.T) {
@@ -171,7 +174,7 @@ func TestVerifyEmailSuccess(t *testing.T) {
 	defer resp.Body.Close()
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 
-	var body dto.UserDtoOut
+	var body userdto.UserDtoOut
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
 	assert.True(t, body.EmailVerified)
 
@@ -227,7 +230,7 @@ func TestResendVerificationInsertsCreatedAccount(t *testing.T) {
 func TestResendVerificationAlreadyVerifiedIsNoop(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	user := createUserWithRole(t, "confirm_already_"+uuidv7.New().String()+"@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "confirm_already_"+uuidv7.New().String()+"@ajuda.dev", userdomain.UserRoleUser)
 
 	resp, err := app.Test(newResendVerificationRequest(validTokenFor(t, user.Id)))
 	require.NoError(t, err)

@@ -3,7 +3,8 @@ package entity
 import (
 	"time"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
 )
 
 type CommunityUserEntity struct {
@@ -13,26 +14,26 @@ type CommunityUserEntity struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 
-	Community CommunityEntity `gorm:"foreignKey:CommunityId;references:Id;constraint:OnDelete:CASCADE"`
-	User      UserEntity      `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:CASCADE"`
+	Community CommunityEntity       `gorm:"foreignKey:CommunityId;references:Id;constraint:OnDelete:CASCADE"`
+	User      userentity.UserEntity `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:CASCADE"`
 }
 
 func (CommunityUserEntity) TableName() string { return "community_users" }
 
-func (e *CommunityUserEntity) FromDomain(cu domain.CommunityUserDomain) *CommunityUserEntity {
+func (e *CommunityUserEntity) FromDomain(cu communitydomain.CommunityUserDomain) *CommunityUserEntity {
 	return &CommunityUserEntity{Id: cu.Id, CommunityId: cu.CommunityId, UserId: cu.UserId}
 }
 
-func (e CommunityUserEntity) ToDomain() *domain.CommunityUserDomain {
-	communityUser := &domain.CommunityUserDomain{Id: e.Id, CommunityId: e.CommunityId, UserId: e.UserId}
+func (e CommunityUserEntity) ToDomain() *communitydomain.CommunityUserDomain {
+	communityUser := &communitydomain.CommunityUserDomain{Id: e.Id, CommunityId: e.CommunityId, UserId: e.UserId}
 	if e.User.Id != "" {
 		communityUser.User = e.User.ToDomainUser()
 	}
 	return communityUser
 }
 
-func ToCommunityUserDomainList(entities []CommunityUserEntity) []*domain.CommunityUserDomain {
-	var domains []*domain.CommunityUserDomain
+func ToCommunityUserDomainList(entities []CommunityUserEntity) []*communitydomain.CommunityUserDomain {
+	var domains []*communitydomain.CommunityUserDomain
 	for _, e := range entities {
 		domains = append(domains, e.ToDomain())
 	}

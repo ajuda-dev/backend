@@ -1,19 +1,19 @@
-package controller
+package identity
 
 import (
 	"strconv"
 
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service"
+	userrepo "github.com/ajuda-dev/backend/src/data/identity/repository"
+	"github.com/ajuda-dev/backend/src/service/identity"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
 
-func NewUserController(userService service.UserService) UserController {
+func NewUserController(userService identity.UserService) UserController {
 	return &userController{
 		userService: userService,
 	}
@@ -32,7 +32,7 @@ type UserController interface {
 }
 
 type userController struct {
-	userService service.UserService
+	userService identity.UserService
 }
 
 // RegisterUser godoc
@@ -41,14 +41,14 @@ type userController struct {
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        user           body    dto.RegisterUserDtoIn  true   "Dados do usuário"
+// @Param        user           body    userdto.RegisterUserDtoIn  true   "Dados do usuário"
 // @Param        X-Client-Type  header  string                 false  "Informe 'native' (apps mobile/desktop) para receber o token JWT no corpo da resposta"
-// @Success      201   {object}  dto.UserDtoOut
+// @Success      201   {object}  userdto.UserDtoOut
 // @Failure      400   {object}  map[string]interface{}
 // @Router       /v1/user/register [post]
 func (u *userController) RegisterUser() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		var registerUserDto dto.RegisterUserDtoIn
+		var registerUserDto userdto.RegisterUserDtoIn
 		if err := c.BodyParser(&registerUserDto); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Não foi possível processar o corpo da requisição",
@@ -60,7 +60,7 @@ func (u *userController) RegisterUser() fiber.Handler {
 			return c.Status(err.Code).JSON(err)
 		}
 		middleware.SetSessionCookie(c, token)
-		var registerUserDtoOut dto.UserDtoOut
+		var registerUserDtoOut userdto.UserDtoOut
 		registerUserDtoOut = *registerUserDtoOut.FromDomainUser(user)
 		if middleware.WantsTokenInBody(c) {
 			registerUserDtoOut.Token = token
@@ -74,7 +74,7 @@ func (u *userController) RegisterUser() fiber.Handler {
 // @Description  Devolve id, name, email, role e emailVerified do usuário da sessão atual (cookie de sessão ou Authorization: Bearer). Usado pelo frontend no boot para restaurar a sessão sem guardar o token no navegador.
 // @Tags         users
 // @Produce      json
-// @Success      200   {object}  dto.UserDtoOut
+// @Success      200   {object}  userdto.UserDtoOut
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/user/me [get]
@@ -86,7 +86,7 @@ func (u *userController) Me() fiber.Handler {
 			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
-		var userDtoOut dto.UserDtoOut
+		var userDtoOut userdto.UserDtoOut
 		userDtoOut = *userDtoOut.FromDomainUser(user)
 		return c.Status(fiber.StatusOK).JSON(userDtoOut)
 	}
@@ -98,8 +98,8 @@ func (u *userController) Me() fiber.Handler {
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        body  body  dto.VerifyEmailDtoIn  true  "Código de confirmação"
-// @Success      200   {object}  dto.UserDtoOut
+// @Param        body  body  userdto.VerifyEmailDtoIn  true  "Código de confirmação"
+// @Success      200   {object}  userdto.UserDtoOut
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Failure      429   {object}  map[string]interface{}
@@ -108,7 +108,7 @@ func (u *userController) Me() fiber.Handler {
 func (u *userController) VerifyEmail() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		requesterId := c.Locals(middleware.UserIdKey).(string)
-		var body dto.VerifyEmailDtoIn
+		var body userdto.VerifyEmailDtoIn
 		if err := c.BodyParser(&body); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Não foi possível processar o corpo da requisição",
@@ -119,7 +119,7 @@ func (u *userController) VerifyEmail() fiber.Handler {
 			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
-		var userDtoOut dto.UserDtoOut
+		var userDtoOut userdto.UserDtoOut
 		userDtoOut = *userDtoOut.FromDomainUser(user)
 		return c.Status(fiber.StatusOK).JSON(userDtoOut)
 	}
@@ -169,7 +169,7 @@ func (u *userController) Logout() fiber.Handler {
 // @Param        email  query  string  false  "E-mail do usuário (match exato, case-insensitive)"
 // @Param        page   query  int     false  "Página"
 // @Param        limit  query  int     false  "Limite"
-// @Success      200   {object}  dto.PageableUserDto
+// @Success      200   {object}  userdto.PageableUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
@@ -179,7 +179,7 @@ func (u *userController) GetAllUsers() fiber.Handler {
 		page, _ := strconv.Atoi(c.Query("page", "1"))
 		limit, _ := strconv.Atoi(c.Query("limit", "10"))
 
-		result, e := u.userService.GetAllUsers(repository.UserFilter{
+		result, e := u.userService.GetAllUsers(userrepo.UserFilter{
 			SkillName: c.Query("skill"),
 			Name:      c.Query("name"),
 			Email:     c.Query("email"),
@@ -189,7 +189,7 @@ func (u *userController) GetAllUsers() fiber.Handler {
 			return c.Status(e.Code).JSON(e)
 		}
 
-		dtoResult := dto.PageableUserDto{}.FromDomain(*result)
+		dtoResult := userdto.PageableUserDto{}.FromDomain(*result)
 		return c.Status(fiber.StatusOK).JSON(dtoResult)
 	}
 }
@@ -200,7 +200,7 @@ func (u *userController) GetAllUsers() fiber.Handler {
 // @Tags         users
 // @Produce      json
 // @Param        userId  path  string  true  "ID do usuário"
-// @Success      200   {object}  dto.UserProfileDtoOut
+// @Success      200   {object}  userdto.UserProfileDtoOut
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
@@ -220,7 +220,7 @@ func (u *userController) GetUserById() fiber.Handler {
 			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
-		return c.Status(fiber.StatusOK).JSON(dto.UserProfileDtoOut{}.FromDomain(user))
+		return c.Status(fiber.StatusOK).JSON(userdto.UserProfileDtoOut{}.FromDomain(user))
 	}
 }
 
@@ -231,8 +231,8 @@ func (u *userController) GetUserById() fiber.Handler {
 // @Accept       json
 // @Produce      json
 // @Param        userId  path  string  true  "ID do usuário"
-// @Param        user    body  dto.UpdateUserDtoIn  true  "Campos do perfil a alterar"
-// @Success      200   {object}  dto.UserDtoOut
+// @Param        user    body  userdto.UpdateUserDtoIn  true  "Campos do perfil a alterar"
+// @Success      200   {object}  userdto.UserDtoOut
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Failure      403   {object}  map[string]interface{}
@@ -247,7 +247,7 @@ func (u *userController) UpdateUser() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "userId", Message: "userId must be a valid UUID v7"}}))
 		}
-		var updateUserDto dto.UpdateUserDtoIn
+		var updateUserDto userdto.UpdateUserDtoIn
 		if err := c.BodyParser(&updateUserDto); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Não foi possível processar o corpo da requisição",
@@ -259,7 +259,7 @@ func (u *userController) UpdateUser() fiber.Handler {
 			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
-		var updateUserDtoOut dto.UserDtoOut
+		var updateUserDtoOut userdto.UserDtoOut
 		updateUserDtoOut = *updateUserDtoOut.FromDomainUserWithProfile(updated)
 		return c.Status(fiber.StatusOK).JSON(updateUserDtoOut)
 	}

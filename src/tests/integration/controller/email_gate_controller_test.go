@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -25,9 +26,9 @@ func assertForbiddenUnverifiedEmail(t *testing.T, resp *http.Response) {
 	}
 }
 
-func createUnverifiedUser(t *testing.T, email string) *domain.UserDomain {
+func createUnverifiedUser(t *testing.T, email string) *userdomain.UserDomain {
 	t.Helper()
-	user := createUserWithRole(t, email, domain.UserRoleUser)
+	user := createUserWithRole(t, email, userdomain.UserRoleUser)
 	clearEmailVerifiedAt(t, user.Id)
 	return user
 }
@@ -37,7 +38,7 @@ func TestUnverifiedEmailForbiddenOnCommunityAndEventWrites(t *testing.T) {
 
 	app := setupApp()
 	unverified := createUnverifiedUser(t, "gate_unverified@ajuda.dev")
-	verified := createUserWithRole(t, "gate_verified@ajuda.dev", domain.UserRoleUser)
+	verified := createUserWithRole(t, "gate_verified@ajuda.dev", userdomain.UserRoleUser)
 	unverifiedToken := validTokenFor(t, unverified.Id)
 	verifiedToken := validTokenFor(t, verified.Id)
 	address := createEventAddress(t, "gate_city")
@@ -61,13 +62,13 @@ func TestUnverifiedEmailForbiddenOnCommunityAndEventWrites(t *testing.T) {
 	}
 	assertForbiddenUnverifiedEmail(t, resp)
 
-	verifiedMember := createUserWithRole(t, "gate_verified_member@ajuda.dev", domain.UserRoleUser)
+	verifiedMember := createUserWithRole(t, "gate_verified_member@ajuda.dev", userdomain.UserRoleUser)
 	joinCommunityViaApi(t, app, communityId, validTokenFor(t, verifiedMember.Id))
 
 	eventPayload, err := json.Marshal(eventTestRequest{
 		OwnerId:     unverified.Id,
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Evento Gate Unverified",
 		Description: "evento de teste do gate",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -84,8 +85,8 @@ func TestUnverifiedEmailForbiddenOnCommunityAndEventWrites(t *testing.T) {
 
 	registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     verified.Id,
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Evento Gate Verified",
 		Description: "evento de teste do gate",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -98,7 +99,7 @@ func TestUnverifiedEmailCanJoinEventAndAcceptInvitation(t *testing.T) {
 
 	app := setupApp()
 	unverified := createUnverifiedUser(t, "gate_invitee@ajuda.dev")
-	owner := createUserWithRole(t, "gate_invite_owner@ajuda.dev", domain.UserRoleUser)
+	owner := createUserWithRole(t, "gate_invite_owner@ajuda.dev", userdomain.UserRoleUser)
 	unverifiedToken := validTokenFor(t, unverified.Id)
 
 	communityEvent := euCreateCommunityEvent(t, app, owner, nil)
@@ -118,13 +119,13 @@ func TestUnverifiedEmailCanJoinEventAndAcceptInvitation(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	resp = euUpdateStatus(t, app, mentoring.Id, unverified.Id, domain.StatusConfirmed, unverifiedToken)
+	resp = euUpdateStatus(t, app, mentoring.Id, unverified.Id, eventdomain.StatusConfirmed, unverifiedToken)
 	if resp.StatusCode != fiber.StatusOK {
 		body := decodeRestErr(t, resp)
 		t.Fatalf("esperava 200 ao aceitar convite (fora do gate), recebeu %d (body: %+v)", resp.StatusCode, body)
 	}
 	row := euDecodeEventUserDto(t, resp)
-	if row.Status != domain.StatusConfirmed {
+	if row.Status != eventdomain.StatusConfirmed {
 		t.Errorf("esperava CONFIRMED no aceite, recebeu %s", row.Status)
 	}
 }

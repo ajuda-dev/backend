@@ -3,7 +3,7 @@ package entity
 import (
 	"time"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"gorm.io/gorm"
 )
 
@@ -25,13 +25,13 @@ func (UserEntity) TableName() string {
 	return "users"
 }
 
-func (u *UserEntity) ToDomainUser() *domain.UserDomain {
+func (u *UserEntity) ToDomainUser() *userdomain.UserDomain {
 	config := u.ConfigVisibility.ToDomain()
-	emailConfig := config[domain.VisibilityKeyEmail]
+	emailConfig := config[userdomain.VisibilityKeyEmail]
 	emailConfig.Value = u.Email
-	config[domain.VisibilityKeyEmail] = emailConfig
+	config[userdomain.VisibilityKeyEmail] = emailConfig
 
-	return &domain.UserDomain{
+	return &userdomain.UserDomain{
 		Id:               u.Id,
 		Name:             u.Name,
 		Email:            u.Email,
@@ -43,7 +43,7 @@ func (u *UserEntity) ToDomainUser() *domain.UserDomain {
 	}
 }
 
-func FromDomainUser(user *domain.UserDomain) *UserEntity {
+func FromDomainUser(user *userdomain.UserDomain) *UserEntity {
 	return &UserEntity{
 		Id:               user.Id,
 		Name:             user.Name,

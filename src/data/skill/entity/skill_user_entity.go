@@ -3,7 +3,8 @@ package entity
 import (
 	"time"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 )
 
 type SkillUserEntity struct {
@@ -14,13 +15,13 @@ type SkillUserEntity struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
-	Skill SkillEntity `gorm:"foreignKey:SkillId;references:Id;constraint:OnDelete:CASCADE"`
-	User  UserEntity  `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:CASCADE"`
+	Skill SkillEntity           `gorm:"foreignKey:SkillId;references:Id;constraint:OnDelete:CASCADE"`
+	User  userentity.UserEntity `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:CASCADE"`
 }
 
 func (SkillUserEntity) TableName() string { return "skill_users" }
 
-func (e *SkillUserEntity) FromDomain(skillUser domain.SkillUserDomain) *SkillUserEntity {
+func (e *SkillUserEntity) FromDomain(skillUser skilldomain.SkillUserDomain) *SkillUserEntity {
 	return &SkillUserEntity{
 		Id:      skillUser.Id,
 		SkillId: skillUser.SkillId,
@@ -29,8 +30,8 @@ func (e *SkillUserEntity) FromDomain(skillUser domain.SkillUserDomain) *SkillUse
 	}
 }
 
-func (e SkillUserEntity) ToDomain() *domain.SkillUserDomain {
-	skillUser := &domain.SkillUserDomain{
+func (e SkillUserEntity) ToDomain() *skilldomain.SkillUserDomain {
+	skillUser := &skilldomain.SkillUserDomain{
 		Id:      e.Id,
 		SkillId: e.SkillId,
 		UserId:  e.UserId,
@@ -42,8 +43,8 @@ func (e SkillUserEntity) ToDomain() *domain.SkillUserDomain {
 	return skillUser
 }
 
-func ToSkillUserDomainList(entities []SkillUserEntity) []*domain.SkillUserDomain {
-	var domains []*domain.SkillUserDomain
+func ToSkillUserDomainList(entities []SkillUserEntity) []*skilldomain.SkillUserDomain {
+	var domains []*skilldomain.SkillUserDomain
 	for _, e := range entities {
 		domains = append(domains, e.ToDomain())
 	}

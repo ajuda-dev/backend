@@ -1,19 +1,20 @@
 package dto
 
 import (
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
 )
 
 type EventUserDto struct {
-	Id      string      `json:"id"`
-	EventId string      `json:"event_id"`
-	UserId  string      `json:"user_id"`
-	Role    string      `json:"role"`
-	Status  string      `json:"status"`
-	User    *UserDtoOut `json:"user,omitempty"`
+	Id      string              `json:"id"`
+	EventId string              `json:"event_id"`
+	UserId  string              `json:"user_id"`
+	Role    string              `json:"role"`
+	Status  string              `json:"status"`
+	User    *userdto.UserDtoOut `json:"user,omitempty"`
 }
 
-func (e EventUserDto) FromDomain(eventUser *domain.EventUserDomain) EventUserDto {
+func (e EventUserDto) FromDomain(eventUser *eventdomain.EventUserDomain) EventUserDto {
 	dtoUser := EventUserDto{
 		Id:      eventUser.Id,
 		EventId: eventUser.EventId,
@@ -22,7 +23,7 @@ func (e EventUserDto) FromDomain(eventUser *domain.EventUserDomain) EventUserDto
 		Status:  eventUser.Status,
 	}
 	if eventUser.User != nil {
-		dtoUser.User = (&UserDtoOut{}).FromDomainUser(eventUser.User)
+		dtoUser.User = (&userdto.UserDtoOut{}).FromDomainUser(eventUser.User)
 	}
 	return dtoUser
 }

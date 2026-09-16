@@ -3,7 +3,7 @@ package entity
 import (
 	"time"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 type OAuthAccountEntity struct {
@@ -21,7 +21,7 @@ type OAuthAccountEntity struct {
 
 func (OAuthAccountEntity) TableName() string { return "oauth_accounts" }
 
-func (e *OAuthAccountEntity) FromDomain(account domain.OAuthAccountDomain) *OAuthAccountEntity {
+func (e *OAuthAccountEntity) FromDomain(account userdomain.OAuthAccountDomain) *OAuthAccountEntity {
 	return &OAuthAccountEntity{
 		Id:             account.Id,
 		UserId:         account.UserId,
@@ -32,8 +32,8 @@ func (e *OAuthAccountEntity) FromDomain(account domain.OAuthAccountDomain) *OAut
 	}
 }
 
-func (e OAuthAccountEntity) ToDomain() *domain.OAuthAccountDomain {
-	return &domain.OAuthAccountDomain{
+func (e OAuthAccountEntity) ToDomain() *userdomain.OAuthAccountDomain {
+	return &userdomain.OAuthAccountDomain{
 		Id:             e.Id,
 		UserId:         e.UserId,
 		Provider:       e.Provider,

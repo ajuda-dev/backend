@@ -1,28 +1,29 @@
-package service
+package community
 
 import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	"github.com/ajuda-dev/backend/src/service/identity"
 )
 
 type CommunityUserService interface {
-	JoinCommunity(communityId string, userId string) (*domain.CommunityUserDomain, *rest_err.RestErr)
+	JoinCommunity(communityId string, userId string) (*communitydomain.CommunityUserDomain, *rest_err.RestErr)
 	LeaveCommunity(communityId string, userId string) *rest_err.RestErr
-	GetCommunityMembers(communityId string, requesterId string, page int, limit int) (*domain.PageableCommunityMember, *rest_err.RestErr)
-	GetUserCommunities(userId string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
+	GetCommunityMembers(communityId string, requesterId string, page int, limit int) (*communitydomain.PageableCommunityMember, *rest_err.RestErr)
+	GetUserCommunities(userId string, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr)
 }
 
 type communityUserService struct {
-	userService             UserService
+	userService             identity.UserService
 	communityService        CommunityService
-	communityUserRepository repository.CommunityUserRepository
+	communityUserRepository communityrepo.CommunityUserRepository
 }
 
 func NewCommunityUserService(
-	userService UserService,
+	userService identity.UserService,
 	communityService CommunityService,
-	communityUserRepository repository.CommunityUserRepository) CommunityUserService {
+	communityUserRepository communityrepo.CommunityUserRepository) CommunityUserService {
 	return &communityUserService{
 		userService:             userService,
 		communityService:        communityService,
@@ -30,18 +31,18 @@ func NewCommunityUserService(
 	}
 }
 
-func (c *communityUserService) JoinCommunity(communityId string, userId string) (*domain.CommunityUserDomain, *rest_err.RestErr) {
+func (c *communityUserService) JoinCommunity(communityId string, userId string) (*communitydomain.CommunityUserDomain, *rest_err.RestErr) {
 	if _, err := c.communityService.GetCommunityById(communityId); err != nil {
 		return nil, err
 	}
-	user, err := authenticatedUser(c.userService, userId)
+	user, err := identity.AuthenticatedUser(c.userService, userId)
 	if err != nil {
 		return nil, err
 	}
-	if err := requireVerifiedEmail(user); err != nil {
+	if err := identity.RequireVerifiedEmail(user); err != nil {
 		return nil, err
 	}
-	return c.communityUserRepository.Create(&domain.CommunityUserDomain{
+	return c.communityUserRepository.Create(&communitydomain.CommunityUserDomain{
 		CommunityId: communityId,
 		UserId:      user.Id,
 	})
@@ -54,8 +55,8 @@ func (c *communityUserService) LeaveCommunity(communityId string, userId string)
 	return c.communityUserRepository.DeleteByCommunityAndUser(communityId, userId)
 }
 
-func (c *communityUserService) GetCommunityMembers(communityId string, requesterId string, page int, limit int) (*domain.PageableCommunityMember, *rest_err.RestErr) {
-	requester, err := authenticatedUser(c.userService, requesterId)
+func (c *communityUserService) GetCommunityMembers(communityId string, requesterId string, page int, limit int) (*communitydomain.PageableCommunityMember, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(c.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -67,11 +68,11 @@ func (c *communityUserService) GetCommunityMembers(communityId string, requester
 		return nil, err
 	}
 	for _, member := range result.Data {
-		applyVisibilityFilter(member.User, requester)
+		identity.ApplyVisibilityFilter(member.User, requester)
 	}
 	return result, nil
 }
 
-func (c *communityUserService) GetUserCommunities(userId string, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
+func (c *communityUserService) GetUserCommunities(userId string, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr) {
 	return c.communityUserRepository.FindCommunitiesByUser(userId, page, limit)
 }

@@ -4,8 +4,12 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/logger"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	addressentity "github.com/ajuda-dev/backend/src/data/address/entity"
+	communityentity "github.com/ajuda-dev/backend/src/data/community/entity"
+	evententity "github.com/ajuda-dev/backend/src/data/event/entity"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	skillentity "github.com/ajuda-dev/backend/src/data/skill/entity"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -48,22 +52,22 @@ func RunPurge(db *gorm.DB, olderThanDays int) {
 
 func purgeEventUsers(db *gorm.DB, cutoff time.Time) {
 	result := db.
-		Where("status IN ? AND updated_at < ?", []string{domain.StatusCancelled, domain.StatusRejected}, cutoff).
-		Delete(&entity.EventUserEntity{})
+		Where("status IN ? AND updated_at < ?", []string{eventdomain.StatusCancelled, eventdomain.StatusRejected}, cutoff).
+		Delete(&evententity.EventUserEntity{})
 	logPurgeResult(result, "event_users")
 }
 
 func purgeEvents(db *gorm.DB, cutoff time.Time) {
 	result := db.Unscoped().
 		Where("deleted_at IS NOT NULL AND deleted_at < ?", cutoff).
-		Delete(&entity.EventEntity{})
+		Delete(&evententity.EventEntity{})
 	logPurgeResult(result, "events")
 }
 
 func purgeSkills(db *gorm.DB, cutoff time.Time) {
 	result := db.Unscoped().
 		Where("deleted_at IS NOT NULL AND deleted_at < ?", cutoff).
-		Delete(&entity.SkillEntity{})
+		Delete(&skillentity.SkillEntity{})
 	logPurgeResult(result, "skills")
 }
 
@@ -71,7 +75,7 @@ func purgeCommunities(db *gorm.DB, cutoff time.Time) {
 	result := db.Unscoped().
 		Where("deleted_at IS NOT NULL AND deleted_at < ?", cutoff).
 		Where("NOT EXISTS (SELECT 1 FROM events e WHERE e.community_id = community.id)").
-		Delete(&entity.CommunityEntity{})
+		Delete(&communityentity.CommunityEntity{})
 	logPurgeResult(result, "community")
 }
 
@@ -80,7 +84,7 @@ func purgeAddresses(db *gorm.DB, cutoff time.Time) {
 		Where("deleted_at IS NOT NULL AND deleted_at < ?", cutoff).
 		Where("NOT EXISTS (SELECT 1 FROM community c WHERE c.address_id = addresses.id)").
 		Where("NOT EXISTS (SELECT 1 FROM events e WHERE e.address_id = addresses.id)").
-		Delete(&entity.AddressEntity{})
+		Delete(&addressentity.AddressEntity{})
 	logPurgeResult(result, "addresses")
 }
 
@@ -89,7 +93,7 @@ func purgeUsers(db *gorm.DB, cutoff time.Time) {
 		Where("deleted_at IS NOT NULL AND deleted_at < ?", cutoff).
 		Where("NOT EXISTS (SELECT 1 FROM community c WHERE c.owner_id = users.id)").
 		Where("NOT EXISTS (SELECT 1 FROM events e WHERE e.owner_id = users.id)").
-		Delete(&entity.UserEntity{})
+		Delete(&userentity.UserEntity{})
 	logPurgeResult(result, "users")
 }
 

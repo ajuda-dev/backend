@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/job"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	notificationentity "github.com/ajuda-dev/backend/src/data/notification/entity"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	"github.com/ajuda-dev/backend/src/service/notification"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func TestNotificationStream_Unauthorized(t *testing.T) {
 
 func TestNotificationStream_AuthorizedHeaders(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "sse user", Email: "sse_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, createErr)
@@ -49,31 +50,31 @@ func TestOutboxSSE_PublishAndOfflineSent(t *testing.T) {
 		db.Exec("DELETE FROM outbox_events")
 		cleanUsersTable()
 	})
-	user, err := userRepository.CreateUser(&domain.UserDomain{
+	user, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "sse pub", Email: "ssep_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	other, err := userRepository.CreateUser(&domain.UserDomain{
+	other, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "sse other", Email: "sseo_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
 
-	hub := service.NewNotificationHub()
+	hub := notification.NewNotificationHub()
 	chUser, cancelUser := hub.Subscribe(user.Id)
 	chOther, cancelOther := hub.Subscribe(other.Id)
 	defer cancelUser()
 	defer cancelOther()
 
 	payload, _ := json.Marshal(map[string]string{"title": "aviso"})
-	event := &domain.OutboxEventDomain{
-		Type: domain.OutboxTypeCommunityEventPendingApproval, UserId: user.Id, Payload: payload, Status: domain.OutboxStatusPending,
+	event := &notificationdomain.OutboxEventDomain{
+		Type: notificationdomain.OutboxTypeCommunityEventPendingApproval, UserId: user.Id, Payload: payload, Status: notificationdomain.OutboxStatusPending,
 	}
 	require.Nil(t, outboxEventRepository.Create(nil, event))
 	job.RunOutboxOnce(outboxEventRepository, job.NewSSEOutboxHandler(hub), 50)
 
 	select {
 	case msg := <-chUser:
-		assert.Contains(t, string(msg), domain.OutboxTypeCommunityEventPendingApproval)
+		assert.Contains(t, string(msg), notificationdomain.OutboxTypeCommunityEventPendingApproval)
 	case <-time.After(2 * time.Second):
 		t.Fatal("expected notification for target user")
 	}
@@ -83,17 +84,17 @@ func TestOutboxSSE_PublishAndOfflineSent(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 
-	var stored entity.OutboxEventEntity
+	var stored notificationentity.OutboxEventEntity
 	require.NoError(t, db.First(&stored, event.Id).Error)
-	assert.Equal(t, domain.OutboxStatusSent, stored.Status)
+	assert.Equal(t, notificationdomain.OutboxStatusSent, stored.Status)
 
-	offline := &domain.OutboxEventDomain{
-		Type: domain.OutboxTypeMentoringInvitePending, UserId: user.Id, Payload: payload, Status: domain.OutboxStatusPending,
+	offline := &notificationdomain.OutboxEventDomain{
+		Type: notificationdomain.OutboxTypeMentoringInvitePending, UserId: user.Id, Payload: payload, Status: notificationdomain.OutboxStatusPending,
 	}
 	require.Nil(t, outboxEventRepository.Create(nil, offline))
 	cancelUser()
 	job.RunOutboxOnce(outboxEventRepository, job.NewSSEOutboxHandler(hub), 50)
-	var offlineStored entity.OutboxEventEntity
+	var offlineStored notificationentity.OutboxEventEntity
 	require.NoError(t, db.First(&offlineStored, offline.Id).Error)
-	assert.Equal(t, domain.OutboxStatusSent, offlineStored.Status)
+	assert.Equal(t, notificationdomain.OutboxStatusSent, offlineStored.Status)
 }

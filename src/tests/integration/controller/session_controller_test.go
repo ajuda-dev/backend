@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -21,7 +21,7 @@ func newRequestWithSessionCookie(method string, path string, token string) *http
 func TestProtectedRouteAcceptsSessionCookie(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	user := createUserWithRole(t, "session_cookie@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "session_cookie@ajuda.dev", userdomain.UserRoleUser)
 
 	resp, err := app.Test(newRequestWithSessionCookie(http.MethodGet, "/v1/community", validTokenFor(t, user.Id)))
 	if err != nil {
@@ -66,7 +66,7 @@ func TestMeRequiresAuthentication(t *testing.T) {
 func TestMeReturnsAuthenticatedUserFromSessionCookie(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	user := createUserWithRole(t, "session_me_cookie@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "session_me_cookie@ajuda.dev", userdomain.UserRoleUser)
 
 	resp, err := app.Test(newRequestWithSessionCookie(http.MethodGet, "/v1/user/me", validTokenFor(t, user.Id)))
 	if err != nil {
@@ -76,11 +76,11 @@ func TestMeReturnsAuthenticatedUserFromSessionCookie(t *testing.T) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 no /v1/user/me com cookie, recebeu %d", resp.StatusCode)
 	}
-	var respDto dto.UserDtoOut
+	var respDto userdto.UserDtoOut
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
-	if respDto.Id != user.Id || respDto.Name != user.Name || respDto.Email != user.Email || respDto.Role != domain.UserRoleUser {
+	if respDto.Id != user.Id || respDto.Name != user.Name || respDto.Email != user.Email || respDto.Role != userdomain.UserRoleUser {
 		t.Errorf("esperava o usuário da sessão no /v1/user/me, recebeu %+v", respDto)
 	}
 	if !respDto.EmailVerified {
@@ -94,7 +94,7 @@ func TestMeReturnsAuthenticatedUserFromSessionCookie(t *testing.T) {
 func TestMeReturnsAuthenticatedUserFromBearerToken(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	user := createUserWithRole(t, "session_me_bearer@ajuda.dev", domain.UserRoleAdmin)
+	user := createUserWithRole(t, "session_me_bearer@ajuda.dev", userdomain.UserRoleAdmin)
 
 	resp, err := doAuthedRequest(app, httptest.NewRequest(http.MethodGet, "/v1/user/me", nil), validTokenFor(t, user.Id))
 	if err != nil {
@@ -104,11 +104,11 @@ func TestMeReturnsAuthenticatedUserFromBearerToken(t *testing.T) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 no /v1/user/me com Bearer, recebeu %d", resp.StatusCode)
 	}
-	var respDto dto.UserDtoOut
+	var respDto userdto.UserDtoOut
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
-	if respDto.Id != user.Id || respDto.Role != domain.UserRoleAdmin {
+	if respDto.Id != user.Id || respDto.Role != userdomain.UserRoleAdmin {
 		t.Errorf("esperava o usuário da sessão no /v1/user/me, recebeu %+v", respDto)
 	}
 }
@@ -133,7 +133,7 @@ func TestLogoutClearsSessionCookie(t *testing.T) {
 func TestNativeClientLoginReturnsTokenInBody(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	user := createUserWithHashedPassword(t, app, "session_native@ajuda.dev", domain.UserRoleUser, "123456")
+	user := createUserWithHashedPassword(t, app, "session_native@ajuda.dev", userdomain.UserRoleUser, "123456")
 
 	req := newUserLoginRequest([]byte(`{"email": "` + user.Email + `", "password": "123456"}`))
 	req.Header.Set(middleware.NativeClientHeader, "native")
@@ -145,14 +145,14 @@ func TestNativeClientLoginReturnsTokenInBody(t *testing.T) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 no login nativo, recebeu %d", resp.StatusCode)
 	}
-	var respDto dto.LoginUserDtoOut
+	var respDto userdto.LoginUserDtoOut
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	if respDto.Token == "" {
 		t.Fatal("esperava token no corpo para cliente nativo")
 	}
-	if respDto.Id != user.Id || respDto.Role != domain.UserRoleUser {
+	if respDto.Id != user.Id || respDto.Role != userdomain.UserRoleUser {
 		t.Errorf("esperava id/role do usuário no login nativo, recebeu %+v", respDto)
 	}
 	if cookie := sessionCookieFrom(t, resp); cookie == nil {

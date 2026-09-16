@@ -1,4 +1,4 @@
-package controller
+package notification
 
 import (
 	"bufio"
@@ -10,10 +10,10 @@ import (
 
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
-	"github.com/ajuda-dev/backend/src/service"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	notificationdto "github.com/ajuda-dev/backend/src/controller/notification/dto"
+	"github.com/ajuda-dev/backend/src/service/notification"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/valyala/fasthttp"
 )
@@ -25,11 +25,11 @@ type NotificationController interface {
 }
 
 type notificationController struct {
-	hub     service.NotificationHub
-	service service.NotificationService
+	hub     notification.NotificationHub
+	service notification.NotificationService
 }
 
-func NewNotificationController(hub service.NotificationHub, notificationService service.NotificationService) NotificationController {
+func NewNotificationController(hub notification.NotificationHub, notificationService notification.NotificationService) NotificationController {
 	return &notificationController{hub: hub, service: notificationService}
 }
 
@@ -106,7 +106,7 @@ func (n *notificationController) Stream() fiber.Handler {
 // @Param        status  query  string  false  "unread, read ou all"  default(unread)
 // @Param        page    query  int     false  "Página"
 // @Param        limit   query  int     false  "Limite"
-// @Success      200  {object}  dto.PageableNotificationDto
+// @Success      200  {object}  notificationdto.PageableNotificationDto
 // @Failure      400  {object}  map[string]interface{}
 // @Failure      401  {object}  map[string]interface{}
 // @Security     BearerAuth
@@ -119,12 +119,12 @@ func (n *notificationController) List() fiber.Handler {
 		}
 		page, _ := strconv.Atoi(c.Query("page", "1"))
 		limit, _ := strconv.Atoi(c.Query("limit", "10"))
-		result, err := n.service.List(userId, c.Query("status", domain.NotificationInboxStatusUnread), page, limit)
+		result, err := n.service.List(userId, c.Query("status", notificationdomain.NotificationInboxStatusUnread), page, limit)
 		if err != nil {
 			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
-		return c.Status(fiber.StatusOK).JSON(dto.PageableNotificationDto{}.FromDomain(*result))
+		return c.Status(fiber.StatusOK).JSON(notificationdto.PageableNotificationDto{}.FromDomain(*result))
 	}
 }
 
@@ -134,7 +134,7 @@ func (n *notificationController) List() fiber.Handler {
 // @Tags         notifications
 // @Produce      json
 // @Param        id   path      int  true  "ID da notificação (outbox bigserial)"
-// @Success      200  {object}  dto.NotificationDtoOut
+// @Success      200  {object}  notificationdto.NotificationDtoOut
 // @Failure      400  {object}  map[string]interface{}
 // @Failure      401  {object}  map[string]interface{}
 // @Failure      404  {object}  map[string]interface{}
@@ -158,7 +158,7 @@ func (n *notificationController) MarkRead() fiber.Handler {
 			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
-		return c.Status(fiber.StatusOK).JSON(dto.NotificationDtoOut{}.FromDomain(*result))
+		return c.Status(fiber.StatusOK).JSON(notificationdto.NotificationDtoOut{}.FromDomain(*result))
 	}
 }
 

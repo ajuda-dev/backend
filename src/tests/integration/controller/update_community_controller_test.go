@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -28,17 +28,17 @@ func updateCommunityViaApi(t *testing.T, app *fiber.App, id string, token string
 	return resp
 }
 
-func decodeCommunityDto(t *testing.T, resp *http.Response) dto.CommunityDto {
+func decodeCommunityDto(t *testing.T, resp *http.Response) communitydto.CommunityDto {
 	t.Helper()
 	defer resp.Body.Close()
-	var community dto.CommunityDto
+	var community communitydto.CommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&community); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	return community
 }
 
-func getCommunityById(t *testing.T, app *fiber.App, id string, token string) dto.CommunityDto {
+func getCommunityById(t *testing.T, app *fiber.App, id string, token string) communitydto.CommunityDto {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/v1/community/"+id, nil)
 	resp, err := doAuthedRequest(app, req, token)
@@ -49,7 +49,7 @@ func getCommunityById(t *testing.T, app *fiber.App, id string, token string) dto
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 no GET, recebeu %d", resp.StatusCode)
 	}
-	var community dto.CommunityDto
+	var community communitydto.CommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&community); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -209,8 +209,8 @@ func TestUpdateCommunityModeratorAndAdminAllowed(t *testing.T) {
 
 	app := setupApp()
 	owner := createCommunityOwner(t, "owner.update.staff@ajuda.dev")
-	moderator := createUserWithRole(t, "moderator.update.staff@ajuda.dev", domain.UserRoleModerator)
-	admin := createUserWithRole(t, "admin.update.staff@ajuda.dev", domain.UserRoleAdmin)
+	moderator := createUserWithRole(t, "moderator.update.staff@ajuda.dev", userdomain.UserRoleModerator)
+	admin := createUserWithRole(t, "admin.update.staff@ajuda.dev", userdomain.UserRoleAdmin)
 	ownerToken := validTokenFor(t, owner.Id)
 	address := createCommunityAddress(t, "sao paulo")
 

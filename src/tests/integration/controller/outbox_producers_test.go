@@ -5,8 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	evententity "github.com/ajuda-dev/backend/src/data/event/entity"
+	notificationentity "github.com/ajuda-dev/backend/src/data/notification/entity"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"github.com/samborkent/uuidv7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,29 +27,29 @@ func TestCreateEventPending_InsertsOutboxForCommunityOwner(t *testing.T) {
 		cleanAddressesTable()
 		cleanUsersTable()
 	})
-	owner, err := userRepository.CreateUser(&domain.UserDomain{
+	owner, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "owner", Email: "own_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	member, err := userRepository.CreateUser(&domain.UserDomain{
+	member, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "member", Email: "mem_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
 	address := createEventAddress(t, "cidade-outbox")
 	community := createEventCommunity(t, "Comunidade outbox "+uuidv7.New().String(), owner, address)
-	_, err = communityUserRepository.Create(&domain.CommunityUserDomain{CommunityId: community.Id, UserId: member.Id})
+	_, err = communityUserRepository.Create(&communitydomain.CommunityUserDomain{CommunityId: community.Id, UserId: member.Id})
 	require.Nil(t, err)
 
-	created, createErr := eventRepository.CreateEvent(&domain.EventDomain{
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+	created, createErr := eventRepository.CreateEvent(&eventdomain.EventDomain{
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "pendente",
 		Description: "d",
 		StartAt:     time.Now().Add(48 * time.Hour),
 		DurationMin: 60,
 		Owner:       *member,
 		Community:   community,
-		Status:      domain.EventStatusPending,
+		Status:      eventdomain.EventStatusPending,
 	})
 	require.Nil(t, createErr)
 	require.NotEmpty(t, created.Id)
@@ -54,7 +58,7 @@ func TestCreateEventPending_InsertsOutboxForCommunityOwner(t *testing.T) {
 	require.Nil(t, findErr)
 	require.Len(t, pending, 1)
 	assert.Equal(t, owner.Id, pending[0].UserId)
-	assert.Equal(t, domain.OutboxTypeCommunityEventPendingApproval, pending[0].Type)
+	assert.Equal(t, notificationdomain.OutboxTypeCommunityEventPendingApproval, pending[0].Type)
 }
 
 func TestCreateEventApproved_NoOutbox(t *testing.T) {
@@ -65,23 +69,23 @@ func TestCreateEventApproved_NoOutbox(t *testing.T) {
 		cleanAddressesTable()
 		cleanUsersTable()
 	})
-	owner, err := userRepository.CreateUser(&domain.UserDomain{
+	owner, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "owner2", Email: "own2_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
 	address := createEventAddress(t, "cidade-approved")
 	community := createEventCommunity(t, "Comunidade approved "+uuidv7.New().String(), owner, address)
 
-	_, createErr := eventRepository.CreateEvent(&domain.EventDomain{
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+	_, createErr := eventRepository.CreateEvent(&eventdomain.EventDomain{
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "aprovado",
 		Description: "d",
 		StartAt:     time.Now().Add(48 * time.Hour),
 		DurationMin: 60,
 		Owner:       *owner,
 		Community:   community,
-		Status:      domain.EventStatusApproved,
+		Status:      eventdomain.EventStatusApproved,
 	})
 	require.Nil(t, createErr)
 	pending, findErr := outboxEventRepository.FindPending(10)
@@ -97,30 +101,30 @@ func TestMentoringInvite_InsertsOutboxForGuest(t *testing.T) {
 		cleanAddressesTable()
 		cleanUsersTable()
 	})
-	mentor, err := userRepository.CreateUser(&domain.UserDomain{
+	mentor, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "mentor", Email: "men_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	guest, err := userRepository.CreateUser(&domain.UserDomain{
+	guest, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "guest", Email: "gue_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
 	slots := 2
-	event, err := eventRepository.CreateEvent(&domain.EventDomain{
-		Category:    domain.CategoryMentoring,
-		Type:        domain.TypeOnline,
+	event, err := eventRepository.CreateEvent(&eventdomain.EventDomain{
+		Category:    eventdomain.CategoryMentoring,
+		Type:        eventdomain.TypeOnline,
 		Title:       "1:1",
 		Description: "d",
 		StartAt:     time.Now().Add(48 * time.Hour),
 		DurationMin: 60,
 		Owner:       *mentor,
 		MaxSlots:    &slots,
-		Status:      domain.EventStatusApproved,
+		Status:      eventdomain.EventStatusApproved,
 	})
 	require.Nil(t, err)
 
-	_, joinErr := eventUserRepository.CreateOrUpdate(&domain.EventUserDomain{
-		EventId: event.Id, UserId: guest.Id, Role: domain.RoleMentee, Status: domain.StatusRequested,
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: guest.Id, Role: eventdomain.RoleMentee, Status: eventdomain.StatusRequested,
 	}, &slots)
 	require.Nil(t, joinErr)
 
@@ -128,7 +132,7 @@ func TestMentoringInvite_InsertsOutboxForGuest(t *testing.T) {
 	require.Nil(t, findErr)
 	require.Len(t, pending, 1)
 	assert.Equal(t, guest.Id, pending[0].UserId)
-	assert.Equal(t, domain.OutboxTypeMentoringInvitePending, pending[0].Type)
+	assert.Equal(t, notificationdomain.OutboxTypeMentoringInvitePending, pending[0].Type)
 }
 
 func TestCreateEvent_OutboxFailureRollsBackEvent(t *testing.T) {
@@ -141,40 +145,40 @@ func TestCreateEvent_OutboxFailureRollsBackEvent(t *testing.T) {
 		cleanAddressesTable()
 		cleanUsersTable()
 	})
-	owner, err := userRepository.CreateUser(&domain.UserDomain{
+	owner, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "owner3", Email: "own3_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	member, err := userRepository.CreateUser(&domain.UserDomain{
+	member, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "member3", Email: "mem3_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
 	address := createEventAddress(t, "cidade-rb")
 	community := createEventCommunity(t, "Comunidade rb "+uuidv7.New().String(), owner, address)
-	_, err = communityUserRepository.Create(&domain.CommunityUserDomain{CommunityId: community.Id, UserId: member.Id})
+	_, err = communityUserRepository.Create(&communitydomain.CommunityUserDomain{CommunityId: community.Id, UserId: member.Id})
 	require.Nil(t, err)
 
 	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("fail_outbox_payload", func(tx *gorm.DB) {
-		if _, ok := tx.Statement.Dest.(*entity.OutboxEventEntity); ok {
+		if _, ok := tx.Statement.Dest.(*notificationentity.OutboxEventEntity); ok {
 			tx.Error = gorm.ErrInvalidData
 		}
 	}))
 
-	_, createErr := eventRepository.CreateEvent(&domain.EventDomain{
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+	_, createErr := eventRepository.CreateEvent(&eventdomain.EventDomain{
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "rollback",
 		Description: "d",
 		StartAt:     time.Now().Add(48 * time.Hour),
 		DurationMin: 60,
 		Owner:       *member,
 		Community:   community,
-		Status:      domain.EventStatusPending,
+		Status:      eventdomain.EventStatusPending,
 	})
 	require.NotNil(t, createErr)
 
 	var count int64
-	require.NoError(t, db.Model(&entity.EventEntity{}).Where("title = ?", "rollback").Count(&count).Error)
+	require.NoError(t, db.Model(&evententity.EventEntity{}).Where("title = ?", "rollback").Count(&count).Error)
 	assert.Equal(t, int64(0), count)
 }
 
@@ -188,25 +192,25 @@ func TestMentoringInvite_Accept_NotifiesOtherParticipants(t *testing.T) {
 	})
 	mentor, guest, event, slots := setupMentoringInvite(t)
 
-	_, joinErr := eventUserRepository.CreateOrUpdate(&domain.EventUserDomain{
-		EventId: event.Id, UserId: guest.Id, Role: domain.RoleMentee, Status: domain.StatusRequested,
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: guest.Id, Role: eventdomain.RoleMentee, Status: eventdomain.StatusRequested,
 	}, slots)
 	require.Nil(t, joinErr)
 
-	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, domain.StatusConfirmed, slots)
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusConfirmed, slots)
 	require.Nil(t, updateErr)
 
-	accepted := pendingOutboxByUserAndType(t, mentor.Id, domain.OutboxTypeMentoringInviteAccepted)
+	accepted := pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInviteAccepted)
 	require.Len(t, accepted, 1)
 	assertOutboxPayload(t, accepted[0].Payload, map[string]string{
 		"event_id": event.Id,
 		"title":    event.Title,
-		"category": domain.CategoryMentoring,
-		"status":   domain.StatusConfirmed,
+		"category": eventdomain.CategoryMentoring,
+		"status":   eventdomain.StatusConfirmed,
 		"actor_id": guest.Id,
 	})
-	assert.Empty(t, pendingOutboxByUserAndType(t, guest.Id, domain.OutboxTypeMentoringInviteAccepted))
-	assert.Len(t, pendingOutboxByUserAndType(t, guest.Id, domain.OutboxTypeMentoringInvitePending), 1)
+	assert.Empty(t, pendingOutboxByUserAndType(t, guest.Id, notificationdomain.OutboxTypeMentoringInviteAccepted))
+	assert.Len(t, pendingOutboxByUserAndType(t, guest.Id, notificationdomain.OutboxTypeMentoringInvitePending), 1)
 }
 
 func TestMentoringInvite_Reject_NotifiesOtherParticipants(t *testing.T) {
@@ -219,24 +223,24 @@ func TestMentoringInvite_Reject_NotifiesOtherParticipants(t *testing.T) {
 	})
 	mentor, guest, event, slots := setupMentoringInvite(t)
 
-	_, joinErr := eventUserRepository.CreateOrUpdate(&domain.EventUserDomain{
-		EventId: event.Id, UserId: guest.Id, Role: domain.RoleMentee, Status: domain.StatusRequested,
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: guest.Id, Role: eventdomain.RoleMentee, Status: eventdomain.StatusRequested,
 	}, slots)
 	require.Nil(t, joinErr)
 
-	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, domain.StatusRejected, slots)
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusRejected, slots)
 	require.Nil(t, updateErr)
 
-	rejected := pendingOutboxByUserAndType(t, mentor.Id, domain.OutboxTypeMentoringInviteRejected)
+	rejected := pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInviteRejected)
 	require.Len(t, rejected, 1)
 	assertOutboxPayload(t, rejected[0].Payload, map[string]string{
 		"event_id": event.Id,
 		"title":    event.Title,
-		"category": domain.CategoryMentoring,
-		"status":   domain.StatusRejected,
+		"category": eventdomain.CategoryMentoring,
+		"status":   eventdomain.StatusRejected,
 		"actor_id": guest.Id,
 	})
-	assert.Empty(t, pendingOutboxByUserAndType(t, guest.Id, domain.OutboxTypeMentoringInviteRejected))
+	assert.Empty(t, pendingOutboxByUserAndType(t, guest.Id, notificationdomain.OutboxTypeMentoringInviteRejected))
 }
 
 func TestMentoringInvite_Cancel_NoResponseOutbox(t *testing.T) {
@@ -249,17 +253,17 @@ func TestMentoringInvite_Cancel_NoResponseOutbox(t *testing.T) {
 	})
 	mentor, guest, event, slots := setupMentoringInvite(t)
 
-	_, joinErr := eventUserRepository.CreateOrUpdate(&domain.EventUserDomain{
-		EventId: event.Id, UserId: guest.Id, Role: domain.RoleMentee, Status: domain.StatusRequested,
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: guest.Id, Role: eventdomain.RoleMentee, Status: eventdomain.StatusRequested,
 	}, slots)
 	require.Nil(t, joinErr)
 
-	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, domain.StatusCancelled, slots)
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusCancelled, slots)
 	require.Nil(t, updateErr)
 
-	assert.Empty(t, pendingOutboxByUserAndType(t, mentor.Id, domain.OutboxTypeMentoringInviteAccepted))
-	assert.Empty(t, pendingOutboxByUserAndType(t, mentor.Id, domain.OutboxTypeMentoringInviteRejected))
-	assert.Len(t, pendingOutboxByUserAndType(t, guest.Id, domain.OutboxTypeMentoringInvitePending), 1)
+	assert.Empty(t, pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInviteAccepted))
+	assert.Empty(t, pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInviteRejected))
+	assert.Len(t, pendingOutboxByUserAndType(t, guest.Id, notificationdomain.OutboxTypeMentoringInvitePending), 1)
 }
 
 func TestCommunityEvent_Approve_NotifiesEventOwner(t *testing.T) {
@@ -274,22 +278,22 @@ func TestCommunityEvent_Approve_NotifiesEventOwner(t *testing.T) {
 	})
 	owner, member, created := setupPendingCommunityEvent(t)
 
-	updated, updateErr := eventRepository.UpdateApprovalStatus(created.Id, domain.EventStatusPending, domain.EventStatusApproved, owner.Id)
+	updated, updateErr := eventRepository.UpdateApprovalStatus(created.Id, eventdomain.EventStatusPending, eventdomain.EventStatusApproved, owner.Id)
 	require.Nil(t, updateErr)
-	assert.Equal(t, domain.EventStatusApproved, updated.Status)
+	assert.Equal(t, eventdomain.EventStatusApproved, updated.Status)
 
-	approved := pendingOutboxByUserAndType(t, member.Id, domain.OutboxTypeCommunityEventApproved)
+	approved := pendingOutboxByUserAndType(t, member.Id, notificationdomain.OutboxTypeCommunityEventApproved)
 	require.Len(t, approved, 1)
 	assertOutboxPayload(t, approved[0].Payload, map[string]string{
 		"event_id":     created.Id,
 		"title":        created.Title,
 		"community_id": created.Community.Id,
 		"category":     created.Category,
-		"status":       domain.EventStatusApproved,
+		"status":       eventdomain.EventStatusApproved,
 		"actor_id":     owner.Id,
 	})
-	assert.Empty(t, pendingOutboxByUserAndType(t, owner.Id, domain.OutboxTypeCommunityEventApproved))
-	assert.Len(t, pendingOutboxByUserAndType(t, owner.Id, domain.OutboxTypeCommunityEventPendingApproval), 1)
+	assert.Empty(t, pendingOutboxByUserAndType(t, owner.Id, notificationdomain.OutboxTypeCommunityEventApproved))
+	assert.Len(t, pendingOutboxByUserAndType(t, owner.Id, notificationdomain.OutboxTypeCommunityEventPendingApproval), 1)
 }
 
 func TestCommunityEvent_Reject_NotifiesEventOwner(t *testing.T) {
@@ -304,14 +308,14 @@ func TestCommunityEvent_Reject_NotifiesEventOwner(t *testing.T) {
 	})
 	owner, member, created := setupPendingCommunityEvent(t)
 
-	updated, updateErr := eventRepository.UpdateApprovalStatus(created.Id, domain.EventStatusPending, domain.EventStatusRejected, owner.Id)
+	updated, updateErr := eventRepository.UpdateApprovalStatus(created.Id, eventdomain.EventStatusPending, eventdomain.EventStatusRejected, owner.Id)
 	require.Nil(t, updateErr)
-	assert.Equal(t, domain.EventStatusRejected, updated.Status)
+	assert.Equal(t, eventdomain.EventStatusRejected, updated.Status)
 
-	rejected := pendingOutboxByUserAndType(t, member.Id, domain.OutboxTypeCommunityEventRejected)
+	rejected := pendingOutboxByUserAndType(t, member.Id, notificationdomain.OutboxTypeCommunityEventRejected)
 	require.Len(t, rejected, 1)
-	assert.Equal(t, domain.EventStatusRejected, payloadString(t, rejected[0].Payload, "status"))
-	assert.Empty(t, pendingOutboxByUserAndType(t, owner.Id, domain.OutboxTypeCommunityEventRejected))
+	assert.Equal(t, eventdomain.EventStatusRejected, payloadString(t, rejected[0].Payload, "status"))
+	assert.Empty(t, pendingOutboxByUserAndType(t, owner.Id, notificationdomain.OutboxTypeCommunityEventRejected))
 }
 
 func TestUpdateApproval_OutboxFailureRollsBackStatus(t *testing.T) {
@@ -327,18 +331,18 @@ func TestUpdateApproval_OutboxFailureRollsBackStatus(t *testing.T) {
 	owner, _, created := setupPendingCommunityEvent(t)
 
 	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("fail_approval_outbox_payload", func(tx *gorm.DB) {
-		if _, ok := tx.Statement.Dest.(*entity.OutboxEventEntity); ok {
+		if _, ok := tx.Statement.Dest.(*notificationentity.OutboxEventEntity); ok {
 			tx.Error = gorm.ErrInvalidData
 		}
 	}))
 
-	_, updateErr := eventRepository.UpdateApprovalStatus(created.Id, domain.EventStatusPending, domain.EventStatusApproved, owner.Id)
+	_, updateErr := eventRepository.UpdateApprovalStatus(created.Id, eventdomain.EventStatusPending, eventdomain.EventStatusApproved, owner.Id)
 	require.NotNil(t, updateErr)
 
 	stored, findErr := eventRepository.FindById(created.Id)
 	require.Nil(t, findErr)
-	assert.Equal(t, domain.EventStatusPending, stored.Status)
-	assert.Empty(t, pendingOutboxByUserAndType(t, created.Owner.Id, domain.OutboxTypeCommunityEventApproved))
+	assert.Equal(t, eventdomain.EventStatusPending, stored.Status)
+	assert.Empty(t, pendingOutboxByUserAndType(t, created.Owner.Id, notificationdomain.OutboxTypeCommunityEventApproved))
 }
 
 func TestMentoringInvite_Accept_OutboxFailureRollsBackStatus(t *testing.T) {
@@ -351,18 +355,18 @@ func TestMentoringInvite_Accept_OutboxFailureRollsBackStatus(t *testing.T) {
 		cleanUsersTable()
 	})
 	_, guest, event, slots := setupMentoringInvite(t)
-	_, joinErr := eventUserRepository.CreateOrUpdate(&domain.EventUserDomain{
-		EventId: event.Id, UserId: guest.Id, Role: domain.RoleMentee, Status: domain.StatusRequested,
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: guest.Id, Role: eventdomain.RoleMentee, Status: eventdomain.StatusRequested,
 	}, slots)
 	require.Nil(t, joinErr)
 
 	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("fail_invite_accept_outbox_payload", func(tx *gorm.DB) {
-		if _, ok := tx.Statement.Dest.(*entity.OutboxEventEntity); ok {
+		if _, ok := tx.Statement.Dest.(*notificationentity.OutboxEventEntity); ok {
 			tx.Error = gorm.ErrInvalidData
 		}
 	}))
 
-	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, domain.StatusConfirmed, slots)
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusConfirmed, slots)
 	require.NotNil(t, updateErr)
 
 	participants, findErr := eventUserRepository.FindByEvent(event.Id, "")
@@ -373,74 +377,74 @@ func TestMentoringInvite_Accept_OutboxFailureRollsBackStatus(t *testing.T) {
 			guestStatus = participant.Status
 		}
 	}
-	assert.Equal(t, domain.StatusRequested, guestStatus)
+	assert.Equal(t, eventdomain.StatusRequested, guestStatus)
 }
 
-func setupMentoringInvite(t *testing.T) (*domain.UserDomain, *domain.UserDomain, *domain.EventDomain, *int) {
+func setupMentoringInvite(t *testing.T) (*userdomain.UserDomain, *userdomain.UserDomain, *eventdomain.EventDomain, *int) {
 	t.Helper()
-	mentor, err := userRepository.CreateUser(&domain.UserDomain{
+	mentor, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "mentor", Email: "men_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	guest, err := userRepository.CreateUser(&domain.UserDomain{
+	guest, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "guest", Email: "gue_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
 	slots := 2
-	event, err := eventRepository.CreateEvent(&domain.EventDomain{
-		Category:    domain.CategoryMentoring,
-		Type:        domain.TypeOnline,
+	event, err := eventRepository.CreateEvent(&eventdomain.EventDomain{
+		Category:    eventdomain.CategoryMentoring,
+		Type:        eventdomain.TypeOnline,
 		Title:       "1:1",
 		Description: "d",
 		StartAt:     time.Now().Add(48 * time.Hour),
 		DurationMin: 60,
 		Owner:       *mentor,
 		MaxSlots:    &slots,
-		Status:      domain.EventStatusApproved,
+		Status:      eventdomain.EventStatusApproved,
 	})
 	require.Nil(t, err)
-	_, ownerErr := eventUserRepository.CreateOrUpdate(&domain.EventUserDomain{
-		EventId: event.Id, UserId: mentor.Id, Role: domain.RoleMentor, Status: domain.StatusConfirmed,
+	_, ownerErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: mentor.Id, Role: eventdomain.RoleMentor, Status: eventdomain.StatusConfirmed,
 	}, &slots)
 	require.Nil(t, ownerErr)
 	return mentor, guest, event, &slots
 }
 
-func setupPendingCommunityEvent(t *testing.T) (*domain.UserDomain, *domain.UserDomain, *domain.EventDomain) {
+func setupPendingCommunityEvent(t *testing.T) (*userdomain.UserDomain, *userdomain.UserDomain, *eventdomain.EventDomain) {
 	t.Helper()
-	owner, err := userRepository.CreateUser(&domain.UserDomain{
+	owner, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "owner", Email: "own_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	member, err := userRepository.CreateUser(&domain.UserDomain{
+	member, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "member", Email: "mem_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
 	address := createEventAddress(t, "cidade-approval-outbox")
 	community := createEventCommunity(t, "Comunidade approval "+uuidv7.New().String(), owner, address)
-	_, err = communityUserRepository.Create(&domain.CommunityUserDomain{CommunityId: community.Id, UserId: member.Id})
+	_, err = communityUserRepository.Create(&communitydomain.CommunityUserDomain{CommunityId: community.Id, UserId: member.Id})
 	require.Nil(t, err)
 
-	created, createErr := eventRepository.CreateEvent(&domain.EventDomain{
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+	created, createErr := eventRepository.CreateEvent(&eventdomain.EventDomain{
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "pendente",
 		Description: "d",
 		StartAt:     time.Now().Add(48 * time.Hour),
 		DurationMin: 60,
 		Owner:       *member,
 		Community:   community,
-		Status:      domain.EventStatusPending,
+		Status:      eventdomain.EventStatusPending,
 	})
 	require.Nil(t, createErr)
 	return owner, member, created
 }
 
-func pendingOutboxByUserAndType(t *testing.T, userId, typ string) []domain.OutboxEventDomain {
+func pendingOutboxByUserAndType(t *testing.T, userId, typ string) []notificationdomain.OutboxEventDomain {
 	t.Helper()
 	pending, err := outboxEventRepository.FindPending(50)
 	require.Nil(t, err)
-	matched := make([]domain.OutboxEventDomain, 0)
+	matched := make([]notificationdomain.OutboxEventDomain, 0)
 	for _, event := range pending {
 		if event.UserId == userId && event.Type == typ {
 			matched = append(matched, event)

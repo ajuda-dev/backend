@@ -1,11 +1,11 @@
-package controller
+package event
 
 import (
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
+	eventdto "github.com/ajuda-dev/backend/src/controller/event/dto"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
-	"github.com/ajuda-dev/backend/src/service"
+	"github.com/ajuda-dev/backend/src/service/event"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -19,10 +19,10 @@ type EventUserController interface {
 }
 
 type eventUserController struct {
-	eventUserService service.EventUserService
+	eventUserService event.EventUserService
 }
 
-func NewEventUserController(eventUserService service.EventUserService) EventUserController {
+func NewEventUserController(eventUserService event.EventUserService) EventUserController {
 	return &eventUserController{
 		eventUserService: eventUserService,
 	}
@@ -35,7 +35,7 @@ func NewEventUserController(eventUserService service.EventUserService) EventUser
 // @Accept       json
 // @Produce      json
 // @Param        eventId  path  string  true  "ID do evento"
-// @Success      201   {object}  dto.EventUserDto
+// @Success      201   {object}  eventdto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      403   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
@@ -59,7 +59,7 @@ func (e *eventUserController) JoinEvent() fiber.Handler {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusCreated).JSON(dto.EventUserDto{}.FromDomain(eventUser))
+		return cf.Status(fiber.StatusCreated).JSON(eventdto.EventUserDto{}.FromDomain(eventUser))
 	}
 }
 
@@ -70,8 +70,8 @@ func (e *eventUserController) JoinEvent() fiber.Handler {
 // @Accept       json
 // @Produce      json
 // @Param        eventId  path  string  true  "ID do evento"
-// @Param        body  body  dto.AddParticipantDto  true  "Dados do participante"
-// @Success      201   {object}  dto.EventUserDto
+// @Param        body  body  eventdto.AddParticipantDto  true  "Dados do participante"
+// @Success      201   {object}  eventdto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
 // @Failure      403   {object}  map[string]interface{}
@@ -86,7 +86,7 @@ func (e *eventUserController) AddParticipant() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "eventId", Message: "eventId must be a valid UUID v7"}}))
 		}
-		var addParticipantDto dto.AddParticipantDto
+		var addParticipantDto eventdto.AddParticipantDto
 		if err := cf.BodyParser(&addParticipantDto); err != nil {
 			logger.Error("erro body request", err)
 			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -102,7 +102,7 @@ func (e *eventUserController) AddParticipant() fiber.Handler {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusCreated).JSON(dto.EventUserDto{}.FromDomain(eventUser))
+		return cf.Status(fiber.StatusCreated).JSON(eventdto.EventUserDto{}.FromDomain(eventUser))
 	}
 }
 
@@ -114,7 +114,7 @@ func (e *eventUserController) AddParticipant() fiber.Handler {
 // @Produce      json
 // @Param        eventId  path  string  true  "ID do evento"
 // @Param        status   query  string  false  "Filtro por status (REQUESTED, CONFIRMED, REJECTED, CANCELLED)"
-// @Success      200   {array}   dto.EventParticipantDto
+// @Success      200   {array}   eventdto.EventParticipantDto
 // @Failure      404   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
@@ -136,7 +136,7 @@ func (e *eventUserController) GetParticipants() fiber.Handler {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusOK).JSON(dto.ToEventParticipantDtoList(participants))
+		return cf.Status(fiber.StatusOK).JSON(eventdto.ToEventParticipantDtoList(participants))
 	}
 }
 
@@ -148,8 +148,8 @@ func (e *eventUserController) GetParticipants() fiber.Handler {
 // @Produce      json
 // @Param        eventId  path  string  true  "ID do evento"
 // @Param        userId   path  string  true  "ID do usuário"
-// @Param        body  body  dto.UpdateParticipantStatusDto  true  "Novo status (CONFIRMED ou REJECTED)"
-// @Success      200   {object}  dto.EventUserDto
+// @Param        body  body  eventdto.UpdateParticipantStatusDto  true  "Novo status (CONFIRMED ou REJECTED)"
+// @Success      200   {object}  eventdto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
 // @Failure      403   {object}  map[string]interface{}
@@ -170,7 +170,7 @@ func (e *eventUserController) UpdateParticipantStatus() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "userId", Message: "userId must be a valid UUID v7"}}))
 		}
-		var updateStatusDto dto.UpdateParticipantStatusDto
+		var updateStatusDto eventdto.UpdateParticipantStatusDto
 		if err := cf.BodyParser(&updateStatusDto); err != nil {
 			logger.Error("erro body request", err)
 			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -186,7 +186,7 @@ func (e *eventUserController) UpdateParticipantStatus() fiber.Handler {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusOK).JSON(dto.EventUserDto{}.FromDomain(eventUser))
+		return cf.Status(fiber.StatusOK).JSON(eventdto.EventUserDto{}.FromDomain(eventUser))
 	}
 }
 
@@ -198,7 +198,7 @@ func (e *eventUserController) UpdateParticipantStatus() fiber.Handler {
 // @Produce      json
 // @Param        eventId  path  string  true  "ID do evento"
 // @Param        userId   path  string  true  "ID do usuário"
-// @Success      200   {object}  dto.EventUserDto
+// @Success      200   {object}  eventdto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
 // @Failure      403   {object}  map[string]interface{}
@@ -228,6 +228,6 @@ func (e *eventUserController) CancelParticipation() fiber.Handler {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusOK).JSON(dto.EventUserDto{}.FromDomain(eventUser))
+		return cf.Status(fiber.StatusOK).JSON(eventdto.EventUserDto{}.FromDomain(eventUser))
 	}
 }

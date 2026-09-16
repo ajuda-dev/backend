@@ -3,7 +3,10 @@ package entity
 import (
 	"time"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	addressentity "github.com/ajuda-dev/backend/src/data/address/entity"
+	communityentity "github.com/ajuda-dev/backend/src/data/community/entity"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
 	"gorm.io/gorm"
 )
 
@@ -25,16 +28,16 @@ type EventEntity struct {
 	MaxSlots    *int
 	Status      string `gorm:"type:varchar(20);not null;default:'PENDING';index"`
 
-	Community *CommunityEntity `gorm:"foreignKey:CommunityId;references:Id;constraint:OnDelete:RESTRICT"`
-	Address   *AddressEntity   `gorm:"foreignKey:AddressId;references:Id;constraint:OnDelete:SET NULL"`
-	Owner     UserEntity       `gorm:"foreignKey:OwnerId;references:Id;constraint:OnDelete:RESTRICT"`
+	Community *communityentity.CommunityEntity `gorm:"foreignKey:CommunityId;references:Id;constraint:OnDelete:RESTRICT"`
+	Address   *addressentity.AddressEntity     `gorm:"foreignKey:AddressId;references:Id;constraint:OnDelete:SET NULL"`
+	Owner     userentity.UserEntity            `gorm:"foreignKey:OwnerId;references:Id;constraint:OnDelete:RESTRICT"`
 }
 
 func (EventEntity) TableName() string {
 	return "events"
 }
 
-func (e *EventEntity) FromDomain(event domain.EventDomain) *EventEntity {
+func (e *EventEntity) FromDomain(event eventdomain.EventDomain) *EventEntity {
 	eventEntity := &EventEntity{
 		Id:          event.Id,
 		Category:    event.Category,
@@ -59,8 +62,8 @@ func (e *EventEntity) FromDomain(event domain.EventDomain) *EventEntity {
 	return eventEntity
 }
 
-func (e EventEntity) ToDomain() *domain.EventDomain {
-	event := &domain.EventDomain{
+func (e EventEntity) ToDomain() *eventdomain.EventDomain {
+	event := &eventdomain.EventDomain{
 		Id:          e.Id,
 		Category:    e.Category,
 		Type:        e.Type,
@@ -82,8 +85,8 @@ func (e EventEntity) ToDomain() *domain.EventDomain {
 	return event
 }
 
-func ToEventDomainList(entities []EventEntity) []*domain.EventDomain {
-	var domains []*domain.EventDomain
+func ToEventDomainList(entities []EventEntity) []*eventdomain.EventDomain {
+	var domains []*eventdomain.EventDomain
 	for _, e := range entities {
 		domains = append(domains, e.ToDomain())
 	}

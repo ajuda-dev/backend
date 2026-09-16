@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -20,9 +22,9 @@ func cleanupMembershipTest() {
 	cleanAddressesTable()
 }
 
-func createCommunityUserForTest(t *testing.T, email string) *domain.UserDomain {
+func createCommunityUserForTest(t *testing.T, email string) *userdomain.UserDomain {
 	t.Helper()
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "membro",
 		Email:    email,
 		Password: "123456",
@@ -33,9 +35,9 @@ func createCommunityUserForTest(t *testing.T, email string) *domain.UserDomain {
 	return user
 }
 
-func createNamedCommunityUserForTest(t *testing.T, name string, email string) *domain.UserDomain {
+func createNamedCommunityUserForTest(t *testing.T, name string, email string) *userdomain.UserDomain {
 	t.Helper()
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     name,
 		Email:    email,
 		Password: "123456",
@@ -48,7 +50,7 @@ func createNamedCommunityUserForTest(t *testing.T, name string, email string) *d
 
 func createCommunityOwnedByForTest(t *testing.T, name string, ownerEmail string) string {
 	t.Helper()
-	owner, createErr := userRepository.CreateUser(&domain.UserDomain{
+	owner, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "dono",
 		Email:    ownerEmail,
 		Password: "123456",
@@ -56,7 +58,7 @@ func createCommunityOwnedByForTest(t *testing.T, name string, ownerEmail string)
 	if createErr != nil {
 		t.Fatalf("failed to create owner user: %v", createErr)
 	}
-	address, aErr := addressRepository.CreateAddress(&domain.AddressDomain{
+	address, aErr := addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    "test_city",
 		State:   "test_state",
 		Street:  "test_street",
@@ -65,7 +67,7 @@ func createCommunityOwnedByForTest(t *testing.T, name string, ownerEmail string)
 	if aErr != nil {
 		t.Fatalf("failed to create address: %v", aErr)
 	}
-	community, cErr := communityRepository.CreateCommunity(&domain.CommunityDomain{
+	community, cErr := communityRepository.CreateCommunity(&communitydomain.CommunityDomain{
 		Name:        name,
 		Description: "comunidade de teste",
 		Owner:       *owner,
@@ -85,7 +87,7 @@ func newLeaveCommunityRequest(communityId string) *http.Request {
 	return httptest.NewRequest(http.MethodDelete, "/v1/community/"+communityId+"/leave", nil)
 }
 
-func joinCommunityViaApi(t *testing.T, app *fiber.App, communityId string, token string) dto.CommunityUserDto {
+func joinCommunityViaApi(t *testing.T, app *fiber.App, communityId string, token string) communitydto.CommunityUserDto {
 	t.Helper()
 	resp, err := doAuthedRequest(app, newJoinCommunityRequest(communityId), token)
 	if err != nil {
@@ -97,7 +99,7 @@ func joinCommunityViaApi(t *testing.T, app *fiber.App, communityId string, token
 		json.NewDecoder(resp.Body).Decode(&respBody)
 		t.Fatalf("esperava 201 ao entrar na comunidade, recebeu %d (body: %+v)", resp.StatusCode, respBody)
 	}
-	var respDto dto.CommunityUserDto
+	var respDto communitydto.CommunityUserDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}

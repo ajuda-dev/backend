@@ -1,17 +1,19 @@
-package service
+package identity
 
-import "github.com/ajuda-dev/backend/src/service/domain"
+import (
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+)
 
-func applyVisibilityFilter(target *domain.UserDomain, requester *domain.UserDomain) {
+func ApplyVisibilityFilter(target *userdomain.UserDomain, requester *userdomain.UserDomain) {
 	if target == nil || requester == nil {
 		return
 	}
 	target.Password = ""
-	if target.Id == requester.Id || requester.Role == domain.UserRoleAdmin {
+	if target.Id == requester.Id || requester.Role == userdomain.UserRoleAdmin {
 		return
 	}
 	visible := target.ConfigVisibility.VisibleToOthers()
-	if _, shared := visible[domain.VisibilityKeyEmail]; !shared {
+	if _, shared := visible[userdomain.VisibilityKeyEmail]; !shared {
 		target.Email = ""
 	}
 	target.ConfigVisibility = visible

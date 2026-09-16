@@ -1,39 +1,42 @@
-package service
+package event
 
 import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
-	"github.com/ajuda-dev/backend/src/service/validator"
+	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
+	eventrepo "github.com/ajuda-dev/backend/src/data/event/repository"
+	"github.com/ajuda-dev/backend/src/service/address"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	eventvalidator "github.com/ajuda-dev/backend/src/service/event/validator"
+	"github.com/ajuda-dev/backend/src/service/identity"
 )
 
 type EventService interface {
-	CreateEvent(event *domain.EventDomain) (*domain.EventDomain, *rest_err.RestErr)
-	GetEventById(id string) (*domain.EventDomain, *rest_err.RestErr)
-	GetEventDetail(id string, requesterId string) (*domain.EventDomain, *rest_err.RestErr)
-	GetAll(filter repository.EventFilter, page int, limit int, requesterId string) (*domain.PageableEvent, *rest_err.RestErr)
+	CreateEvent(event *eventdomain.EventDomain) (*eventdomain.EventDomain, *rest_err.RestErr)
+	GetEventById(id string) (*eventdomain.EventDomain, *rest_err.RestErr)
+	GetEventDetail(id string, requesterId string) (*eventdomain.EventDomain, *rest_err.RestErr)
+	GetAll(filter eventrepo.EventFilter, page int, limit int, requesterId string) (*eventdomain.PageableEvent, *rest_err.RestErr)
 	DeleteEventById(id string, requesterId string) *rest_err.RestErr
-	UpdateApproval(id string, requesterId string, status string) (*domain.EventDomain, *rest_err.RestErr)
+	UpdateApproval(id string, requesterId string, status string) (*eventdomain.EventDomain, *rest_err.RestErr)
 }
 
 type eventService struct {
-	eventRepository         repository.EventRepository
-	eventUserRepository     repository.EventUserRepository
-	eventValidator          validator.EventValidator
-	userService             UserService
-	addressService          AddressService
-	communityRepository     repository.CommunityRepository
-	communityUserRepository repository.CommunityUserRepository
+	eventRepository         eventrepo.EventRepository
+	eventUserRepository     eventrepo.EventUserRepository
+	eventValidator          eventvalidator.EventValidator
+	userService             identity.UserService
+	addressService          address.AddressService
+	communityRepository     communityrepo.CommunityRepository
+	communityUserRepository communityrepo.CommunityUserRepository
 }
 
 func NewEventService(
-	userService UserService,
-	addressService AddressService,
-	communityRepository repository.CommunityRepository,
-	eventRepository repository.EventRepository,
-	eventUserRepository repository.EventUserRepository,
-	communityUserRepository repository.CommunityUserRepository,
-	eventValidator validator.EventValidator) EventService {
+	userService identity.UserService,
+	addressService address.AddressService,
+	communityRepository communityrepo.CommunityRepository,
+	eventRepository eventrepo.EventRepository,
+	eventUserRepository eventrepo.EventUserRepository,
+	communityUserRepository communityrepo.CommunityUserRepository,
+	eventValidator eventvalidator.EventValidator) EventService {
 	return &eventService{
 		userService:             userService,
 		addressService:          addressService,
@@ -45,33 +48,33 @@ func NewEventService(
 	}
 }
 
-func (e *eventService) CreateEvent(event *domain.EventDomain) (*domain.EventDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(e.userService, event.Owner.Id)
+func (e *eventService) CreateEvent(event *eventdomain.EventDomain) (*eventdomain.EventDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(e.userService, event.Owner.Id)
 	if err != nil {
-		return &domain.EventDomain{}, err
+		return &eventdomain.EventDomain{}, err
 	}
-	if err := requireVerifiedEmail(requester); err != nil {
-		return &domain.EventDomain{}, err
+	if err := identity.RequireVerifiedEmail(requester); err != nil {
+		return &eventdomain.EventDomain{}, err
 	}
 	event.Owner = *requester
-	event.Status = domain.EventStatusApproved
-	if event.Category == domain.CategoryMentoring {
+	event.Status = eventdomain.EventStatusApproved
+	if event.Category == eventdomain.CategoryMentoring {
 		maxSlots := 2
 		event.MaxSlots = &maxSlots
 		if event.CreatorRole == "" {
-			event.CreatorRole = domain.RoleMentor
+			event.CreatorRole = eventdomain.RoleMentor
 		}
 	}
 
 	if err := e.eventValidator.ValidatorRegisterEvent(*event); err != nil {
-		return &domain.EventDomain{}, err
+		return &eventdomain.EventDomain{}, err
 	}
 
 	if event.Address != nil {
 		address, err_a := e.addressService.GetAddressById(event.Address.Id)
 		if err_a != nil {
 			if err_a.Code == rest_err.NOT_FOUND {
-				return &domain.EventDomain{},
+				return &eventdomain.EventDomain{},
 					rest_err.NewBadRequestValidationError("Invalid event data", []rest_err.Causes{
 						{
 							Field:   "address_id",
@@ -79,7 +82,7 @@ func (e *eventService) CreateEvent(event *domain.EventDomain) (*domain.EventDoma
 						},
 					})
 			}
-			return &domain.EventDomain{}, err_a
+			return &eventdomain.EventDomain{}, err_a
 		}
 		event.Address = address
 	}
@@ -88,7 +91,7 @@ func (e *eventService) CreateEvent(event *domain.EventDomain) (*domain.EventDoma
 		community, err_c := e.communityRepository.FindById(event.Community.Id)
 		if err_c != nil {
 			if err_c.Code == rest_err.NOT_FOUND {
-				return &domain.EventDomain{},
+				return &eventdomain.EventDomain{},
 					rest_err.NewBadRequestValidationError("Invalid event data", []rest_err.Causes{
 						{
 							Field:   "community_id",
@@ -96,46 +99,46 @@ func (e *eventService) CreateEvent(event *domain.EventDomain) (*domain.EventDoma
 						},
 					})
 			}
-			return &domain.EventDomain{}, err_c
+			return &eventdomain.EventDomain{}, err_c
 		}
 		event.Community = community
 		if community.Owner.Id != requester.Id {
 			member, memberErr := e.communityUserRepository.ExistsByCommunityAndUser(community.Id, requester.Id)
 			if memberErr != nil {
-				return &domain.EventDomain{}, memberErr
+				return &eventdomain.EventDomain{}, memberErr
 			}
 			if !member && !isStaff(requester) {
-				return &domain.EventDomain{}, rest_err.NewForbiddenError("only community members can create events for this community")
+				return &eventdomain.EventDomain{}, rest_err.NewForbiddenError("only community members can create events for this community")
 			}
-			event.Status = domain.EventStatusPending
+			event.Status = eventdomain.EventStatusPending
 		}
 	}
 
 	createdEvent, createErr := e.eventRepository.CreateEvent(event)
 	if createErr != nil {
-		return &domain.EventDomain{}, createErr
+		return &eventdomain.EventDomain{}, createErr
 	}
 
-	if event.Category == domain.CategoryMentoring {
-		if _, mentorErr := e.eventUserRepository.CreateOrUpdate(&domain.EventUserDomain{
+	if event.Category == eventdomain.CategoryMentoring {
+		if _, mentorErr := e.eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
 			EventId: createdEvent.Id,
 			UserId:  createdEvent.Owner.Id,
 			Role:    event.CreatorRole,
-			Status:  domain.StatusConfirmed,
+			Status:  eventdomain.StatusConfirmed,
 		}, createdEvent.MaxSlots); mentorErr != nil {
-			return &domain.EventDomain{}, mentorErr
+			return &eventdomain.EventDomain{}, mentorErr
 		}
 	}
 
 	return createdEvent, nil
 }
 
-func (e *eventService) GetEventById(id string) (*domain.EventDomain, *rest_err.RestErr) {
+func (e *eventService) GetEventById(id string) (*eventdomain.EventDomain, *rest_err.RestErr) {
 	return e.eventRepository.FindById(id)
 }
 
-func (e *eventService) GetEventDetail(id string, requesterId string) (*domain.EventDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(e.userService, requesterId)
+func (e *eventService) GetEventDetail(id string, requesterId string) (*eventdomain.EventDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -146,15 +149,15 @@ func (e *eventService) GetEventDetail(id string, requesterId string) (*domain.Ev
 	if !isEventVisible(requester, event) {
 		return nil, rest_err.NewNotFoundError("event not found")
 	}
-	applyVisibilityFilter(&event.Owner, requester)
+	identity.ApplyVisibilityFilter(&event.Owner, requester)
 	if event.Community != nil {
-		applyVisibilityFilter(&event.Community.Owner, requester)
+		identity.ApplyVisibilityFilter(&event.Community.Owner, requester)
 	}
 	return event, nil
 }
 
-func (e *eventService) GetAll(filter repository.EventFilter, page int, limit int, requesterId string) (*domain.PageableEvent, *rest_err.RestErr) {
-	requester, err := authenticatedUser(e.userService, requesterId)
+func (e *eventService) GetAll(filter eventrepo.EventFilter, page int, limit int, requesterId string) (*eventdomain.PageableEvent, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -172,16 +175,16 @@ func (e *eventService) GetAll(filter repository.EventFilter, page int, limit int
 		return nil, err
 	}
 	for _, event := range pageable.Data {
-		applyVisibilityFilter(&event.Owner, requester)
+		identity.ApplyVisibilityFilter(&event.Owner, requester)
 		if event.Community != nil {
-			applyVisibilityFilter(&event.Community.Owner, requester)
+			identity.ApplyVisibilityFilter(&event.Community.Owner, requester)
 		}
 	}
 	return pageable, nil
 }
 
 func (e *eventService) DeleteEventById(id string, requesterId string) *rest_err.RestErr {
-	requester, err := authenticatedUser(e.userService, requesterId)
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return err
 	}
@@ -197,16 +200,16 @@ func (e *eventService) DeleteEventById(id string, requesterId string) *rest_err.
 
 func isValidEventStatusTransition(current string, target string) bool {
 	switch current {
-	case domain.EventStatusPending:
-		return target == domain.EventStatusApproved || target == domain.EventStatusRejected
-	case domain.EventStatusRejected:
-		return target == domain.EventStatusApproved
+	case eventdomain.EventStatusPending:
+		return target == eventdomain.EventStatusApproved || target == eventdomain.EventStatusRejected
+	case eventdomain.EventStatusRejected:
+		return target == eventdomain.EventStatusApproved
 	}
 	return false
 }
 
-func (e *eventService) UpdateApproval(id string, requesterId string, status string) (*domain.EventDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(e.userService, requesterId)
+func (e *eventService) UpdateApproval(id string, requesterId string, status string) (*eventdomain.EventDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}

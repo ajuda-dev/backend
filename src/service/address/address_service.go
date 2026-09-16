@@ -1,27 +1,27 @@
-package service
+package address
 
 import (
 	client "github.com/ajuda-dev/backend/src/client/viacep"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
-	"github.com/ajuda-dev/backend/src/service/validator"
+	addressrepo "github.com/ajuda-dev/backend/src/data/address/repository"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	addressvalidator "github.com/ajuda-dev/backend/src/service/address/validator"
 )
 
 type AddressService interface {
-	CreateAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
-	GetAddressById(id string) (*domain.AddressDomain, *rest_err.RestErr)
-	SearchAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
-	GetAll(filter repository.AddressFilter, page int, limit int) (*domain.PageableAddress, *rest_err.RestErr)
+	CreateAddress(address *addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr)
+	GetAddressById(id string) (*addressdomain.AddressDomain, *rest_err.RestErr)
+	SearchAddress(address *addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr)
+	GetAll(filter addressrepo.AddressFilter, page int, limit int) (*addressdomain.PageableAddress, *rest_err.RestErr)
 }
 
 type addressService struct {
-	addressRepository   repository.AddressRepository
-	addressValidator    validator.AddressValidator
+	addressRepository   addressrepo.AddressRepository
+	addressValidator    addressvalidator.AddressValidator
 	addressSearchClient client.AddressSearchClient
 }
 
-func (a *addressService) CreateAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr) {
+func (a *addressService) CreateAddress(address *addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr) {
 	search, err := a.SearchAddress(address)
 	if err != nil && err.Code != rest_err.NOT_FOUND {
 		return nil, err
@@ -60,11 +60,11 @@ func (a *addressService) duplicatedAddressError() *rest_err.RestErr {
 		})
 }
 
-func (a *addressService) GetAddressById(id string) (*domain.AddressDomain, *rest_err.RestErr) {
+func (a *addressService) GetAddressById(id string) (*addressdomain.AddressDomain, *rest_err.RestErr) {
 	return a.addressRepository.GetAddressById(id)
 }
 
-func (a *addressService) SearchAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr) {
+func (a *addressService) SearchAddress(address *addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr) {
 	err := a.addressValidator.ValidatorSearchAddress(*address)
 	if err != nil {
 		return nil, err
@@ -72,13 +72,13 @@ func (a *addressService) SearchAddress(address *domain.AddressDomain) (*domain.A
 	return a.addressRepository.SearchAddress(address)
 }
 
-func (a *addressService) GetAll(filter repository.AddressFilter, page int, limit int) (*domain.PageableAddress, *rest_err.RestErr) {
+func (a *addressService) GetAll(filter addressrepo.AddressFilter, page int, limit int) (*addressdomain.PageableAddress, *rest_err.RestErr) {
 	return a.addressRepository.FindAll(filter, page, limit)
 }
 
 func NewAddressService(
-	addressRepository repository.AddressRepository,
-	validatorAddress validator.AddressValidator,
+	addressRepository addressrepo.AddressRepository,
+	validatorAddress addressvalidator.AddressValidator,
 	addressSearchClient client.AddressSearchClient,
 ) AddressService {
 	return &addressService{

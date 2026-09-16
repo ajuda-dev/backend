@@ -3,15 +3,17 @@ package controller_test
 import (
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communityentity "github.com/ajuda-dev/backend/src/data/community/entity"
+	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 )
 
 func createCommunityForTest(t *testing.T, name string) string {
 	t.Helper()
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "teste",
 		Email:    testEmail,
 		Password: "123456",
@@ -20,7 +22,7 @@ func createCommunityForTest(t *testing.T, name string) string {
 		t.Fatalf("failed to create user: %v", createErr)
 	}
 
-	address, aErr := addressRepository.CreateAddress(&domain.AddressDomain{
+	address, aErr := addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    "test_city",
 		State:   "test_state",
 		Street:  "test_street",
@@ -30,7 +32,7 @@ func createCommunityForTest(t *testing.T, name string) string {
 		t.Fatalf("failed to create address: %v", aErr)
 	}
 
-	community, cErr := communityRepository.CreateCommunity(&domain.CommunityDomain{
+	community, cErr := communityRepository.CreateCommunity(&communitydomain.CommunityDomain{
 		Name:        name,
 		Description: "comunidade de teste",
 		Owner:       *user,
@@ -53,7 +55,7 @@ func TestSoftDeleteCommunityRemovesFromListing(t *testing.T) {
 		t.Fatalf("failed to soft delete community: %v", delErr)
 	}
 
-	page, findErr := communityRepository.FindAll(repository.CommunityFilter{}, 1, 10)
+	page, findErr := communityRepository.FindAll(communityrepo.CommunityFilter{}, 1, 10)
 	if findErr != nil {
 		t.Fatalf("failed to list communities: %v", findErr)
 	}
@@ -79,7 +81,7 @@ func TestSoftDeletedCommunityAllowsNameReuse(t *testing.T) {
 	}
 
 	app := setupApp()
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "teste",
 		Email:    testEmail,
 		Password: "123456",
@@ -87,7 +89,7 @@ func TestSoftDeletedCommunityAllowsNameReuse(t *testing.T) {
 	if createErr != nil {
 		t.Fatalf("failed to create user: %v", createErr)
 	}
-	address, aErr := addressRepository.CreateAddress(&domain.AddressDomain{
+	address, aErr := addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    "test_city",
 		State:   "test_state",
 		Street:  "test_street",
@@ -126,7 +128,7 @@ func TestRestoreCommunity(t *testing.T) {
 		t.Fatalf("failed to soft delete community: %v", delErr)
 	}
 
-	if err := db.Unscoped().Model(&entity.CommunityEntity{}).Where("id = ?", id).Update("deleted_at", nil).Error; err != nil {
+	if err := db.Unscoped().Model(&communityentity.CommunityEntity{}).Where("id = ?", id).Update("deleted_at", nil).Error; err != nil {
 		t.Fatalf("failed to restore community: %v", err)
 	}
 

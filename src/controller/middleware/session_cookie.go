@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ajuda-dev/backend/src/service"
+	"github.com/ajuda-dev/backend/src/service/identity"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -17,7 +17,7 @@ const (
 )
 
 func SetSessionCookie(c *fiber.Ctx, token string) {
-	c.Cookie(sessionCookie(token, int(service.JWTExpiration().Seconds())))
+	c.Cookie(sessionCookie(token, int(identity.JWTExpiration().Seconds())))
 }
 
 func ClearSessionCookie(c *fiber.Ctx) {

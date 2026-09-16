@@ -8,15 +8,16 @@ import (
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
 
-func createUserForSkillSearch(t *testing.T, name string, email string) *domain.UserDomain {
+func createUserForSkillSearch(t *testing.T, name string, email string) *userdomain.UserDomain {
 	t.Helper()
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     name,
 		Email:    email,
 		Password: "123456",
@@ -27,7 +28,7 @@ func createUserForSkillSearch(t *testing.T, name string, email string) *domain.U
 	return user
 }
 
-func searchUsersQuery(t *testing.T, app *fiber.App, query string) dto.PageableUserDto {
+func searchUsersQuery(t *testing.T, app *fiber.App, query string) userdto.PageableUserDto {
 	t.Helper()
 	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/user"+query, nil), validTokenFor(t, uuidv7.New().String()))
 	if err != nil {
@@ -37,14 +38,14 @@ func searchUsersQuery(t *testing.T, app *fiber.App, query string) dto.PageableUs
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 na busca de usuários, recebeu %d", resp.StatusCode)
 	}
-	var page dto.PageableUserDto
+	var page userdto.PageableUserDto
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	return page
 }
 
-func userSearchIds(page dto.PageableUserDto) []string {
+func userSearchIds(page userdto.PageableUserDto) []string {
 	ids := make([]string, len(page.Data))
 	for i, u := range page.Data {
 		ids[i] = u.Id
@@ -63,9 +64,9 @@ func TestGetUsersBySkillReturnsMatchingUsersWithProfile(t *testing.T) {
 	java := createSkillForTest(t, "JAVA")
 	goSkill := createSkillForTest(t, "GO")
 	spring := createSkillForTest(t, "SPRING")
-	assignSkillViaApi(t, app, java.Id, lucas.Id, domain.LevelTeach)
-	assignSkillViaApi(t, app, goSkill.Id, lucas.Id, domain.LevelLearnAndTeach)
-	assignSkillViaApi(t, app, spring.Id, maria.Id, domain.LevelWantToLearn)
+	assignSkillViaApi(t, app, java.Id, lucas.Id, skilldomain.LevelTeach)
+	assignSkillViaApi(t, app, goSkill.Id, lucas.Id, skilldomain.LevelLearnAndTeach)
+	assignSkillViaApi(t, app, spring.Id, maria.Id, skilldomain.LevelWantToLearn)
 
 	page := searchUsersQuery(t, app, "?skill=JAVA")
 	if page.HasNext {
@@ -99,8 +100,8 @@ func TestGetUsersBySkillNormalizesCase(t *testing.T) {
 	lucas := createUserForSkillSearch(t, "lucas.darocha", "lucas@ajuda.dev")
 	maria := createUserForSkillSearch(t, "maria", "maria@ajuda.dev")
 	java := createSkillForTest(t, "JAVA")
-	assignSkillViaApi(t, app, java.Id, lucas.Id, domain.LevelTeach)
-	assignSkillViaApi(t, app, java.Id, maria.Id, domain.LevelWantToLearn)
+	assignSkillViaApi(t, app, java.Id, lucas.Id, skilldomain.LevelTeach)
+	assignSkillViaApi(t, app, java.Id, maria.Id, skilldomain.LevelWantToLearn)
 
 	for _, query := range []string{
 		"?skill=JAVA",
@@ -126,7 +127,7 @@ func TestGetUsersBySkillNonexistentSkillReturnsEmpty(t *testing.T) {
 	app := setupApp()
 	lucas := createUserForSkillSearch(t, "lucas", "lucas@ajuda.dev")
 	java := createSkillForTest(t, "JAVA")
-	assignSkillViaApi(t, app, java.Id, lucas.Id, domain.LevelTeach)
+	assignSkillViaApi(t, app, java.Id, lucas.Id, skilldomain.LevelTeach)
 
 	page := searchUsersQuery(t, app, "?skill=RUST")
 	if len(page.Data) != 0 {
@@ -174,8 +175,8 @@ func TestGetUsersBySkillExactMatch(t *testing.T) {
 	maria := createUserForSkillSearch(t, "maria", "maria@ajuda.dev")
 	java := createSkillForTest(t, "JAVA")
 	javaScript := createSkillForTest(t, "JAVASCRIPT")
-	assignSkillViaApi(t, app, java.Id, lucas.Id, domain.LevelTeach)
-	assignSkillViaApi(t, app, javaScript.Id, maria.Id, domain.LevelWantToLearn)
+	assignSkillViaApi(t, app, java.Id, lucas.Id, skilldomain.LevelTeach)
+	assignSkillViaApi(t, app, javaScript.Id, maria.Id, skilldomain.LevelWantToLearn)
 
 	page := searchUsersQuery(t, app, "?skill=JAVA")
 	ids := userSearchIds(page)
@@ -198,8 +199,8 @@ func TestGetUsersBySkillAfterSkillSoftDelete(t *testing.T) {
 	app := setupApp()
 	lucas := createUserForSkillSearch(t, "lucas", "lucas@ajuda.dev")
 	java := createSkillForTest(t, "JAVA")
-	assignSkillViaApi(t, app, java.Id, lucas.Id, domain.LevelTeach)
-	moderator := createUserWithRole(t, "user_skill_search_mod@ajuda.dev", domain.UserRoleModerator)
+	assignSkillViaApi(t, app, java.Id, lucas.Id, skilldomain.LevelTeach)
+	moderator := createUserWithRole(t, "user_skill_search_mod@ajuda.dev", userdomain.UserRoleModerator)
 
 	resp, err := doAuthedRequest(app, httptest.NewRequest("DELETE", "/v1/skill/"+java.Id, nil), validTokenFor(t, moderator.Id))
 	if err != nil {
@@ -232,13 +233,13 @@ func TestGetUsersBySkillPagination(t *testing.T) {
 	java := createSkillForTest(t, "JAVA")
 	goSkill := createSkillForTest(t, "GO")
 	spring := createSkillForTest(t, "SPRING")
-	assignSkillViaApi(t, app, java.Id, alpha.Id, domain.LevelTeach)
-	assignSkillViaApi(t, app, java.Id, bravo.Id, domain.LevelLearnAndTeach)
-	assignSkillViaApi(t, app, java.Id, charlie.Id, domain.LevelWantToLearn)
-	assignSkillViaApi(t, app, goSkill.Id, alpha.Id, domain.LevelLearnAndTeach)
-	assignSkillViaApi(t, app, spring.Id, bravo.Id, domain.LevelTeach)
+	assignSkillViaApi(t, app, java.Id, alpha.Id, skilldomain.LevelTeach)
+	assignSkillViaApi(t, app, java.Id, bravo.Id, skilldomain.LevelLearnAndTeach)
+	assignSkillViaApi(t, app, java.Id, charlie.Id, skilldomain.LevelWantToLearn)
+	assignSkillViaApi(t, app, goSkill.Id, alpha.Id, skilldomain.LevelLearnAndTeach)
+	assignSkillViaApi(t, app, spring.Id, bravo.Id, skilldomain.LevelTeach)
 
-	skillNames := func(page dto.PageableUserDto, index int) []string {
+	skillNames := func(page userdto.PageableUserDto, index int) []string {
 		names := make([]string, len(page.Data[index].Skills))
 		for i, s := range page.Data[index].Skills {
 			names[i] = s.Name

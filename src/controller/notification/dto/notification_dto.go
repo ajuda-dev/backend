@@ -3,7 +3,7 @@ package dto
 import (
 	"encoding/json"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 )
 
 type PageableNotificationDto struct {
@@ -19,7 +19,7 @@ type NotificationDtoOut struct {
 	ReadAt    *string         `json:"read_at"`
 }
 
-func (p PageableNotificationDto) FromDomain(page domain.PageableOutboxEvent) *PageableNotificationDto {
+func (p PageableNotificationDto) FromDomain(page notificationdomain.PageableOutboxEvent) *PageableNotificationDto {
 	data := make([]NotificationDtoOut, len(page.Data))
 	for i, item := range page.Data {
 		data[i] = NotificationDtoOut{}.FromDomain(item)
@@ -27,7 +27,7 @@ func (p PageableNotificationDto) FromDomain(page domain.PageableOutboxEvent) *Pa
 	return &PageableNotificationDto{HasNext: page.HasNext, Data: data}
 }
 
-func (n NotificationDtoOut) FromDomain(event domain.OutboxEventDomain) NotificationDtoOut {
+func (n NotificationDtoOut) FromDomain(event notificationdomain.OutboxEventDomain) NotificationDtoOut {
 	payload := event.Payload
 	if len(payload) == 0 {
 		payload = json.RawMessage("null")

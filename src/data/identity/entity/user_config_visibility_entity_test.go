@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 func TestUserConfigVisibilityScanDropsUnknownKeys(t *testing.T) {
@@ -37,14 +37,14 @@ func TestUserConfigVisibilityScanDropsUnknownKeys(t *testing.T) {
 }
 
 func TestUserConfigVisibilityFromDomainDropsUnknownKeys(t *testing.T) {
-	config := UserConfigVisibilityFromDomain(domain.ConfigVisibility{
-		domain.VisibilityKeyGithub:    {Value: "https://github.com/lucas", ShareWithCommunity: true},
-		domain.VisibilityKeyLinkedin:  {Value: "https://www.linkedin.com/in/devrocha/"},
-		domain.VisibilityKeyOtherlink: {Value: "https://linktr.ee/devrocha"},
-		domain.VisibilityKeyPhoto:     {Value: "https://avatars.githubusercontent.com/u/33586465"},
-		domain.VisibilityKeyEmail:     {Value: "lucas@ajuda.dev"},
-		domain.VisibilityKeyPhone:     {Value: "+55 (11) 99999-9999"},
-		"twitter":                     {Value: "https://x.com/lucas"},
+	config := UserConfigVisibilityFromDomain(userdomain.ConfigVisibility{
+		userdomain.VisibilityKeyGithub:    {Value: "https://github.com/lucas", ShareWithCommunity: true},
+		userdomain.VisibilityKeyLinkedin:  {Value: "https://www.linkedin.com/in/devrocha/"},
+		userdomain.VisibilityKeyOtherlink: {Value: "https://linktr.ee/devrocha"},
+		userdomain.VisibilityKeyPhoto:     {Value: "https://avatars.githubusercontent.com/u/33586465"},
+		userdomain.VisibilityKeyEmail:     {Value: "lucas@ajuda.dev"},
+		userdomain.VisibilityKeyPhone:     {Value: "+55 (11) 99999-9999"},
+		"twitter":                         {Value: "https://x.com/lucas"},
 	})
 
 	raw, err := config.Value()
@@ -64,8 +64,8 @@ func TestUserConfigVisibilityFromDomainDropsUnknownKeys(t *testing.T) {
 		t.Errorf("esperava a chave desconhecida descartada na escrita, recebeu %s", serialized)
 	}
 	for _, key := range []string{
-		domain.VisibilityKeyGithub, domain.VisibilityKeyLinkedin, domain.VisibilityKeyOtherlink,
-		domain.VisibilityKeyPhoto, domain.VisibilityKeyEmail, domain.VisibilityKeyPhone,
+		userdomain.VisibilityKeyGithub, userdomain.VisibilityKeyLinkedin, userdomain.VisibilityKeyOtherlink,
+		userdomain.VisibilityKeyPhoto, userdomain.VisibilityKeyEmail, userdomain.VisibilityKeyPhone,
 	} {
 		if _, exists := persisted[key]; !exists {
 			t.Errorf("esperava a chave '%s' gravada, recebeu %s", key, serialized)
@@ -88,7 +88,7 @@ func TestUserConfigVisibilityValueNilWhenEmpty(t *testing.T) {
 }
 
 func TestUserConfigVisibilityScanNullKeepsEmpty(t *testing.T) {
-	config := UserConfigVisibility{Github: &domain.VisibilityConfig{Value: "https://github.com/lucas"}}
+	config := UserConfigVisibility{Github: &userdomain.VisibilityConfig{Value: "https://github.com/lucas"}}
 	if err := config.Scan(nil); err != nil {
 		t.Fatalf("erro ao ler NULL: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestUserConfigVisibilityRoundTrip(t *testing.T) {
 		t.Fatalf("erro ao ler o jsonb: %v", err)
 	}
 
-	persisted, ok := config.ToDomain()[domain.VisibilityKeyPhoto]
+	persisted, ok := config.ToDomain()[userdomain.VisibilityKeyPhoto]
 	if !ok {
 		t.Fatalf("esperava a chave photo no domínio, recebeu %+v", config.ToDomain())
 	}

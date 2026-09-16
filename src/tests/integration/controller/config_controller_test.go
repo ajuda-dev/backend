@@ -12,14 +12,39 @@ import (
 	"github.com/ajuda-dev/backend/src/client/oauth"
 	client "github.com/ajuda-dev/backend/src/client/viacep"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller"
+	addressctrl "github.com/ajuda-dev/backend/src/controller/address"
+	communityctrl "github.com/ajuda-dev/backend/src/controller/community"
+	eventctrl "github.com/ajuda-dev/backend/src/controller/event"
+	identityctrl "github.com/ajuda-dev/backend/src/controller/identity"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
+	notificationctrl "github.com/ajuda-dev/backend/src/controller/notification"
 	"github.com/ajuda-dev/backend/src/controller/routes"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service"
-	"github.com/ajuda-dev/backend/src/service/domain"
-	"github.com/ajuda-dev/backend/src/service/validator"
+	skillctrl "github.com/ajuda-dev/backend/src/controller/skill"
+	addressentity "github.com/ajuda-dev/backend/src/data/address/entity"
+	addressrepo "github.com/ajuda-dev/backend/src/data/address/repository"
+	communityentity "github.com/ajuda-dev/backend/src/data/community/entity"
+	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
+	evententity "github.com/ajuda-dev/backend/src/data/event/entity"
+	eventrepo "github.com/ajuda-dev/backend/src/data/event/repository"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	userrepo "github.com/ajuda-dev/backend/src/data/identity/repository"
+	notificationentity "github.com/ajuda-dev/backend/src/data/notification/entity"
+	notificationrepo "github.com/ajuda-dev/backend/src/data/notification/repository"
+	skillentity "github.com/ajuda-dev/backend/src/data/skill/entity"
+	skillrepo "github.com/ajuda-dev/backend/src/data/skill/repository"
+	"github.com/ajuda-dev/backend/src/service/address"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	addressvalidator "github.com/ajuda-dev/backend/src/service/address/validator"
+	"github.com/ajuda-dev/backend/src/service/community"
+	communityvalidator "github.com/ajuda-dev/backend/src/service/community/validator"
+	"github.com/ajuda-dev/backend/src/service/event"
+	eventvalidator "github.com/ajuda-dev/backend/src/service/event/validator"
+	"github.com/ajuda-dev/backend/src/service/identity"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	identityvalidator "github.com/ajuda-dev/backend/src/service/identity/validator"
+	"github.com/ajuda-dev/backend/src/service/notification"
+	"github.com/ajuda-dev/backend/src/service/skill"
+	skillvalidator "github.com/ajuda-dev/backend/src/service/skill/validator"
 	"github.com/gofiber/fiber/v2"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -30,17 +55,17 @@ import (
 var (
 	db                      *gorm.DB
 	cleanupDB               func()
-	userRepository          repository.UserRepository
-	addressRepository       repository.AddressRepository
-	communityRepository     repository.CommunityRepository
-	eventRepository         repository.EventRepository
-	eventUserRepository     repository.EventUserRepository
-	skillRepository         repository.SkillRepository
-	skillUserRepository     repository.SkillUserRepository
-	communityUserRepository repository.CommunityUserRepository
-	oauthAccountRepository  repository.OAuthAccountRepository
-	outboxEventRepository   repository.OutboxEventRepository
-	emailCodeRepository     repository.EmailCodeRepository
+	userRepository          userrepo.UserRepository
+	addressRepository       addressrepo.AddressRepository
+	communityRepository     communityrepo.CommunityRepository
+	eventRepository         eventrepo.EventRepository
+	eventUserRepository     eventrepo.EventUserRepository
+	skillRepository         skillrepo.SkillRepository
+	skillUserRepository     skillrepo.SkillUserRepository
+	communityUserRepository communityrepo.CommunityUserRepository
+	oauthAccountRepository  userrepo.OAuthAccountRepository
+	outboxEventRepository   notificationrepo.OutboxEventRepository
+	emailCodeRepository     userrepo.EmailCodeRepository
 	testEmail               = "teste@ajuda.dev"
 )
 
@@ -94,7 +119,7 @@ func setupTestDB(ctx context.Context) (*gorm.DB, func(), error) {
 		container.Terminate(ctx)
 		return nil, nil, fmt.Errorf("error enabling unaccent extension: %w", err)
 	}
-	db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{}, &entity.OAuthAccountEntity{}, &entity.OutboxEventEntity{}, &entity.EmailCodeEntity{})
+	db.AutoMigrate(&userentity.UserEntity{}, &addressentity.AddressEntity{}, &communityentity.CommunityEntity{}, &evententity.EventEntity{}, &evententity.EventUserEntity{}, &skillentity.SkillEntity{}, &skillentity.SkillUserEntity{}, &communityentity.CommunityUserEntity{}, &userentity.OAuthAccountEntity{}, &notificationentity.OutboxEventEntity{}, &userentity.EmailCodeEntity{})
 	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_outbox_events_user_read_created ON outbox_events (user_id, read_at, created_at)").Error; err != nil {
 		container.Terminate(ctx)
 		return nil, nil, fmt.Errorf("error creating outbox inbox index: %w", err)
@@ -114,17 +139,17 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic("Erro ao configurar o banco de dados: " + err.Error())
 	}
-	userRepository = repository.NewUserRepository(db, nil)
-	addressRepository = repository.NewAddressRepository(db)
-	communityRepository = repository.NewCommunityRepository(db)
-	outboxEventRepository = repository.NewOutboxEventRepository(db)
-	emailCodeRepository = repository.NewEmailCodeRepository(db)
-	eventRepository = repository.NewEventRepository(db, outboxEventRepository)
-	eventUserRepository = repository.NewEventUserRepository(db, outboxEventRepository)
-	skillRepository = repository.NewSkillRepository(db)
-	skillUserRepository = repository.NewSkillUserRepository(db)
-	communityUserRepository = repository.NewCommunityUserRepository(db)
-	oauthAccountRepository = repository.NewOAuthAccountRepository(db)
+	userRepository = userrepo.NewUserRepository(db, nil)
+	addressRepository = addressrepo.NewAddressRepository(db)
+	communityRepository = communityrepo.NewCommunityRepository(db)
+	outboxEventRepository = notificationrepo.NewOutboxEventRepository(db)
+	emailCodeRepository = userrepo.NewEmailCodeRepository(db)
+	eventRepository = eventrepo.NewEventRepository(db, outboxEventRepository)
+	eventUserRepository = eventrepo.NewEventUserRepository(db, outboxEventRepository)
+	skillRepository = skillrepo.NewSkillRepository(db)
+	skillUserRepository = skillrepo.NewSkillUserRepository(db)
+	communityUserRepository = communityrepo.NewCommunityUserRepository(db)
+	oauthAccountRepository = userrepo.NewOAuthAccountRepository(db)
 	code := m.Run()
 	cleanupDB()
 	os.Exit(code)
@@ -136,27 +161,27 @@ func setupApp() *fiber.App {
 
 func setupAppWithEmail(sender email.EmailSender) *fiber.App {
 	app := fiber.New()
-	userRepo := repository.NewUserRepository(db, outboxEventRepository)
-	authService := service.NewAuthService(userRepo, sender)
-	oauthService := service.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), oauthAccountRepository, userRepo, authService)
+	userRepo := userrepo.NewUserRepository(db, outboxEventRepository)
+	authService := identity.NewAuthService(userRepo, sender)
+	oauthService := identity.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), oauthAccountRepository, userRepo, authService)
 	authMiddleware := middleware.VerifyJWT(authService)
-	userService := service.NewUserService(userRepo, validator.NewUserValidator(), authService,
+	userService := identity.NewUserService(userRepo, identityvalidator.NewUserValidator(), authService,
 		communityRepository, eventRepository, eventUserRepository, communityUserRepository,
 		outboxEventRepository, emailCodeRepository)
-	addressService := service.NewAddressService(addressRepository, validator.NewAddressValidator(), NewAddressSearchClient())
-	routes.SetupRoutesUser(app, controller.NewUserController(userService), controller.NewAuthController(authService), authMiddleware)
-	routes.SetupRoutesAuth(app, controller.NewOAuthController(oauthService))
-	routes.SetupRoutesAddress(app, controller.NewAddressController(addressService), authMiddleware)
-	communityService := service.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, validator.NewCommunityValidator())
-	routes.SetupRoutesCommunities(app, controller.NewCommunityController(communityService), authMiddleware)
-	routes.SetupRoutesCommunityUsers(app, controller.NewCommunityUserController(service.NewCommunityUserService(userService, communityService, communityUserRepository)), authMiddleware)
-	eventService := service.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, communityUserRepository, validator.NewEventValidator())
-	routes.SetupRoutesEvents(app, controller.NewEventController(eventService), authMiddleware)
-	routes.SetupRoutesEventUsers(app, controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator())), authMiddleware)
-	skillService := service.NewSkillService(userService, skillRepository, validator.NewSkillValidator())
-	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService), authMiddleware)
-	routes.SetupRoutesSkillUsers(app, controller.NewSkillUserController(service.NewSkillUserService(userService, skillService, skillUserRepository, validator.NewSkillUserValidator())), authMiddleware)
-	routes.SetupRoutesNotifications(app, controller.NewNotificationController(service.NewNotificationHub(), service.NewNotificationService(outboxEventRepository)), authMiddleware)
+	addressService := address.NewAddressService(addressRepository, addressvalidator.NewAddressValidator(), NewAddressSearchClient())
+	routes.SetupRoutesUser(app, identityctrl.NewUserController(userService), identityctrl.NewAuthController(authService), authMiddleware)
+	routes.SetupRoutesAuth(app, identityctrl.NewOAuthController(oauthService))
+	routes.SetupRoutesAddress(app, addressctrl.NewAddressController(addressService), authMiddleware)
+	communityService := community.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, communityvalidator.NewCommunityValidator())
+	routes.SetupRoutesCommunities(app, communityctrl.NewCommunityController(communityService), authMiddleware)
+	routes.SetupRoutesCommunityUsers(app, communityctrl.NewCommunityUserController(community.NewCommunityUserService(userService, communityService, communityUserRepository)), authMiddleware)
+	eventService := event.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, communityUserRepository, eventvalidator.NewEventValidator())
+	routes.SetupRoutesEvents(app, eventctrl.NewEventController(eventService), authMiddleware)
+	routes.SetupRoutesEventUsers(app, eventctrl.NewEventUserController(event.NewEventUserService(userService, eventService, eventUserRepository, eventvalidator.NewEventUserValidator())), authMiddleware)
+	skillService := skill.NewSkillService(userService, skillRepository, skillvalidator.NewSkillValidator())
+	routes.SetupRoutesSkills(app, skillctrl.NewSkillController(skillService), authMiddleware)
+	routes.SetupRoutesSkillUsers(app, skillctrl.NewSkillUserController(skill.NewSkillUserService(userService, skillService, skillUserRepository, skillvalidator.NewSkillUserValidator())), authMiddleware)
+	routes.SetupRoutesNotifications(app, notificationctrl.NewNotificationController(notification.NewNotificationHub(), notification.NewNotificationService(outboxEventRepository)), authMiddleware)
 	routes.SetupSwaggerRoute(app)
 
 	return app
@@ -204,9 +229,9 @@ type addressSearchClientMock struct {
 }
 
 // SearchAddress implements client.AddressSearchClient.
-func (a *addressSearchClientMock) SearchAddress(address domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr) {
+func (a *addressSearchClientMock) SearchAddress(address addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr) {
 	if address.ZipCode == "test_zip_code" {
-		return &domain.AddressDomain{
+		return &addressdomain.AddressDomain{
 			City:    "Mock City",
 			State:   "Mock State",
 			Street:  "Mock Street",
@@ -233,17 +258,17 @@ func verifyCodeError(t *testing.T, respBody rest_err.RestErr) {
 
 func validTokenFor(t *testing.T, userId string) string {
 	t.Helper()
-	token, restErr := service.NewAuthService(userRepository, email.NewNoopSender()).
-		CreateToken(&domain.UserDomain{Id: userId})
+	token, restErr := identity.NewAuthService(userRepository, email.NewNoopSender()).
+		CreateToken(&userdomain.UserDomain{Id: userId})
 	if restErr != nil {
 		t.Fatalf("failed to create token: %v", restErr)
 	}
 	return token
 }
 
-func createUserWithRole(t *testing.T, email string, role string) *domain.UserDomain {
+func createUserWithRole(t *testing.T, email string, role string) *userdomain.UserDomain {
 	t.Helper()
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "usuario " + role,
 		Email:    email,
 		Password: "123456",

@@ -1,6 +1,8 @@
 package dto
 
-import "github.com/ajuda-dev/backend/src/service/domain"
+import (
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+)
 
 type AddressDto struct {
 	Id         string `json:"id"`
@@ -12,8 +14,8 @@ type AddressDto struct {
 	Complement string `json:"complement,omitempty"`
 }
 
-func (a *AddressDto) ToDomain() *domain.AddressDomain {
-	return &domain.AddressDomain{
+func (a *AddressDto) ToDomain() *addressdomain.AddressDomain {
+	return &addressdomain.AddressDomain{
 		Id:         a.Id,
 		City:       a.City,
 		State:      a.State,
@@ -24,7 +26,7 @@ func (a *AddressDto) ToDomain() *domain.AddressDomain {
 	}
 }
 
-func (a *AddressDto) FromDomain(address *domain.AddressDomain) *AddressDto {
+func (a *AddressDto) FromDomain(address *addressdomain.AddressDomain) *AddressDto {
 	return &AddressDto{
 		Id:         address.Id,
 		City:       address.City,

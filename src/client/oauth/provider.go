@@ -2,18 +2,18 @@ package oauth
 
 import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 // Provider é o contrato que qualquer provedor OAuth precisa cumprir: cada
 // implementação (github, google, ...) devolve os dados do usuário já
-// normalizados em domain.OAuthUserInfo, então o restante do sistema não
+// normalizados em userdomain.OAuthUserInfo, então o restante do sistema não
 // conhece detalhes de nenhum provedor específico.
 type Provider interface {
 	Name() string
 	AuthorizationURL(state string) string
 	ExchangeCode(code string) (string, *rest_err.RestErr)
-	FetchUserInfo(accessToken string) (*domain.OAuthUserInfo, *rest_err.RestErr)
+	FetchUserInfo(accessToken string) (*userdomain.OAuthUserInfo, *rest_err.RestErr)
 }
 
 type Registry struct {

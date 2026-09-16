@@ -1,4 +1,4 @@
-package service
+package identity
 
 import (
 	"fmt"
@@ -10,8 +10,8 @@ import (
 	"github.com/ajuda-dev/backend/src/client/email"
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userrepo "github.com/ajuda-dev/backend/src/data/identity/repository"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -19,7 +19,7 @@ import (
 
 const defaultJWTExpirationHours = 24
 
-func NewAuthService(userRepository repository.UserRepository, emailSender email.EmailSender) AuthService {
+func NewAuthService(userRepository userrepo.UserRepository, emailSender email.EmailSender) AuthService {
 	if emailSender == nil {
 		emailSender = email.NewNoopSender()
 	}
@@ -43,22 +43,22 @@ func JWTExpiration() time.Duration {
 }
 
 type AuthService interface {
-	LoginUser(email, password string) (*domain.UserDomain, string, *rest_err.RestErr)
-	CreateToken(user *domain.UserDomain) (string, *rest_err.RestErr)
+	LoginUser(email, password string) (*userdomain.UserDomain, string, *rest_err.RestErr)
+	CreateToken(user *userdomain.UserDomain) (string, *rest_err.RestErr)
 	ValidateToken(tokenString string) (string, *rest_err.RestErr)
 	ForgotPassword(emailAddr string) *rest_err.RestErr
 	ResetPassword(emailAddr, code, newPassword string) *rest_err.RestErr
 }
 
 type authService struct {
-	userRepository repository.UserRepository
+	userRepository userrepo.UserRepository
 	emailSender    email.EmailSender
 	emailCodeCfg   EmailCodeConfig
 	rateLimiter    *emailCodeRateLimiter
 }
 
 // LoginUser implements AuthService.
-func (a *authService) LoginUser(email, password string) (*domain.UserDomain, string, *rest_err.RestErr) {
+func (a *authService) LoginUser(email, password string) (*userdomain.UserDomain, string, *rest_err.RestErr) {
 	user, err := a.userRepository.GetUserByEmail(email)
 	if err != nil {
 		return nil, "", rest_err.NewUnauthorizedError("invalid credentials")
@@ -161,7 +161,7 @@ func (a *authService) ResetPassword(emailAddr, code, newPassword string) *rest_e
 }
 
 // CreateToken implements AuthService.
-func (a *authService) CreateToken(user *domain.UserDomain) (string, *rest_err.RestErr) {
+func (a *authService) CreateToken(user *userdomain.UserDomain) (string, *rest_err.RestErr) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		return "", rest_err.NewInternalServerError("JWT_SECRET is not configured")

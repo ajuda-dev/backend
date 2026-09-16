@@ -7,16 +7,18 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	eventdto "github.com/ajuda-dev/backend/src/controller/event/dto"
+	evententity "github.com/ajuda-dev/backend/src/data/event/entity"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
 
 func eaUpdateApproval(t *testing.T, app *fiber.App, eventId string, status string, token string) *http.Response {
 	t.Helper()
-	payload, err := json.Marshal(dto.UpdateEventApprovalDto{Status: status})
+	payload, err := json.Marshal(eventdto.UpdateEventApprovalDto{Status: status})
 	if err != nil {
 		t.Fatalf("erro ao montar body: %v", err)
 	}
@@ -25,7 +27,7 @@ func eaUpdateApproval(t *testing.T, app *fiber.App, eventId string, status strin
 
 func eaEventStatus(t *testing.T, eventId string) string {
 	t.Helper()
-	var row entity.EventEntity
+	var row evententity.EventEntity
 	if err := db.Where("id = ?", eventId).First(&row).Error; err != nil {
 		t.Fatalf("esperava achar o evento %s, recebeu %v", eventId, err)
 	}
@@ -34,7 +36,7 @@ func eaEventStatus(t *testing.T, eventId string) string {
 
 func eaApproveEvent(t *testing.T, app *fiber.App, eventId string, approverId string) {
 	t.Helper()
-	resp := eaUpdateApproval(t, app, eventId, domain.EventStatusApproved, validTokenFor(t, approverId))
+	resp := eaUpdateApproval(t, app, eventId, eventdomain.EventStatusApproved, validTokenFor(t, approverId))
 	defer resp.Body.Close()
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 ao aprovar o evento %s, recebeu %d", eventId, resp.StatusCode)
@@ -43,7 +45,7 @@ func eaApproveEvent(t *testing.T, app *fiber.App, eventId string, approverId str
 
 func eaAddCommunityMember(t *testing.T, communityId string, userId string) {
 	t.Helper()
-	if _, err := communityUserRepository.Create(&domain.CommunityUserDomain{
+	if _, err := communityUserRepository.Create(&communitydomain.CommunityUserDomain{
 		CommunityId: communityId,
 		UserId:      userId,
 	}); err != nil {
@@ -51,13 +53,13 @@ func eaAddCommunityMember(t *testing.T, communityId string, userId string) {
 	}
 }
 
-func eaCreateCommunityEvent(t *testing.T, app *fiber.App, owner *domain.UserDomain, communityId string, title string) dto.RegisterEventDto {
+func eaCreateCommunityEvent(t *testing.T, app *fiber.App, owner *userdomain.UserDomain, communityId string, title string) eventdto.RegisterEventDto {
 	t.Helper()
 	return registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     owner.Id,
 		CommunityId: strPtr(communityId),
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       title,
 		Description: "evento de teste de aprovação",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -69,21 +71,21 @@ func TestEventApprovalFlow(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	communityOwner := createUserWithRole(t, "appr_community_owner@ajuda.dev", domain.UserRoleUser)
-	member := createUserWithRole(t, "appr_member@ajuda.dev", domain.UserRoleUser)
-	third := createUserWithRole(t, "appr_third@ajuda.dev", domain.UserRoleUser)
+	communityOwner := createUserWithRole(t, "appr_community_owner@ajuda.dev", userdomain.UserRoleUser)
+	member := createUserWithRole(t, "appr_member@ajuda.dev", userdomain.UserRoleUser)
+	third := createUserWithRole(t, "appr_third@ajuda.dev", userdomain.UserRoleUser)
 	address := createEventAddress(t, "appr_city")
 	community := createEventCommunity(t, "Comunidade aprovação", communityOwner, address)
 
 	eaAddCommunityMember(t, community.Id, member.Id)
 
 	ownerEvent := eaCreateCommunityEvent(t, app, communityOwner, community.Id, "Evento do dono da comunidade")
-	if ownerEvent.Status != domain.EventStatusApproved {
+	if ownerEvent.Status != eventdomain.EventStatusApproved {
 		t.Errorf("esperava APPROVED para evento criado pelo dono da comunidade, recebeu '%s'", ownerEvent.Status)
 	}
 
 	memberEvent := eaCreateCommunityEvent(t, app, member, community.Id, "Evento do membro")
-	if memberEvent.Status != domain.EventStatusPending {
+	if memberEvent.Status != eventdomain.EventStatusPending {
 		t.Errorf("esperava PENDING para evento criado por membro, recebeu '%s'", memberEvent.Status)
 	}
 
@@ -150,40 +152,40 @@ func TestEventApprovalFlow(t *testing.T) {
 		t.Errorf("esperava somente o evento PENDING na fila de aprovação, recebeu %+v", page.Data)
 	}
 
-	resp = eaUpdateApproval(t, app, memberEvent.Id, domain.EventStatusApproved, memberToken)
+	resp = eaUpdateApproval(t, app, memberEvent.Id, eventdomain.EventStatusApproved, memberToken)
 	if resp.StatusCode != fiber.StatusForbidden {
 		t.Errorf("esperava 403 quando o criador tenta aprovar o próprio evento, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
-	resp = eaUpdateApproval(t, app, memberEvent.Id, domain.EventStatusApproved, thirdToken)
+	resp = eaUpdateApproval(t, app, memberEvent.Id, eventdomain.EventStatusApproved, thirdToken)
 	if resp.StatusCode != fiber.StatusForbidden {
 		t.Errorf("esperava 403 quando um terceiro tenta aprovar, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
-	resp = eaUpdateApproval(t, app, memberEvent.Id, domain.EventStatusRejected, communityOwnerToken)
+	resp = eaUpdateApproval(t, app, memberEvent.Id, eventdomain.EventStatusRejected, communityOwnerToken)
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 ao rejeitar o evento, recebeu %d", resp.StatusCode)
 	}
 	eventDto := eaDecodeEventDto(t, resp)
-	if eventDto.Status != domain.EventStatusRejected {
+	if eventDto.Status != eventdomain.EventStatusRejected {
 		t.Errorf("esperava status REJECTED na resposta, recebeu '%s'", eventDto.Status)
 	}
 
-	resp = eaUpdateApproval(t, app, memberEvent.Id, domain.EventStatusRejected, communityOwnerToken)
+	resp = eaUpdateApproval(t, app, memberEvent.Id, eventdomain.EventStatusRejected, communityOwnerToken)
 	if resp.StatusCode != fiber.StatusBadRequest {
 		t.Errorf("esperava 400 na transição REJECTED para REJECTED, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
-	resp = eaUpdateApproval(t, app, memberEvent.Id, domain.EventStatusApproved, communityOwnerToken)
+	resp = eaUpdateApproval(t, app, memberEvent.Id, eventdomain.EventStatusApproved, communityOwnerToken)
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 na transição REJECTED para APPROVED, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
-	resp = eaUpdateApproval(t, app, memberEvent.Id, domain.EventStatusPending, communityOwnerToken)
+	resp = eaUpdateApproval(t, app, memberEvent.Id, eventdomain.EventStatusPending, communityOwnerToken)
 	if resp.StatusCode != fiber.StatusBadRequest {
 		t.Errorf("esperava 400 na transição APPROVED para PENDING, recebeu %d", resp.StatusCode)
 	}
@@ -195,19 +197,19 @@ func TestEventApprovalFlow(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	resp = eaUpdateApproval(t, app, "invalid-id", domain.EventStatusApproved, communityOwnerToken)
+	resp = eaUpdateApproval(t, app, "invalid-id", eventdomain.EventStatusApproved, communityOwnerToken)
 	if resp.StatusCode != fiber.StatusBadRequest {
 		t.Errorf("esperava 400 para uuid inválido, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
-	resp = eaUpdateApproval(t, app, uuidv7.New().String(), domain.EventStatusApproved, communityOwnerToken)
+	resp = eaUpdateApproval(t, app, uuidv7.New().String(), eventdomain.EventStatusApproved, communityOwnerToken)
 	if resp.StatusCode != fiber.StatusNotFound {
 		t.Errorf("esperava 404 para evento inexistente, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
-	resp = eaUpdateApproval(t, app, memberEvent.Id, domain.EventStatusApproved, "")
+	resp = eaUpdateApproval(t, app, memberEvent.Id, eventdomain.EventStatusApproved, "")
 	if resp.StatusCode != fiber.StatusUnauthorized {
 		t.Errorf("esperava 401 sem token, recebeu %d", resp.StatusCode)
 	}
@@ -218,16 +220,16 @@ func TestEventApprovalNonMemberForbidden(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	communityOwner := createUserWithRole(t, "appr_nm_owner@ajuda.dev", domain.UserRoleUser)
-	outsider := createUserWithRole(t, "appr_nm_outsider@ajuda.dev", domain.UserRoleUser)
+	communityOwner := createUserWithRole(t, "appr_nm_owner@ajuda.dev", userdomain.UserRoleUser)
+	outsider := createUserWithRole(t, "appr_nm_outsider@ajuda.dev", userdomain.UserRoleUser)
 	address := createEventAddress(t, "appr_nm_city")
 	community := createEventCommunity(t, "Comunidade não membro", communityOwner, address)
 
 	payload, err := json.Marshal(eventTestRequest{
 		OwnerId:     outsider.Id,
 		CommunityId: strPtr(community.Id),
-		Category:    domain.CategoryCommunityEvent,
-		Type:        domain.TypeOnline,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
 		Title:       "Evento de não membro",
 		Description: "evento de teste de aprovação",
 		StartAt:     time.Now().Add(48 * time.Hour),
@@ -257,17 +259,17 @@ func TestEventApprovalGatesParticipation(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	communityOwner := createUserWithRole(t, "appr_gate_owner@ajuda.dev", domain.UserRoleUser)
-	member := createUserWithRole(t, "appr_gate_member@ajuda.dev", domain.UserRoleUser)
-	attendee := createUserWithRole(t, "appr_gate_attendee@ajuda.dev", domain.UserRoleUser)
-	speaker := createUserWithRole(t, "appr_gate_speaker@ajuda.dev", domain.UserRoleUser)
+	communityOwner := createUserWithRole(t, "appr_gate_owner@ajuda.dev", userdomain.UserRoleUser)
+	member := createUserWithRole(t, "appr_gate_member@ajuda.dev", userdomain.UserRoleUser)
+	attendee := createUserWithRole(t, "appr_gate_attendee@ajuda.dev", userdomain.UserRoleUser)
+	speaker := createUserWithRole(t, "appr_gate_speaker@ajuda.dev", userdomain.UserRoleUser)
 	address := createEventAddress(t, "appr_gate_city")
 	community := createEventCommunity(t, "Comunidade gate", communityOwner, address)
 
 	eaAddCommunityMember(t, community.Id, member.Id)
 
 	pendingEvent := eaCreateCommunityEvent(t, app, member, community.Id, "Evento pendente do membro")
-	if pendingEvent.Status != domain.EventStatusPending {
+	if pendingEvent.Status != eventdomain.EventStatusPending {
 		t.Fatalf("esperava PENDING para o evento do membro, recebeu '%s'", pendingEvent.Status)
 	}
 
@@ -296,7 +298,7 @@ func TestEventApprovalGatesParticipation(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	resp = eaUpdateApproval(t, app, pendingEvent.Id, domain.EventStatusApproved, validTokenFor(t, communityOwner.Id))
+	resp = eaUpdateApproval(t, app, pendingEvent.Id, eventdomain.EventStatusApproved, validTokenFor(t, communityOwner.Id))
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 ao aprovar o evento, recebeu %d", resp.StatusCode)
 	}
@@ -308,7 +310,7 @@ func TestEventApprovalGatesParticipation(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	if status := eaEventStatus(t, pendingEvent.Id); status != domain.EventStatusApproved {
+	if status := eaEventStatus(t, pendingEvent.Id); status != eventdomain.EventStatusApproved {
 		t.Errorf("esperava o evento persistido como APPROVED, recebeu '%s'", status)
 	}
 }

@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/job"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	notificationdto "github.com/ajuda-dev/backend/src/controller/notification/dto"
+	notificationentity "github.com/ajuda-dev/backend/src/data/notification/entity"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 	"github.com/stretchr/testify/assert"
@@ -32,18 +33,18 @@ func TestNotificationInbox_ListFiltersAndIsolation(t *testing.T) {
 		db.Exec("DELETE FROM outbox_events")
 		cleanUsersTable()
 	})
-	userA, err := userRepository.CreateUser(&domain.UserDomain{
+	userA, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "inbox a", Email: "inbox_a_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	userB, err := userRepository.CreateUser(&domain.UserDomain{
+	userB, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "inbox b", Email: "inbox_b_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
 
-	unreadA := createInboxOutbox(t, userA.Id, domain.OutboxTypeCommunityEventPendingApproval, "unread-a")
-	readA := createInboxOutbox(t, userA.Id, domain.OutboxTypeMentoringInvitePending, "read-a")
-	createInboxOutbox(t, userB.Id, domain.OutboxTypeCommunityEventPendingApproval, "b-only")
+	unreadA := createInboxOutbox(t, userA.Id, notificationdomain.OutboxTypeCommunityEventPendingApproval, "unread-a")
+	readA := createInboxOutbox(t, userA.Id, notificationdomain.OutboxTypeMentoringInvitePending, "read-a")
+	createInboxOutbox(t, userB.Id, notificationdomain.OutboxTypeCommunityEventPendingApproval, "b-only")
 	createInboxOutbox(t, userA.Id, "PASSWORD_RESET", "email-hidden")
 	_, markErr := outboxEventRepository.MarkRead(readA.Id, userA.Id)
 	require.Nil(t, markErr)
@@ -53,7 +54,7 @@ func TestNotificationInbox_ListFiltersAndIsolation(t *testing.T) {
 	require.Len(t, page.Data, 1)
 	assert.False(t, page.HasNext)
 	assert.Equal(t, unreadA.Id, page.Data[0].Id)
-	assert.Equal(t, domain.OutboxTypeCommunityEventPendingApproval, page.Data[0].Type)
+	assert.Equal(t, notificationdomain.OutboxTypeCommunityEventPendingApproval, page.Data[0].Type)
 	assert.Nil(t, page.Data[0].ReadAt)
 	assert.JSONEq(t, `{"title":"unread-a"}`, string(page.Data[0].Payload))
 
@@ -72,7 +73,7 @@ func TestNotificationInbox_ListFiltersAndIsolation(t *testing.T) {
 
 func TestNotificationInbox_InvalidStatus(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
-	user, err := userRepository.CreateUser(&domain.UserDomain{
+	user, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "inbox status", Email: "inbox_st_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
@@ -90,13 +91,13 @@ func TestNotificationInbox_Pagination(t *testing.T) {
 		db.Exec("DELETE FROM outbox_events")
 		cleanUsersTable()
 	})
-	user, err := userRepository.CreateUser(&domain.UserDomain{
+	user, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "inbox page", Email: "inbox_p_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	first := createInboxOutbox(t, user.Id, domain.OutboxTypeCommunityEventPendingApproval, "older")
+	first := createInboxOutbox(t, user.Id, notificationdomain.OutboxTypeCommunityEventPendingApproval, "older")
 	time.Sleep(5 * time.Millisecond)
-	second := createInboxOutbox(t, user.Id, domain.OutboxTypeMentoringInvitePending, "newer")
+	second := createInboxOutbox(t, user.Id, notificationdomain.OutboxTypeMentoringInvitePending, "newer")
 
 	app := setupApp()
 	token := validTokenFor(t, user.Id)
@@ -116,16 +117,16 @@ func TestNotificationInbox_OfflineStillListedAfterSent(t *testing.T) {
 		db.Exec("DELETE FROM outbox_events")
 		cleanUsersTable()
 	})
-	user, err := userRepository.CreateUser(&domain.UserDomain{
+	user, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "inbox offline", Email: "inbox_off_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	event := createInboxOutbox(t, user.Id, domain.OutboxTypeCommunityEventPendingApproval, "offline")
+	event := createInboxOutbox(t, user.Id, notificationdomain.OutboxTypeCommunityEventPendingApproval, "offline")
 	job.RunOutboxOnce(outboxEventRepository, job.NewSSEOutboxHandler(nil), 50)
 
-	var stored entity.OutboxEventEntity
+	var stored notificationentity.OutboxEventEntity
 	require.NoError(t, db.First(&stored, event.Id).Error)
-	assert.Equal(t, domain.OutboxStatusSent, stored.Status)
+	assert.Equal(t, notificationdomain.OutboxStatusSent, stored.Status)
 	assert.Nil(t, stored.ReadAt)
 
 	app := setupApp()
@@ -139,16 +140,16 @@ func TestNotificationInbox_MarkRead(t *testing.T) {
 		db.Exec("DELETE FROM outbox_events")
 		cleanUsersTable()
 	})
-	userA, err := userRepository.CreateUser(&domain.UserDomain{
+	userA, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "inbox read a", Email: "inbox_ra_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	userB, err := userRepository.CreateUser(&domain.UserDomain{
+	userB, err := userRepository.CreateUser(&userdomain.UserDomain{
 		Name: "inbox read b", Email: "inbox_rb_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
 	})
 	require.Nil(t, err)
-	item := createInboxOutbox(t, userA.Id, domain.OutboxTypeCommunityEventPendingApproval, "to-read")
-	other := createInboxOutbox(t, userB.Id, domain.OutboxTypeCommunityEventPendingApproval, "other")
+	item := createInboxOutbox(t, userA.Id, notificationdomain.OutboxTypeCommunityEventPendingApproval, "to-read")
+	other := createInboxOutbox(t, userB.Id, notificationdomain.OutboxTypeCommunityEventPendingApproval, "other")
 
 	app := setupApp()
 	tokenA := validTokenFor(t, userA.Id)
@@ -157,7 +158,7 @@ func TestNotificationInbox_MarkRead(t *testing.T) {
 	assert.Equal(t, fiber.StatusOK, first.status)
 	require.NotNil(t, first.body.ReadAt)
 	readAt := *first.body.ReadAt
-	assert.Equal(t, domain.OutboxStatusPending, workerStatus(t, item.Id))
+	assert.Equal(t, notificationdomain.OutboxStatusPending, workerStatus(t, item.Id))
 
 	unread := listNotifications(t, app, tokenA, "status=unread")
 	assert.Empty(t, unread.Data)
@@ -180,20 +181,20 @@ func TestNotificationInbox_MarkRead(t *testing.T) {
 	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
 }
 
-func createInboxOutbox(t *testing.T, userId, outboxType, title string) *domain.OutboxEventDomain {
+func createInboxOutbox(t *testing.T, userId, outboxType, title string) *notificationdomain.OutboxEventDomain {
 	t.Helper()
 	payload, _ := json.Marshal(map[string]string{"title": title})
-	event := &domain.OutboxEventDomain{
+	event := &notificationdomain.OutboxEventDomain{
 		Type:    outboxType,
 		UserId:  userId,
 		Payload: payload,
-		Status:  domain.OutboxStatusPending,
+		Status:  notificationdomain.OutboxStatusPending,
 	}
 	require.Nil(t, outboxEventRepository.Create(nil, event))
 	return event
 }
 
-func listNotifications(t *testing.T, app *fiber.App, token, query string) dto.PageableNotificationDto {
+func listNotifications(t *testing.T, app *fiber.App, token, query string) notificationdto.PageableNotificationDto {
 	t.Helper()
 	url := "/v1/notifications"
 	if query != "" {
@@ -206,17 +207,17 @@ func listNotifications(t *testing.T, app *fiber.App, token, query string) dto.Pa
 	defer resp.Body.Close()
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 	body, _ := io.ReadAll(resp.Body)
-	var page dto.PageableNotificationDto
+	var page notificationdto.PageableNotificationDto
 	require.NoError(t, json.Unmarshal(body, &page))
 	if page.Data == nil {
-		page.Data = []dto.NotificationDtoOut{}
+		page.Data = []notificationdto.NotificationDtoOut{}
 	}
 	return page
 }
 
 type markReadResult struct {
 	status int
-	body   dto.NotificationDtoOut
+	body   notificationdto.NotificationDtoOut
 }
 
 func markNotificationRead(t *testing.T, app *fiber.App, token, id string) markReadResult {
@@ -236,7 +237,7 @@ func markNotificationRead(t *testing.T, app *fiber.App, token, id string) markRe
 
 func workerStatus(t *testing.T, id int64) string {
 	t.Helper()
-	var stored entity.OutboxEventEntity
+	var stored notificationentity.OutboxEventEntity
 	require.NoError(t, db.First(&stored, id).Error)
 	return stored.Status
 }

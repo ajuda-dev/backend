@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -67,13 +67,13 @@ func newResetPasswordRequest(body []byte) *http.Request {
 	return req
 }
 
-func createPasswordUser(t *testing.T, emailAddr, password string) *domain.UserDomain {
+func createPasswordUser(t *testing.T, emailAddr, password string) *userdomain.UserDomain {
 	t.Helper()
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "reset user",
 		Email:    emailAddr,
 		Password: string(hashed),
@@ -108,7 +108,7 @@ func TestForgotPasswordOAuthUserReturns204WithoutEmail(t *testing.T) {
 	mailer := &recordingEmailSender{}
 	app := setupAppWithEmail(mailer)
 
-	_, createErr := userRepository.CreateUser(&domain.UserDomain{
+	_, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "oauth only",
 		Email:    "oauth_reset@ajuda.dev",
 		Password: "",

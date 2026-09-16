@@ -1,30 +1,31 @@
-package service
+package skill
 
 import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
-	"github.com/ajuda-dev/backend/src/service/validator"
+	skillrepo "github.com/ajuda-dev/backend/src/data/skill/repository"
+	"github.com/ajuda-dev/backend/src/service/identity"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
+	skillvalidator "github.com/ajuda-dev/backend/src/service/skill/validator"
 )
 
 type SkillUserService interface {
-	AssignSkill(skillUser *domain.SkillUserDomain) (*domain.SkillUserDomain, *rest_err.RestErr)
-	GetUserSkills(userId string) ([]*domain.SkillUserDomain, *rest_err.RestErr)
+	AssignSkill(skillUser *skilldomain.SkillUserDomain) (*skilldomain.SkillUserDomain, *rest_err.RestErr)
+	GetUserSkills(userId string) ([]*skilldomain.SkillUserDomain, *rest_err.RestErr)
 	RemoveSkillFromUser(userId string, skillId string) *rest_err.RestErr
 }
 
 type skillUserService struct {
-	userService         UserService
+	userService         identity.UserService
 	skillService        SkillService
-	skillUserRepository repository.SkillUserRepository
-	skillUserValidator  validator.SkillUserValidator
+	skillUserRepository skillrepo.SkillUserRepository
+	skillUserValidator  skillvalidator.SkillUserValidator
 }
 
 func NewSkillUserService(
-	userService UserService,
+	userService identity.UserService,
 	skillService SkillService,
-	skillUserRepository repository.SkillUserRepository,
-	skillUserValidator validator.SkillUserValidator) SkillUserService {
+	skillUserRepository skillrepo.SkillUserRepository,
+	skillUserValidator skillvalidator.SkillUserValidator) SkillUserService {
 	return &skillUserService{
 		userService:         userService,
 		skillService:        skillService,
@@ -33,7 +34,7 @@ func NewSkillUserService(
 	}
 }
 
-func (s *skillUserService) AssignSkill(skillUser *domain.SkillUserDomain) (*domain.SkillUserDomain, *rest_err.RestErr) {
+func (s *skillUserService) AssignSkill(skillUser *skilldomain.SkillUserDomain) (*skilldomain.SkillUserDomain, *rest_err.RestErr) {
 	if err := s.skillUserValidator.ValidateAssign(*skillUser); err != nil {
 		return nil, err
 	}
@@ -59,7 +60,7 @@ func (s *skillUserService) AssignSkill(skillUser *domain.SkillUserDomain) (*doma
 	return s.skillUserRepository.Create(skillUser)
 }
 
-func (s *skillUserService) GetUserSkills(userId string) ([]*domain.SkillUserDomain, *rest_err.RestErr) {
+func (s *skillUserService) GetUserSkills(userId string) ([]*skilldomain.SkillUserDomain, *rest_err.RestErr) {
 	return s.skillUserRepository.FindByUser(userId)
 }
 

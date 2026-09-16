@@ -1,6 +1,8 @@
 package dto
 
-import "github.com/ajuda-dev/backend/src/service/domain"
+import (
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+)
 
 type UserDtoOut struct {
 	Id               string              `json:"id"`
@@ -13,7 +15,7 @@ type UserDtoOut struct {
 	ConfigVisibility ConfigVisibilityDto `json:"configVisibility,omitempty"`
 }
 
-func (r *UserDtoOut) FromDomainUser(user *domain.UserDomain) *UserDtoOut {
+func (r *UserDtoOut) FromDomainUser(user *userdomain.UserDomain) *UserDtoOut {
 	return &UserDtoOut{
 		Id:            user.Id,
 		Name:          user.Name,
@@ -23,7 +25,7 @@ func (r *UserDtoOut) FromDomainUser(user *domain.UserDomain) *UserDtoOut {
 	}
 }
 
-func (r *UserDtoOut) FromDomainUserWithProfile(user *domain.UserDomain) *UserDtoOut {
+func (r *UserDtoOut) FromDomainUserWithProfile(user *userdomain.UserDomain) *UserDtoOut {
 	dtoOut := r.FromDomainUser(user)
 	dtoOut.Description = user.Description
 	dtoOut.ConfigVisibility = ConfigVisibilityDtoFromDomain(user.ConfigVisibility)

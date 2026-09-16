@@ -1,14 +1,14 @@
-package controller
+package identity
 
 import (
 	"github.com/ajuda-dev/backend/src/config/logger"
-	"github.com/ajuda-dev/backend/src/controller/dto"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
-	"github.com/ajuda-dev/backend/src/service"
+	"github.com/ajuda-dev/backend/src/service/identity"
 	"github.com/gofiber/fiber/v2"
 )
 
-func NewAuthController(authService service.AuthService) AuthController {
+func NewAuthController(authService identity.AuthService) AuthController {
 	return &authController{
 		authService: authService,
 	}
@@ -21,7 +21,7 @@ type AuthController interface {
 }
 
 type authController struct {
-	authService service.AuthService
+	authService identity.AuthService
 }
 
 // LoginUser godoc
@@ -30,15 +30,15 @@ type authController struct {
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        user           body    dto.LoginUserDtoIn  true   "Credenciais do usuário"
+// @Param        user           body    userdto.LoginUserDtoIn  true   "Credenciais do usuário"
 // @Param        X-Client-Type  header  string              false  "Informe 'native' (apps mobile/desktop) para receber o token JWT no corpo da resposta"
-// @Success      200   {object}  dto.LoginUserDtoOut
+// @Success      200   {object}  userdto.LoginUserDtoOut
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Router       /v1/user/login [post]
 func (a *authController) LoginUser() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		var loginUserDto dto.LoginUserDtoIn
+		var loginUserDto userdto.LoginUserDtoIn
 		if err := c.BodyParser(&loginUserDto); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Não foi possível processar o corpo da requisição",
@@ -50,7 +50,7 @@ func (a *authController) LoginUser() fiber.Handler {
 			return c.Status(err.Code).JSON(err)
 		}
 		middleware.SetSessionCookie(c, token)
-		var loginUserDtoOut dto.LoginUserDtoOut
+		var loginUserDtoOut userdto.LoginUserDtoOut
 		loginUserDtoOut = *loginUserDtoOut.FromDomainUser(user)
 		if middleware.WantsTokenInBody(c) {
 			loginUserDtoOut.Token = token
@@ -65,14 +65,14 @@ func (a *authController) LoginUser() fiber.Handler {
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        body  body  dto.ForgotPasswordDtoIn  true  "E-mail da conta"
+// @Param        body  body  userdto.ForgotPasswordDtoIn  true  "E-mail da conta"
 // @Success      204
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      429   {object}  map[string]interface{}
 // @Router       /v1/user/forgot-password [post]
 func (a *authController) ForgotPassword() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		var body dto.ForgotPasswordDtoIn
+		var body userdto.ForgotPasswordDtoIn
 		if err := c.BodyParser(&body); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Não foi possível processar o corpo da requisição",
@@ -91,7 +91,7 @@ func (a *authController) ForgotPassword() fiber.Handler {
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        body  body  dto.ResetPasswordDtoIn  true  "E-mail, código e nova senha"
+// @Param        body  body  userdto.ResetPasswordDtoIn  true  "E-mail, código e nova senha"
 // @Success      204
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
@@ -99,7 +99,7 @@ func (a *authController) ForgotPassword() fiber.Handler {
 // @Router       /v1/user/reset-password [post]
 func (a *authController) ResetPassword() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		var body dto.ResetPasswordDtoIn
+		var body userdto.ResetPasswordDtoIn
 		if err := c.BodyParser(&body); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Não foi possível processar o corpo da requisição",

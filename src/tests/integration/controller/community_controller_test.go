@@ -10,8 +10,9 @@ import (
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -28,7 +29,7 @@ func TestCreateCommunitySuccess(t *testing.T) {
 	t.Cleanup(cleanCommunityTable)
 
 	app := setupApp()
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "teste",
 		Email:    testEmail,
 		Password: "123456",
@@ -38,7 +39,7 @@ func TestCreateCommunitySuccess(t *testing.T) {
 		t.Fatalf("failed to create user: %v", createErr)
 	}
 
-	address, a_err := addressRepository.CreateAddress(&domain.AddressDomain{
+	address, a_err := addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    "test_city",
 		State:   "test_state",
 		Street:  "test_street",
@@ -70,7 +71,7 @@ func TestCreateCommunitySuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("erro ao ler body: %v", err)
 	}
-	var respDto dto.CommunityDto
+	var respDto communitydto.CommunityDto
 	if err := json.Unmarshal(rawBody, &respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -157,9 +158,9 @@ func TestCreateCommunityFail(t *testing.T) {
 	}
 }
 
-func createCommunityUser(t *testing.T) *domain.UserDomain {
+func createCommunityUser(t *testing.T) *userdomain.UserDomain {
 	t.Helper()
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "teste",
 		Email:    testEmail,
 		Password: "123456",
@@ -170,9 +171,9 @@ func createCommunityUser(t *testing.T) *domain.UserDomain {
 	return user
 }
 
-func createCommunityOwner(t *testing.T, email string) *domain.UserDomain {
+func createCommunityOwner(t *testing.T, email string) *userdomain.UserDomain {
 	t.Helper()
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "owner",
 		Email:    email,
 		Password: "123456",
@@ -183,9 +184,9 @@ func createCommunityOwner(t *testing.T, email string) *domain.UserDomain {
 	return user
 }
 
-func createCommunityAddress(t *testing.T, city string) *domain.AddressDomain {
+func createCommunityAddress(t *testing.T, city string) *addressdomain.AddressDomain {
 	t.Helper()
-	address, aErr := addressRepository.CreateAddress(&domain.AddressDomain{
+	address, aErr := addressRepository.CreateAddress(&addressdomain.AddressDomain{
 		City:    city,
 		State:   "sp",
 		Street:  "test_street",
@@ -214,7 +215,7 @@ func registerCommunityViaApi(t *testing.T, app *fiber.App, token string, address
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Fatalf("esperava 201 ao criar comunidade '%s', recebeu %d", name, resp.StatusCode)
 	}
-	var created dto.CommunityDto
+	var created communitydto.CommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -238,14 +239,14 @@ func registerCommunityForOwner(t *testing.T, app *fiber.App, token string, addre
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Fatalf("esperava 201 ao criar comunidade '%s', recebeu %d", name, resp.StatusCode)
 	}
-	var created dto.CommunityDto
+	var created communitydto.CommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	return created.Id
 }
 
-func listCommunities(t *testing.T, app *fiber.App, token string, query string) dto.PageableCommunityDto {
+func listCommunities(t *testing.T, app *fiber.App, token string, query string) communitydto.PageableCommunityDto {
 	t.Helper()
 	req := httptest.NewRequest("GET", "/v1/community?"+query, nil)
 	resp, err := doAuthedRequest(app, req, token)
@@ -256,7 +257,7 @@ func listCommunities(t *testing.T, app *fiber.App, token string, query string) d
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
 	}
-	var page dto.PageableCommunityDto
+	var page communitydto.PageableCommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -506,7 +507,7 @@ func TestListCommunitiesByCityAccentInsensitiveReverse(t *testing.T) {
 	}
 }
 
-func registerCommunityReturningBody(t *testing.T, app *fiber.App, token string, addressId string, name string) dto.CommunityDto {
+func registerCommunityReturningBody(t *testing.T, app *fiber.App, token string, addressId string, name string) communitydto.CommunityDto {
 	t.Helper()
 	body := []byte(`{
 	"address_id": "` + addressId + `",
@@ -523,7 +524,7 @@ func registerCommunityReturningBody(t *testing.T, app *fiber.App, token string, 
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Fatalf("esperava 201 ao criar comunidade '%s', recebeu %d", name, resp.StatusCode)
 	}
-	var created dto.CommunityDto
+	var created communitydto.CommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -557,7 +558,7 @@ func TestGetCommunityById(t *testing.T) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 no GET por id, recebeu %d", resp.StatusCode)
 	}
-	var detail dto.CommunityDto
+	var detail communitydto.CommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -668,13 +669,13 @@ func TestGetCommunityByIdOtherOwner(t *testing.T) {
 	address := createCommunityAddress(t, "sao paulo")
 	created := registerCommunityReturningBody(t, app, validTokenFor(t, owner.Id), address.Id, "Comunidade de Outro Dono")
 
-	other := createUserWithRole(t, "outro.dono.comunidade@ajuda.dev", domain.UserRoleUser)
+	other := createUserWithRole(t, "outro.dono.comunidade@ajuda.dev", userdomain.UserRoleUser)
 	resp := getCommunityByIdRequest(t, app, validTokenFor(t, other.Id), created.Id)
 	defer resp.Body.Close()
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("leitura não é restrita por owner: esperava 200, recebeu %d", resp.StatusCode)
 	}
-	var detail dto.CommunityDto
+	var detail communitydto.CommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}

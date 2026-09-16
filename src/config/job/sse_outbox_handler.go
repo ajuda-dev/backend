@@ -3,19 +3,19 @@ package job
 import (
 	"encoding/json"
 
-	"github.com/ajuda-dev/backend/src/service"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	"github.com/ajuda-dev/backend/src/service/notification"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 )
 
 type SSEOutboxHandler struct {
-	hub service.NotificationHub
+	hub notification.NotificationHub
 }
 
-func NewSSEOutboxHandler(hub service.NotificationHub) OutboxHandler {
+func NewSSEOutboxHandler(hub notification.NotificationHub) OutboxHandler {
 	return &SSEOutboxHandler{hub: hub}
 }
 
-func (h *SSEOutboxHandler) Handle(event domain.OutboxEventDomain) error {
+func (h *SSEOutboxHandler) Handle(event notificationdomain.OutboxEventDomain) error {
 	body, err := json.Marshal(map[string]any{
 		"id":      event.Id,
 		"type":    event.Type,

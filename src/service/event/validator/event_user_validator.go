@@ -2,13 +2,13 @@ package validator
 
 import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
 	"github.com/samborkent/uuidv7"
 )
 
 type EventUserValidator interface {
-	ValidateJoin(eventUser domain.EventUserDomain, category string) *rest_err.RestErr
-	ValidateAddParticipant(eventUser domain.EventUserDomain, category string, creatorRole string) *rest_err.RestErr
+	ValidateJoin(eventUser eventdomain.EventUserDomain, category string) *rest_err.RestErr
+	ValidateAddParticipant(eventUser eventdomain.EventUserDomain, category string, creatorRole string) *rest_err.RestErr
 	ValidateUpdateParticipantStatus(status string) *rest_err.RestErr
 }
 
@@ -18,7 +18,7 @@ func NewEventUserValidator() EventUserValidator {
 	return &eventUserValidator{}
 }
 
-func (e *eventUserValidator) ValidateJoin(eventUser domain.EventUserDomain, category string) *rest_err.RestErr {
+func (e *eventUserValidator) ValidateJoin(eventUser eventdomain.EventUserDomain, category string) *rest_err.RestErr {
 	causes := []rest_err.Causes{}
 
 	if eventUser.EventId == "" || !uuidv7.IsValidString(eventUser.EventId) {
@@ -33,7 +33,7 @@ func (e *eventUserValidator) ValidateJoin(eventUser domain.EventUserDomain, cate
 			Message: "UserId is not valid",
 		})
 	}
-	if category == domain.CategoryMentoring {
+	if category == eventdomain.CategoryMentoring {
 		causes = append(causes, rest_err.Causes{
 			Field:   "event_id",
 			Message: "MENTORING events cannot be joined, the host must invite the mentee",
@@ -49,7 +49,7 @@ func (e *eventUserValidator) ValidateJoin(eventUser domain.EventUserDomain, cate
 	return nil
 }
 
-func (e *eventUserValidator) ValidateAddParticipant(eventUser domain.EventUserDomain, category string, creatorRole string) *rest_err.RestErr {
+func (e *eventUserValidator) ValidateAddParticipant(eventUser eventdomain.EventUserDomain, category string, creatorRole string) *rest_err.RestErr {
 	causes := []rest_err.Causes{}
 
 	if eventUser.EventId == "" || !uuidv7.IsValidString(eventUser.EventId) {
@@ -64,8 +64,8 @@ func (e *eventUserValidator) ValidateAddParticipant(eventUser domain.EventUserDo
 			Message: "UserId is not valid",
 		})
 	}
-	if category == domain.CategoryMentoring {
-		if eventUser.Role != domain.RoleMentor && eventUser.Role != domain.RoleMentee {
+	if category == eventdomain.CategoryMentoring {
+		if eventUser.Role != eventdomain.RoleMentor && eventUser.Role != eventdomain.RoleMentee {
 			causes = append(causes, rest_err.Causes{
 				Field:   "role",
 				Message: "Role is not valid, use MENTOR or MENTEE",
@@ -77,13 +77,13 @@ func (e *eventUserValidator) ValidateAddParticipant(eventUser domain.EventUserDo
 			})
 		}
 	} else {
-		if eventUser.Role != domain.RoleMentee && eventUser.Role != domain.RoleSpeaker {
+		if eventUser.Role != eventdomain.RoleMentee && eventUser.Role != eventdomain.RoleSpeaker {
 			causes = append(causes, rest_err.Causes{
 				Field:   "role",
 				Message: "Role is not valid, use MENTEE or SPEAKER",
 			})
 		}
-		if eventUser.Role == domain.RoleMentee {
+		if eventUser.Role == eventdomain.RoleMentee {
 			causes = append(causes, rest_err.Causes{
 				Field:   "role",
 				Message: "MENTEE role is only allowed for MENTORING events",
@@ -101,14 +101,14 @@ func (e *eventUserValidator) ValidateAddParticipant(eventUser domain.EventUserDo
 }
 
 func complementaryRole(creatorRole string) string {
-	if creatorRole == domain.RoleMentee {
-		return domain.RoleMentor
+	if creatorRole == eventdomain.RoleMentee {
+		return eventdomain.RoleMentor
 	}
-	return domain.RoleMentee
+	return eventdomain.RoleMentee
 }
 
 func (e *eventUserValidator) ValidateUpdateParticipantStatus(status string) *rest_err.RestErr {
-	if status != domain.StatusConfirmed && status != domain.StatusRejected {
+	if status != eventdomain.StatusConfirmed && status != eventdomain.StatusRejected {
 		return rest_err.NewBadRequestValidationError(
 			"Invalid participation data",
 			[]rest_err.Causes{{

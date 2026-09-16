@@ -9,12 +9,31 @@ import (
 	"github.com/ajuda-dev/backend/src/config/database"
 	"github.com/ajuda-dev/backend/src/config/job"
 	"github.com/ajuda-dev/backend/src/config/logger"
-	"github.com/ajuda-dev/backend/src/controller"
+	addressctrl "github.com/ajuda-dev/backend/src/controller/address"
+	communityctrl "github.com/ajuda-dev/backend/src/controller/community"
+	eventctrl "github.com/ajuda-dev/backend/src/controller/event"
+	identityctrl "github.com/ajuda-dev/backend/src/controller/identity"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
+	notificationctrl "github.com/ajuda-dev/backend/src/controller/notification"
 	"github.com/ajuda-dev/backend/src/controller/routes"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service"
-	"github.com/ajuda-dev/backend/src/service/validator"
+	skillctrl "github.com/ajuda-dev/backend/src/controller/skill"
+	addressrepo "github.com/ajuda-dev/backend/src/data/address/repository"
+	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
+	eventrepo "github.com/ajuda-dev/backend/src/data/event/repository"
+	userrepo "github.com/ajuda-dev/backend/src/data/identity/repository"
+	notificationrepo "github.com/ajuda-dev/backend/src/data/notification/repository"
+	skillrepo "github.com/ajuda-dev/backend/src/data/skill/repository"
+	"github.com/ajuda-dev/backend/src/service/address"
+	addressvalidator "github.com/ajuda-dev/backend/src/service/address/validator"
+	"github.com/ajuda-dev/backend/src/service/community"
+	communityvalidator "github.com/ajuda-dev/backend/src/service/community/validator"
+	"github.com/ajuda-dev/backend/src/service/event"
+	eventvalidator "github.com/ajuda-dev/backend/src/service/event/validator"
+	"github.com/ajuda-dev/backend/src/service/identity"
+	identityvalidator "github.com/ajuda-dev/backend/src/service/identity/validator"
+	"github.com/ajuda-dev/backend/src/service/notification"
+	"github.com/ajuda-dev/backend/src/service/skill"
+	skillvalidator "github.com/ajuda-dev/backend/src/service/skill/validator"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 )
@@ -27,95 +46,95 @@ func InitApp() {
 		logger.Error("Failed to connect to the database", err)
 	}
 	app := fiber.New()
-	outboxEventRepository := repository.NewOutboxEventRepository(db)
-	emailCodeRepository := repository.NewEmailCodeRepository(db)
+	outboxEventRepository := notificationrepo.NewOutboxEventRepository(db)
+	emailCodeRepository := userrepo.NewEmailCodeRepository(db)
 	emailSender := email.FromEnv()
-	userRepository := repository.NewUserRepository(db, outboxEventRepository)
-	addressRepository := repository.NewAddressRepository(db)
-	communityRepository := repository.NewCommunityRepository(db)
-	eventRepository := repository.NewEventRepository(db, outboxEventRepository)
-	eventUserRepository := repository.NewEventUserRepository(db, outboxEventRepository)
-	skillRepository := repository.NewSkillRepository(db)
-	skillUserRepository := repository.NewSkillUserRepository(db)
-	communityUserRepository := repository.NewCommunityUserRepository(db)
+	userRepository := userrepo.NewUserRepository(db, outboxEventRepository)
+	addressRepository := addressrepo.NewAddressRepository(db)
+	communityRepository := communityrepo.NewCommunityRepository(db)
+	eventRepository := eventrepo.NewEventRepository(db, outboxEventRepository)
+	eventUserRepository := eventrepo.NewEventUserRepository(db, outboxEventRepository)
+	skillRepository := skillrepo.NewSkillRepository(db)
+	skillUserRepository := skillrepo.NewSkillUserRepository(db)
+	communityUserRepository := communityrepo.NewCommunityUserRepository(db)
 
-	authService := service.NewAuthService(userRepository, emailSender)
-	oauthService := service.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), repository.NewOAuthAccountRepository(db), userRepository, authService)
+	authService := identity.NewAuthService(userRepository, emailSender)
+	oauthService := identity.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), userrepo.NewOAuthAccountRepository(db), userRepository, authService)
 	userService := initUserService(userRepository, authService, communityRepository, eventRepository, eventUserRepository, communityUserRepository, outboxEventRepository, emailCodeRepository)
 	addressService := initAddressService(addressRepository)
-	eventService := service.NewEventService(
+	eventService := event.NewEventService(
 		userService,
 		addressService,
 		communityRepository,
 		eventRepository,
 		eventUserRepository,
 		communityUserRepository,
-		validator.NewEventValidator())
-	skillService := service.NewSkillService(userService, skillRepository, validator.NewSkillValidator())
+		eventvalidator.NewEventValidator())
+	skillService := skill.NewSkillService(userService, skillRepository, skillvalidator.NewSkillValidator())
 	authMiddleware := middleware.VerifyJWT(authService)
-	communityService := service.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, validator.NewCommunityValidator())
-	communityUserService := service.NewCommunityUserService(userService, communityService, communityUserRepository)
+	communityService := community.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, communityvalidator.NewCommunityValidator())
+	communityUserService := community.NewCommunityUserService(userService, communityService, communityUserRepository)
 	routes.SetupRoutesUser(app, initUserController(userService), initAuthController(authService), authMiddleware)
-	routes.SetupRoutesAuth(app, controller.NewOAuthController(oauthService))
+	routes.SetupRoutesAuth(app, identityctrl.NewOAuthController(oauthService))
 	routes.SetupRoutesAddress(app, initAddressController(addressService), authMiddleware)
-	routes.SetupRoutesCommunities(app, controller.NewCommunityController(communityService), authMiddleware)
-	routes.SetupRoutesCommunityUsers(app, controller.NewCommunityUserController(communityUserService), authMiddleware)
-	routes.SetupRoutesEvents(app, controller.NewEventController(eventService), authMiddleware)
+	routes.SetupRoutesCommunities(app, communityctrl.NewCommunityController(communityService), authMiddleware)
+	routes.SetupRoutesCommunityUsers(app, communityctrl.NewCommunityUserController(communityUserService), authMiddleware)
+	routes.SetupRoutesEvents(app, eventctrl.NewEventController(eventService), authMiddleware)
 	routes.SetupRoutesEventUsers(app, initEventUserController(userService, eventService, eventUserRepository), authMiddleware)
-	routes.SetupRoutesSkills(app, controller.NewSkillController(skillService), authMiddleware)
+	routes.SetupRoutesSkills(app, skillctrl.NewSkillController(skillService), authMiddleware)
 	routes.SetupRoutesSkillUsers(app, initSkillUserController(userService, skillService, skillUserRepository), authMiddleware)
-	hub := service.NewNotificationHub()
-	routes.SetupRoutesNotifications(app, controller.NewNotificationController(hub, service.NewNotificationService(outboxEventRepository)), authMiddleware)
+	hub := notification.NewNotificationHub()
+	routes.SetupRoutesNotifications(app, notificationctrl.NewNotificationController(hub, notification.NewNotificationService(outboxEventRepository)), authMiddleware)
 	routes.SetupSwaggerRoute(app)
 	job.StartOutboxJob(db, job.OutboxConfigFromEnv(), job.NewDispatchingOutboxHandler(
 		job.NewSSEOutboxHandler(hub),
-		service.NewCreatedAccountHandler(userRepository, emailCodeRepository, emailSender, service.EmailCodeConfigFromEnv()),
+		identity.NewCreatedAccountHandler(userRepository, emailCodeRepository, emailSender, identity.EmailCodeConfigFromEnv()),
 	))
 	log.Fatal(app.Listen(":8080"))
 }
 
-func initUserController(userService service.UserService) controller.UserController {
-	return controller.NewUserController(userService)
+func initUserController(userService identity.UserService) identityctrl.UserController {
+	return identityctrl.NewUserController(userService)
 }
 
-func initAuthController(authService service.AuthService) controller.AuthController {
-	return controller.NewAuthController(authService)
+func initAuthController(authService identity.AuthService) identityctrl.AuthController {
+	return identityctrl.NewAuthController(authService)
 }
 
-func initAddressController(addressService service.AddressService) controller.AddressController {
-	return controller.NewAddressController(addressService)
+func initAddressController(addressService address.AddressService) addressctrl.AddressController {
+	return addressctrl.NewAddressController(addressService)
 }
 
 func initEventUserController(
-	userService service.UserService,
-	eventService service.EventService,
-	eventUserRepository repository.EventUserRepository) controller.EventUserController {
-	return controller.NewEventUserController(service.NewEventUserService(userService, eventService, eventUserRepository, validator.NewEventUserValidator()))
+	userService identity.UserService,
+	eventService event.EventService,
+	eventUserRepository eventrepo.EventUserRepository) eventctrl.EventUserController {
+	return eventctrl.NewEventUserController(event.NewEventUserService(userService, eventService, eventUserRepository, eventvalidator.NewEventUserValidator()))
 }
 
 func initSkillUserController(
-	userService service.UserService,
-	skillService service.SkillService,
-	skillUserRepository repository.SkillUserRepository) controller.SkillUserController {
-	return controller.NewSkillUserController(service.NewSkillUserService(userService, skillService, skillUserRepository, validator.NewSkillUserValidator()))
+	userService identity.UserService,
+	skillService skill.SkillService,
+	skillUserRepository skillrepo.SkillUserRepository) skillctrl.SkillUserController {
+	return skillctrl.NewSkillUserController(skill.NewSkillUserService(userService, skillService, skillUserRepository, skillvalidator.NewSkillUserValidator()))
 }
 
-func initUserService(userRepository repository.UserRepository,
-	authService service.AuthService,
-	communityRepository repository.CommunityRepository,
-	eventRepository repository.EventRepository,
-	eventUserRepository repository.EventUserRepository,
-	communityUserRepository repository.CommunityUserRepository,
-	outboxEventRepository repository.OutboxEventRepository,
-	emailCodeRepository repository.EmailCodeRepository) service.UserService {
-	return service.NewUserService(userRepository, validator.NewUserValidator(), authService,
+func initUserService(userRepository userrepo.UserRepository,
+	authService identity.AuthService,
+	communityRepository communityrepo.CommunityRepository,
+	eventRepository eventrepo.EventRepository,
+	eventUserRepository eventrepo.EventUserRepository,
+	communityUserRepository communityrepo.CommunityUserRepository,
+	outboxEventRepository notificationrepo.OutboxEventRepository,
+	emailCodeRepository userrepo.EmailCodeRepository) identity.UserService {
+	return identity.NewUserService(userRepository, identityvalidator.NewUserValidator(), authService,
 		communityRepository, eventRepository, eventUserRepository, communityUserRepository,
 		outboxEventRepository, emailCodeRepository)
 }
 
-func initAddressService(addressRepository repository.AddressRepository) service.AddressService {
-	return service.NewAddressService(
+func initAddressService(addressRepository addressrepo.AddressRepository) address.AddressService {
+	return address.NewAddressService(
 		addressRepository,
-		validator.NewAddressValidator(),
+		addressvalidator.NewAddressValidator(),
 		client.NewAddressSearchClient())
 }

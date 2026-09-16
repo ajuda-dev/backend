@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/ajuda-dev/backend/src/config/logger"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"go.uber.org/zap"
 )
 
@@ -36,7 +36,7 @@ func githubProviderFromEnv() (Provider, bool) {
 	clientSecret := strings.TrimSpace(os.Getenv(GitHubClientSecretEnv))
 	if clientId == "" || clientSecret == "" {
 		logger.Info("oauth provider disabled",
-			zap.String("provider", domain.OAuthProviderGithub),
+			zap.String("provider", userdomain.OAuthProviderGithub),
 			zap.String("reason", GitHubClientIdEnv+" and "+GitHubClientSecretEnv+" are not configured"))
 		return nil, false
 	}

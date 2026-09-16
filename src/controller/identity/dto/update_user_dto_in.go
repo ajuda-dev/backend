@@ -1,6 +1,8 @@
 package dto
 
-import "github.com/ajuda-dev/backend/src/service/domain"
+import (
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+)
 
 // Atualização de perfil: nome, resumo e configuração de visibilidade.
 // Email e Password existem apenas para serem recusados com causa explícita
@@ -15,8 +17,8 @@ type UpdateUserDtoIn struct {
 	ConfigVisibility ConfigVisibilityDto `json:"configVisibility"`
 }
 
-func (u *UpdateUserDtoIn) ToDomain() *domain.UserDomain {
-	return &domain.UserDomain{
+func (u *UpdateUserDtoIn) ToDomain() *userdomain.UserDomain {
+	return &userdomain.UserDomain{
 		Name:             u.Name,
 		Email:            u.Email,
 		Password:         u.Password,

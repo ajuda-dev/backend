@@ -1,6 +1,8 @@
 package domain
 
-import "time"
+import (
+	"time"
+)
 
 const EmailCodePurposeConfirm = "email_confirm"
 

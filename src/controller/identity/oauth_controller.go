@@ -1,4 +1,4 @@
-package controller
+package identity
 
 import (
 	"crypto/subtle"
@@ -9,7 +9,7 @@ import (
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
-	"github.com/ajuda-dev/backend/src/service"
+	"github.com/ajuda-dev/backend/src/service/identity"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -23,7 +23,7 @@ const (
 	oauthErrorQuery         = "?error=auth_failed"
 )
 
-func NewOAuthController(oauthService service.OAuthService) OAuthController {
+func NewOAuthController(oauthService identity.OAuthService) OAuthController {
 	return &oauthController{
 		oauthService: oauthService,
 	}
@@ -35,7 +35,7 @@ type OAuthController interface {
 }
 
 type oauthController struct {
-	oauthService service.OAuthService
+	oauthService identity.OAuthService
 }
 
 // StartLogin godoc

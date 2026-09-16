@@ -6,27 +6,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	eventdto "github.com/ajuda-dev/backend/src/controller/event/dto"
+	evententity "github.com/ajuda-dev/backend/src/data/event/entity"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
 
-func eaDecodeEventDto(t *testing.T, resp *http.Response) dto.EventDto {
+func eaDecodeEventDto(t *testing.T, resp *http.Response) eventdto.EventDto {
 	t.Helper()
 	defer resp.Body.Close()
-	var eventDto dto.EventDto
+	var eventDto eventdto.EventDto
 	if err := json.NewDecoder(resp.Body).Decode(&eventDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	return eventDto
 }
 
-func eaDecodePageableEvent(t *testing.T, resp *http.Response) dto.PageableEventDto {
+func eaDecodePageableEvent(t *testing.T, resp *http.Response) eventdto.PageableEventDto {
 	t.Helper()
 	defer resp.Body.Close()
-	var page dto.PageableEventDto
+	var page eventdto.PageableEventDto
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -37,21 +38,21 @@ func TestDeleteEventAuthorization(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	communityOwner := createUserWithRole(t, "del_community_owner@ajuda.dev", domain.UserRoleUser)
-	eventOwner := createUserWithRole(t, "del_event_owner@ajuda.dev", domain.UserRoleUser)
-	third := createUserWithRole(t, "del_third@ajuda.dev", domain.UserRoleUser)
-	moderator := createUserWithRole(t, "del_moderator@ajuda.dev", domain.UserRoleModerator)
+	communityOwner := createUserWithRole(t, "del_community_owner@ajuda.dev", userdomain.UserRoleUser)
+	eventOwner := createUserWithRole(t, "del_event_owner@ajuda.dev", userdomain.UserRoleUser)
+	third := createUserWithRole(t, "del_third@ajuda.dev", userdomain.UserRoleUser)
+	moderator := createUserWithRole(t, "del_moderator@ajuda.dev", userdomain.UserRoleModerator)
 	address := createEventAddress(t, "del_city")
 	community := createEventCommunity(t, "Comunidade delete", communityOwner, address)
 	eaAddCommunityMember(t, community.Id, eventOwner.Id)
 
-	createEvent := func(title string) dto.RegisterEventDto {
+	createEvent := func(title string) eventdto.RegisterEventDto {
 		t.Helper()
 		return registerEventViaApi(t, app, eventTestRequest{
 			OwnerId:     eventOwner.Id,
 			CommunityId: strPtr(community.Id),
-			Category:    domain.CategoryCommunityEvent,
-			Type:        domain.TypeOnline,
+			Category:    eventdomain.CategoryCommunityEvent,
+			Type:        eventdomain.TypeOnline,
 			Title:       title,
 			Description: "teste de delete",
 			StartAt:     time.Now().Add(48 * time.Hour),
@@ -115,7 +116,7 @@ func TestDeleteEventAuthorization(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	var deletedEvent entity.EventEntity
+	var deletedEvent evententity.EventEntity
 	if err := db.Unscoped().Where("id = ?", eventForOwner.Id).First(&deletedEvent).Error; err != nil {
 		t.Fatalf("esperava achar o evento arquivado via Unscoped, recebeu %v", err)
 	}
@@ -128,9 +129,9 @@ func TestEventAgendaOtherUser(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	owner := createUserWithRole(t, "agenda_owner@ajuda.dev", domain.UserRoleUser)
-	other := createUserWithRole(t, "agenda_other@ajuda.dev", domain.UserRoleUser)
-	moderator := createUserWithRole(t, "agenda_moderator@ajuda.dev", domain.UserRoleModerator)
+	owner := createUserWithRole(t, "agenda_owner@ajuda.dev", userdomain.UserRoleUser)
+	other := createUserWithRole(t, "agenda_other@ajuda.dev", userdomain.UserRoleUser)
+	moderator := createUserWithRole(t, "agenda_moderator@ajuda.dev", userdomain.UserRoleModerator)
 	event := euCreateCommunityEvent(t, app, owner, nil)
 
 	resp := euRequest(t, app, http.MethodGet, "/v1/event?user_id="+owner.Id, "", validTokenFor(t, other.Id))
@@ -168,8 +169,8 @@ func TestEventOwnerEmailFiltered(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
-	owner := createUserWithRole(t, "event_email_owner@ajuda.dev", domain.UserRoleUser)
-	third := createUserWithRole(t, "event_email_third@ajuda.dev", domain.UserRoleUser)
+	owner := createUserWithRole(t, "event_email_owner@ajuda.dev", userdomain.UserRoleUser)
+	third := createUserWithRole(t, "event_email_third@ajuda.dev", userdomain.UserRoleUser)
 	event := euCreateCommunityEvent(t, app, owner, nil)
 	thirdToken := validTokenFor(t, third.Id)
 

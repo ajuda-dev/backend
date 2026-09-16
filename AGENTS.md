@@ -47,20 +47,29 @@ backend/
     │   ├── logger/               # zap logging (JSON)
     │   └── rest_err/             # standardized REST error structure
     ├── controller/
-    │   ├── user_controller.go
-    │   ├── address_controller.go
-    │   ├── community_controller.go
-    │   ├── dto/                  # input/output DTOs
-    │   └── routes/               # route definitions
+    │   ├── identity/             # users, auth, oauth + dto/
+    │   ├── address/              # + dto/
+    │   ├── community/            # + dto/ (membership included)
+    │   ├── event/                # + dto/ (event_users included)
+    │   ├── skill/                # + dto/
+    │   ├── notification/         # inbox + SSE + dto/
+    │   ├── middleware/           # JWT + cookie de sessão
+    │   └── routes/               # composition das rotas (prefixos HTTP iguais)
     ├── data/
-    │   ├── entity/               # GORM models (User, Address, Community)
-    │   └── repository/           # data access layer
+    │   ├── identity/             # entity/ + repository/ (users, oauth, email_codes)
+    │   ├── address/
+    │   ├── community/            # community + community_users
+    │   ├── event/                # events + event_users
+    │   ├── skill/                # skills + skill_users
+    │   └── notification/         # outbox entity + repository
     ├── service/
-    │   ├── user_service.go
-    │   ├── address_service.go
-    │   ├── community_service.go
-    │   ├── domain/               # domain structs
-    │   └── validator/            # business validations
+    │   ├── identity/             # users, auth, oauth, email codes + domain/ + validator/
+    │   ├── address/
+    │   ├── community/
+    │   ├── event/
+    │   ├── skill/
+    │   ├── notification/         # inbox, SSE hub + outbox domain
+    │   └── validation/           # helpers exportados (IsValidEmail, IsValidName, URL, phone)
     └── tests/
         └── integration/
             └── controller/       # integration tests (Testcontainers)
@@ -68,7 +77,7 @@ backend/
 
 ## Architecture
 
-Layered architecture with manual dependency injection (done in `src/config/init_app.go`):
+Layered architecture with manual dependency injection (done in `src/config/init_app.go`). Each bounded context (`identity`, `address`, `community`, `event`, `skill`, `notification`) is a parallel trio of packages: `service/<domínio>`, `data/<domínio>`, `controller/<domínio>`. Types are imported from the domain package (`identity.UserService`, `data/identity/entity.UserEntity`, `controller/identity/dto.UserDtoOut`). When two imports share a name (`entity`, `dto`, `domain`), files use aliases (`userentity`, `userdto`, `userdomain`). Identity may use community/event/notification **repositories** (user delete, outbox) but must not import those **services** (import cycle).
 
 ```
 Controller (HTTP/Fiber) → Service (business rules) → Repository (GORM) → PostgreSQL
@@ -78,11 +87,11 @@ Controller (HTTP/Fiber) → Service (business rules) → Repository (GORM) → P
 ```
 
 - **Controllers:** interface + private struct + `NewXxxController` constructor. Each handler returns `fiber.Handler`. They use `BodyParser` and convert DTO → Domain.
-- **Services:** interface + private struct + constructor. They orchestrate validation, business rules and repositories (e.g. `CreateUser` validates, checks for duplicate email, hashes the password and persists).
-- **Repositories:** interface + private struct with `*gorm.DB`. They convert Entity ↔ Domain. Database errors become `*rest_err.RestErr` (via `handlerErrorDataBase`).
-- **Validators:** interface + private struct. They return `*rest_err.RestErr` with a list of `Causes` (field + message). There is a `common_validator.go` with helpers (`isValidName`, `isValidEmail`).
-- **DTOs:** structs with JSON tags and `ToDomain()` / `FromDomain()` methods.
-- **Entities:** GORM models with `TableName()`, `ToDomain()` and `FromDomain()`.
+- **Services:** interface + private struct + constructor. They orchestrate validation, business rules and repositories (e.g. `CreateUser` validates, checks for duplicate email, hashes the password and persists). Cross-domain helpers live in identity and are exported (`AuthenticatedUser`, `ApplyVisibilityFilter`, `RequireVerifiedEmail`, `RoleAtLeast`).
+- **Repositories:** interface + private struct with `*gorm.DB`. They convert Entity ↔ Domain. Database errors become `*rest_err.RestErr` (via `handlerErrorDataBase` in identity, `toRestErr` in event/skill/identity).
+- **Validators:** interface + private struct. They return `*rest_err.RestErr` with a list of `Causes` (field + message). Shared helpers are `src/service/validation` (`IsValidName`, `IsValidEmail`, `IsValidHTTPURL`, `IsValidPhone`).
+- **DTOs:** structs with JSON tags and `ToDomain()` / `FromDomain()` methods. Nested aggregates import the other domain's dto (e.g. `CommunityDto.Owner` is `identity/dto.UserDtoOut`).
+- **Entities:** GORM models with `TableName()`, `ToDomain()` and `FromDomain()`. Nested aggregates import the other domain's entity (e.g. `CommunityEntity.Owner` is `identity/entity.UserEntity`).
 - **Errors:** always `*rest_err.RestErr` with an HTTP `Code`, propagated up to the controller which responds with `c.Status(err.Code).JSON(err)`.
 
 ## Database configuration
@@ -91,9 +100,9 @@ Controller (HTTP/Fiber) → Service (business rules) → Repository (GORM) → P
 - **Configuration:** environment variables loaded with `godotenv` (`.env` file; template in `.env.exemple`).
 - **Variables:** `DB_HOST` (host:porta, ex. `localhost:5432`), `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL_MODE` (default `disable`), `DB_TIME_ZONE`, `PURGE_ENABLED` (default `false`), `PURGE_OLDER_THAN_DAYS` (default `30`), `PURGE_INTERVAL_HOURS` (default `24`), `EMAIL_PROVIDER` / `BREVO_*` (gateway de e-mail), `EMAIL_CODE_SECRET` (fallback `JWT_SECRET`), `EMAIL_CODE_TTL_MINUTES` (default `5`), `EMAIL_CODE_RESEND_INTERVAL_SECONDS` (default `60`), `EMAIL_CODE_MAX_SENDS_PER_HOUR` (default `5`), `EMAIL_CODE_MAX_ATTEMPTS` (default `5`).
 - **Connection:** `src/config/database/database_connect.go` builds the DSN and opens it with `gorm.Open(postgres.Open(dsn))`.
-- **Migration:** automatic `AutoMigrate` of the `UserEntity`, `AddressEntity`, `CommunityEntity`, `OutboxEventEntity`, `EmailCodeEntity` (and the other GORM models) on startup.
-- **User profile columns:** `users.description` (`varchar(500)`) and `users.config_visibility` (`jsonb`, nullable, no default) — written only by `PUT /v1/user/:userId`. The jsonb holds `{ "value": "...", "shareWithCommunity": true|false }` per key (`github`, `linkedin`, `otherlink`, `photo`, `phone`, `email`); the `email` key's `value` is system-managed (mirrored from the `email` column on every read, never accepted from the client). The entity type `entity.UserConfigVisibility` is an explicit struct with one field per allowed key (implementing `driver.Valuer`/`sql.Scanner`, no `gorm.io/datatypes` dependency): keys outside that list are rejected with 400 by the validator and dropped by `Value`/`Scan`, so they can never be persisted.
-- **Email verification:** `users.email_verified_at` (`timestamptz`, nullable). Password register inserts the user with the timestamp **null** and an `outbox_events` row type `CREATED_ACCOUNT` in the same transaction; OAuth and `CreateUser` without outbox (test fixtures) still write `now()` when the timestamp is null. The outbox worker generates a 6-char code (`0-9A-Z`), stores the HMAC hash in `email_codes` (purpose `email_confirm`, TTL `EMAIL_CODE_TTL_MINUTES`, default 5) and sends it via `EmailSender` — the code is never in the outbox payload. `CREATED_ACCOUNT` is **not** an inbox type (it does not appear in `GET /v1/notifications` or SSE). The API exposes `emailVerified` (boolean: timestamp is not null) on `UserDtoOut` / `LoginUserDtoOut` (register, login, `/v1/user/me`); register returns `false` until `POST /v1/user/verify-email`. `UserProfileDtoOut` and `PUT /v1/user/:userId` never accept or change the timestamp. Unverified users (`email_verified_at` null) get **403** `email is not verified` on `POST /v1/community/register`, `POST /v1/community/:id/join` and `POST /v1/event/register` (service helper `requireVerifiedEmail`, not JWT middleware). `POST /v1/event/:eventId/join`, leave community, cancel participation and `PUT /v1/event/:eventId/participants/:userId/status` (accept/reject invite) are not gated.
+- **Migration:** automatic `AutoMigrate` of the GORM models from each `data/<domínio>/entity` package on startup (`UserEntity`, `AddressEntity`, `CommunityEntity`, `OutboxEventEntity`, `EmailCodeEntity`, and the others).
+- **User profile columns:** `users.description` (`varchar(500)`) and `users.config_visibility` (`jsonb`, nullable, no default) — written only by `PUT /v1/user/:userId`. The jsonb holds `{ "value": "...", "shareWithCommunity": true|false }` per key (`github`, `linkedin`, `otherlink`, `photo`, `phone`, `email`); the `email` key's `value` is system-managed (mirrored from the `email` column on every read, never accepted from the client). The entity type `identity/entity.UserConfigVisibility` is an explicit struct with one field per allowed key (implementing `driver.Valuer`/`sql.Scanner`, no `gorm.io/datatypes` dependency): keys outside that list are rejected with 400 by the validator and dropped by `Value`/`Scan`, so they can never be persisted.
+- **Email verification:** `users.email_verified_at` (`timestamptz`, nullable). Password register inserts the user with the timestamp **null** and an `outbox_events` row type `CREATED_ACCOUNT` in the same transaction; OAuth and `CreateUser` without outbox (test fixtures) still write `now()` when the timestamp is null. The outbox worker generates a 6-char code (`0-9A-Z`), stores the HMAC hash in `email_codes` (purpose `email_confirm`, TTL `EMAIL_CODE_TTL_MINUTES`, default 5) and sends it via `EmailSender` — the code is never in the outbox payload. `CREATED_ACCOUNT` is **not** an inbox type (it does not appear in `GET /v1/notifications` or SSE). The API exposes `emailVerified` (boolean: timestamp is not null) on `UserDtoOut` / `LoginUserDtoOut` (register, login, `/v1/user/me`); register returns `false` until `POST /v1/user/verify-email`. `UserProfileDtoOut` and `PUT /v1/user/:userId` never accept or change the timestamp. Unverified users (`email_verified_at` null) get **403** `email is not verified` on `POST /v1/community/register`, `POST /v1/community/:id/join` and `POST /v1/event/register` (identity helper `RequireVerifiedEmail`, not JWT middleware). `POST /v1/event/:eventId/join`, leave community, cancel participation and `PUT /v1/event/:eventId/participants/:userId/status` (accept/reject invite) are not gated.
 - **Extension:** `CREATE EXTENSION IF NOT EXISTS unaccent` runs on boot (before `AutoMigrate`) and in the integration test setup; the community `name`/`city` searches depend on it, so a failure aborts startup with an explicit error.
 
 ## Endpoints
@@ -117,7 +126,7 @@ Defined in `src/controller/routes/routes.go`:
 | POST | `/v1/community/register` | `RegisterCommunity` | Creates a community (201, returns the full `dto.CommunityDto`: `address` + `owner`); unverified email → **403** `email is not verified` |
 | GET | `/v1/community/:id` | `GetCommunityById` | Community detail with `address` + `owner`; `400` id not a UUID v7; `404` not found/soft-deleted (200) |
 | GET | `/v1/community` | `GetAllCommunities` | Paginated community listing; query params `page`, `limit`, `owner_id` (UUID v7), `name` (partial, case- and accent-insensitive match), `city` (partial, case- and accent-insensitive match) (200) |
-| GET | `/v1/community/:id/members` | `GetCommunityMembers` | Paginated community member listing (`community_users` rows) with the summarized user embedded (`dto.PageableCommunityMemberDto`: `has_next` + `data` with `id`, `community_id`, `user_id`, `user`); query params `page`, `limit`; alphabetical by user name; the owner is not listed (no membership row); soft-deleted users are excluded; `email` only when visible (`applyVisibilityFilter`); `400` id not a UUID v7, `401` invalid requester, `404` community not found/soft-deleted (200) |
+| GET | `/v1/community/:id/members` | `GetCommunityMembers` | Paginated community member listing (`community_users` rows) with the summarized user embedded (`dto.PageableCommunityMemberDto`: `has_next` + `data` with `id`, `community_id`, `user_id`, `user`); query params `page`, `limit`; alphabetical by user name; the owner is not listed (no membership row); soft-deleted users are excluded; `email` only when visible (`identity.ApplyVisibilityFilter`); `400` id not a UUID v7, `401` invalid requester, `404` community not found/soft-deleted (200) |
 | GET | `/v1/user/:userId/communities` | `GetUserCommunities` | Paginated listing of the communities the user is a member of (`community_users` rows) as full `dto.CommunityDto` items (`dto.PageableCommunityDto`: `has_next` + `data` with `id`, `name`, `description`, `address`, `owner`); query params `page`, `limit`; alphabetical by community name; only memberships (owned communities are not listed — use `GET /v1/community?owner_id=`); soft-deleted communities are excluded; any authenticated user may read any user's list (no owner/role restriction); `400` userId not a UUID v7, `401` missing/invalid token (200) |
 | GET | `/swagger/*` | `swagger.HandlerDefault` | Swagger UI documentation |
 
@@ -131,7 +140,7 @@ Defined in `src/controller/routes/routes.go`:
 
 ## Code conventions
 
-- Follow the layered architecture described above; new features should add Controller, Service, Repository, Entity, DTO, Domain and Validator following the existing pattern.
+- Follow the layered architecture described above; new features should add Controller, Service, Repository, Entity, DTO, Domain and Validator **inside the matching domain folders** (`src/{controller,service,data}/<domínio>/`). Shared HTTP helpers stay in `src/controller/middleware` and `src/controller/routes`. Shared validation helpers stay in `src/service/validation`.
 - Business errors must be returned as `*rest_err.RestErr` with the appropriate HTTP code.
 - Every endpoint must be protected by the VerifyJWT middleware. Authentication accepts the `ajudadev_session` HttpOnly cookie (browsers) or `Authorization: Bearer <jwt>` (native/API clients); the cookie is cleared when it carries an invalid/expired token. Permanent exceptions: POST /v1/user/register, POST /v1/user/login, POST /v1/user/logout, POST /v1/user/forgot-password, POST /v1/user/reset-password and GET /swagger/*. POST /v1/user/verify-email and POST /v1/user/resend-verification require JWT. New endpoints are authenticated by default; on mixed groups (public + protected under the same prefix), apply the middleware per route, never to the whole group.
 - Do not add unnecessary comments to the code.

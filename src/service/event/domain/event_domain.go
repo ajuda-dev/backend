@@ -1,6 +1,12 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+)
 
 const (
 	CategoryCommunityEvent = "COMMUNITY_EVENT"
@@ -24,9 +30,9 @@ type EventDomain struct {
 	Description string
 	StartAt     time.Time
 	DurationMin int
-	Owner       UserDomain
-	Community   *CommunityDomain
-	Address     *AddressDomain
+	Owner       userdomain.UserDomain
+	Community   *communitydomain.CommunityDomain
+	Address     *addressdomain.AddressDomain
 	MeetingLink string
 	MaxSlots    *int
 	CreatorRole string

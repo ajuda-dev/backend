@@ -1,6 +1,8 @@
 package dto
 
-import "github.com/ajuda-dev/backend/src/service/domain"
+import (
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+)
 
 type UserProfileDtoOut struct {
 	Id               string              `json:"id"`
@@ -10,7 +12,7 @@ type UserProfileDtoOut struct {
 	ConfigVisibility ConfigVisibilityDto `json:"configVisibility"`
 }
 
-func (u UserProfileDtoOut) FromDomain(user *domain.UserDomain) UserProfileDtoOut {
+func (u UserProfileDtoOut) FromDomain(user *userdomain.UserDomain) UserProfileDtoOut {
 	configVisibility := ConfigVisibilityDtoFromDomain(user.ConfigVisibility)
 	if configVisibility == nil {
 		configVisibility = ConfigVisibilityDto{}

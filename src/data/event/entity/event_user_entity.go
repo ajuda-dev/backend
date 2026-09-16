@@ -3,7 +3,8 @@ package entity
 import (
 	"time"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
 )
 
 type EventUserEntity struct {
@@ -15,15 +16,15 @@ type EventUserEntity struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
-	Event EventEntity `gorm:"foreignKey:EventId;references:Id;constraint:OnDelete:CASCADE"`
-	User  UserEntity  `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:RESTRICT"`
+	Event EventEntity           `gorm:"foreignKey:EventId;references:Id;constraint:OnDelete:CASCADE"`
+	User  userentity.UserEntity `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:RESTRICT"`
 }
 
 func (EventUserEntity) TableName() string {
 	return "event_users"
 }
 
-func (e *EventUserEntity) FromDomain(eventUser domain.EventUserDomain) *EventUserEntity {
+func (e *EventUserEntity) FromDomain(eventUser eventdomain.EventUserDomain) *EventUserEntity {
 	return &EventUserEntity{
 		Id:      eventUser.Id,
 		EventId: eventUser.EventId,
@@ -33,8 +34,8 @@ func (e *EventUserEntity) FromDomain(eventUser domain.EventUserDomain) *EventUse
 	}
 }
 
-func (e EventUserEntity) ToDomain() *domain.EventUserDomain {
-	eventUser := &domain.EventUserDomain{
+func (e EventUserEntity) ToDomain() *eventdomain.EventUserDomain {
+	eventUser := &eventdomain.EventUserDomain{
 		Id:      e.Id,
 		EventId: e.EventId,
 		UserId:  e.UserId,
@@ -47,8 +48,8 @@ func (e EventUserEntity) ToDomain() *domain.EventUserDomain {
 	return eventUser
 }
 
-func ToEventUserDomainList(entities []EventUserEntity) []*domain.EventUserDomain {
-	var domains []*domain.EventUserDomain
+func ToEventUserDomainList(entities []EventUserEntity) []*eventdomain.EventUserDomain {
+	var domains []*eventdomain.EventUserDomain
 	for _, e := range entities {
 		domains = append(domains, e.ToDomain())
 	}

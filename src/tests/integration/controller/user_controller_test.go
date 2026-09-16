@@ -3,13 +3,14 @@ package controller_test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
-	"github.com/gofiber/fiber/v2"
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/ajuda-dev/backend/src/config/rest_err"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	"github.com/gofiber/fiber/v2"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func newUserRegisterRequest(body []byte) *http.Request {
@@ -89,7 +90,7 @@ func TestCreateUserEmailAlreadyExists(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
 
-	_, createErr := userRepository.CreateUser(&domain.UserDomain{
+	_, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "teste",
 		Email:    testEmail,
 		Password: "123456",
@@ -217,7 +218,7 @@ func TestLoginSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
-	_, createErr := userRepository.CreateUser(&domain.UserDomain{
+	_, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "teste",
 		Email:    testEmail,
 		Password: string(hashedPassword),
@@ -280,7 +281,7 @@ func TestLoginWrongPassword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
-	_, createErr := userRepository.CreateUser(&domain.UserDomain{
+	_, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "teste",
 		Email:    testEmail,
 		Password: string(hashedPassword),

@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
+)
 
 const (
 	UserRoleUser      = "USER"
@@ -44,7 +48,7 @@ type UserDomain struct {
 	Role             string
 	Description      string
 	ConfigVisibility ConfigVisibility
-	Skills           []SkillDomain
+	Skills           []skilldomain.SkillDomain
 	EmailVerifiedAt  *time.Time
 }
 

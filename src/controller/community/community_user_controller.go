@@ -1,13 +1,13 @@
-package controller
+package community
 
 import (
 	"strconv"
 
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
+	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
-	"github.com/ajuda-dev/backend/src/service"
+	"github.com/ajuda-dev/backend/src/service/community"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -20,10 +20,10 @@ type CommunityUserController interface {
 }
 
 type communityUserController struct {
-	communityUserService service.CommunityUserService
+	communityUserService community.CommunityUserService
 }
 
-func NewCommunityUserController(communityUserService service.CommunityUserService) CommunityUserController {
+func NewCommunityUserController(communityUserService community.CommunityUserService) CommunityUserController {
 	return &communityUserController{
 		communityUserService: communityUserService,
 	}
@@ -36,7 +36,7 @@ func NewCommunityUserController(communityUserService service.CommunityUserServic
 // @Accept       json
 // @Produce      json
 // @Param        id  path  string  true  "ID da comunidade"
-// @Success      201   {object}  dto.CommunityUserDto
+// @Success      201   {object}  communitydto.CommunityUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Failure      403   {object}  map[string]interface{}
@@ -57,7 +57,7 @@ func (c *communityUserController) JoinCommunity() fiber.Handler {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusCreated).JSON(dto.CommunityUserDto{}.FromDomain(communityUser))
+		return cf.Status(fiber.StatusCreated).JSON(communitydto.CommunityUserDto{}.FromDomain(communityUser))
 	}
 }
 
@@ -100,7 +100,7 @@ func (c *communityUserController) LeaveCommunity() fiber.Handler {
 // @Param        id     path   string  true   "ID da comunidade"
 // @Param        page   query  int     false  "Página"
 // @Param        limit  query  int     false  "Limite"
-// @Success      200   {object}  dto.PageableCommunityMemberDto
+// @Success      200   {object}  communitydto.PageableCommunityMemberDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
@@ -125,7 +125,7 @@ func (c *communityUserController) GetCommunityMembers() fiber.Handler {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusOK).JSON(dto.PageableCommunityMemberDto{}.FromDomain(*result))
+		return cf.Status(fiber.StatusOK).JSON(communitydto.PageableCommunityMemberDto{}.FromDomain(*result))
 	}
 }
 
@@ -138,7 +138,7 @@ func (c *communityUserController) GetCommunityMembers() fiber.Handler {
 // @Param        userId  path   string  true   "ID do usuário"
 // @Param        page    query  int     false  "Página"
 // @Param        limit   query  int     false  "Limite"
-// @Success      200   {object}  dto.PageableCommunityDto
+// @Success      200   {object}  communitydto.PageableCommunityDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
@@ -158,6 +158,6 @@ func (c *communityUserController) GetUserCommunities() fiber.Handler {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusOK).JSON(dto.PageableCommunityDto{}.FromDomain(*result))
+		return cf.Status(fiber.StatusOK).JSON(communitydto.PageableCommunityDto{}.FromDomain(*result))
 	}
 }

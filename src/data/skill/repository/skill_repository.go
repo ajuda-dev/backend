@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	skillentity "github.com/ajuda-dev/backend/src/data/skill/entity"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
 )
@@ -15,12 +15,12 @@ type SkillFilter struct {
 }
 
 type SkillRepository interface {
-	CreateSkill(skill *domain.SkillDomain) (*domain.SkillDomain, *rest_err.RestErr)
-	FindByName(name string) (*domain.SkillDomain, *rest_err.RestErr)
-	FindById(id string) (*domain.SkillDomain, *rest_err.RestErr)
-	FindAll(filter SkillFilter, page int, limit int) (*domain.PageableSkill, *rest_err.RestErr)
+	CreateSkill(skill *skilldomain.SkillDomain) (*skilldomain.SkillDomain, *rest_err.RestErr)
+	FindByName(name string) (*skilldomain.SkillDomain, *rest_err.RestErr)
+	FindById(id string) (*skilldomain.SkillDomain, *rest_err.RestErr)
+	FindAll(filter SkillFilter, page int, limit int) (*skilldomain.PageableSkill, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
-	UpdateName(id string, name string) (*domain.SkillDomain, *rest_err.RestErr)
+	UpdateName(id string, name string) (*skilldomain.SkillDomain, *rest_err.RestErr)
 }
 
 type skillRepository struct {
@@ -33,8 +33,8 @@ func NewSkillRepository(db *gorm.DB) SkillRepository {
 	}
 }
 
-func (s *skillRepository) CreateSkill(skill *domain.SkillDomain) (*domain.SkillDomain, *rest_err.RestErr) {
-	skillEntity := (&entity.SkillEntity{}).FromDomain(*skill)
+func (s *skillRepository) CreateSkill(skill *skilldomain.SkillDomain) (*skilldomain.SkillDomain, *rest_err.RestErr) {
+	skillEntity := (&skillentity.SkillEntity{}).FromDomain(*skill)
 	skillEntity.Id = uuidv7.New().String()
 	if err := s.database.Create(skillEntity).Error; err != nil {
 		return nil, rest_err.NewInternalServerError(err.Error())
@@ -42,8 +42,8 @@ func (s *skillRepository) CreateSkill(skill *domain.SkillDomain) (*domain.SkillD
 	return skillEntity.ToDomain(), nil
 }
 
-func (s *skillRepository) FindByName(name string) (*domain.SkillDomain, *rest_err.RestErr) {
-	var skillEntity entity.SkillEntity
+func (s *skillRepository) FindByName(name string) (*skilldomain.SkillDomain, *rest_err.RestErr) {
+	var skillEntity skillentity.SkillEntity
 	if err := s.database.Where("name = ?", name).First(&skillEntity).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, rest_err.NewNotFoundError("skill not found")
@@ -53,8 +53,8 @@ func (s *skillRepository) FindByName(name string) (*domain.SkillDomain, *rest_er
 	return skillEntity.ToDomain(), nil
 }
 
-func (s *skillRepository) FindById(id string) (*domain.SkillDomain, *rest_err.RestErr) {
-	var skillEntity entity.SkillEntity
+func (s *skillRepository) FindById(id string) (*skilldomain.SkillDomain, *rest_err.RestErr) {
+	var skillEntity skillentity.SkillEntity
 	if err := s.database.Where("id = ?", id).First(&skillEntity).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, rest_err.NewNotFoundError("skill not found")
@@ -64,9 +64,9 @@ func (s *skillRepository) FindById(id string) (*domain.SkillDomain, *rest_err.Re
 	return skillEntity.ToDomain(), nil
 }
 
-func (s *skillRepository) FindAll(filter SkillFilter, page int, limit int) (*domain.PageableSkill, *rest_err.RestErr) {
-	var skills []entity.SkillEntity
-	query := s.database.Model(&entity.SkillEntity{})
+func (s *skillRepository) FindAll(filter SkillFilter, page int, limit int) (*skilldomain.PageableSkill, *rest_err.RestErr) {
+	var skills []skillentity.SkillEntity
+	query := s.database.Model(&skillentity.SkillEntity{})
 
 	if page <= 0 {
 		page = 1
@@ -82,29 +82,29 @@ func (s *skillRepository) FindAll(filter SkillFilter, page int, limit int) (*dom
 	offset := (page - 1) * limit
 	result := query.Order("name").Offset(offset).Limit(limit + 1).Find(&skills)
 	if result.Error != nil {
-		return &domain.PageableSkill{}, rest_err.NewInternalServerError(result.Error.Error())
+		return &skilldomain.PageableSkill{}, rest_err.NewInternalServerError(result.Error.Error())
 	}
 
 	hasNext := len(skills) > limit
 	if hasNext {
 		skills = skills[:limit]
 	}
-	return &domain.PageableSkill{
+	return &skilldomain.PageableSkill{
 		HasNext: hasNext,
-		Data:    entity.ToSkillDomainList(skills),
+		Data:    skillentity.ToSkillDomainList(skills),
 	}, nil
 }
 
 func (s *skillRepository) SoftDeleteById(id string) *rest_err.RestErr {
 	txErr := s.database.Transaction(func(tx *gorm.DB) error {
-		result := tx.Where("id = ?", id).Delete(&entity.SkillEntity{})
+		result := tx.Where("id = ?", id).Delete(&skillentity.SkillEntity{})
 		if result.Error != nil {
 			return rest_err.NewInternalServerError("Error deleting skill: " + result.Error.Error())
 		}
 		if result.RowsAffected == 0 {
 			return rest_err.NewNotFoundError("skill not found")
 		}
-		if err := tx.Where("skill_id = ?", id).Delete(&entity.SkillUserEntity{}).Error; err != nil {
+		if err := tx.Where("skill_id = ?", id).Delete(&skillentity.SkillUserEntity{}).Error; err != nil {
 			return rest_err.NewInternalServerError("Error deleting skill users: " + err.Error())
 		}
 		return nil
@@ -115,8 +115,8 @@ func (s *skillRepository) SoftDeleteById(id string) *rest_err.RestErr {
 	return nil
 }
 
-func (s *skillRepository) UpdateName(id string, name string) (*domain.SkillDomain, *rest_err.RestErr) {
-	result := s.database.Model(&entity.SkillEntity{}).
+func (s *skillRepository) UpdateName(id string, name string) (*skilldomain.SkillDomain, *rest_err.RestErr) {
+	result := s.database.Model(&skillentity.SkillEntity{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Update("name", name)
 	if result.Error != nil {
@@ -125,5 +125,5 @@ func (s *skillRepository) UpdateName(id string, name string) (*domain.SkillDomai
 	if result.RowsAffected == 0 {
 		return nil, rest_err.NewNotFoundError("skill not found")
 	}
-	return &domain.SkillDomain{Id: id, Name: name}, nil
+	return &skilldomain.SkillDomain{Id: id, Name: name}, nil
 }

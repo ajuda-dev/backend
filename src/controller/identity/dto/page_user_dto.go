@@ -1,7 +1,8 @@
 package dto
 
 import (
-	"github.com/ajuda-dev/backend/src/service/domain"
+	skilldto "github.com/ajuda-dev/backend/src/controller/skill/dto"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 type PageableUserDto struct {
@@ -10,15 +11,15 @@ type PageableUserDto struct {
 }
 
 type UserSkillDto struct {
-	Id     string     `json:"id"`
-	Name   string     `json:"name"`
-	Skills []SkillDto `json:"skills"`
+	Id     string              `json:"id"`
+	Name   string              `json:"name"`
+	Skills []skilldto.SkillDto `json:"skills"`
 }
 
-func (u UserSkillDto) FromDomain(user *domain.UserDomain) UserSkillDto {
-	skills := make([]SkillDto, len(user.Skills))
+func (u UserSkillDto) FromDomain(user *userdomain.UserDomain) UserSkillDto {
+	skills := make([]skilldto.SkillDto, len(user.Skills))
 	for i, s := range user.Skills {
-		skills[i] = SkillDto{}.FromDomain(&s)
+		skills[i] = skilldto.SkillDto{}.FromDomain(&s)
 	}
 	return UserSkillDto{
 		Id:     user.Id,
@@ -27,7 +28,7 @@ func (u UserSkillDto) FromDomain(user *domain.UserDomain) UserSkillDto {
 	}
 }
 
-func (p PageableUserDto) FromDomain(page domain.PageableUser) *PageableUserDto {
+func (p PageableUserDto) FromDomain(page userdomain.PageableUser) *PageableUserDto {
 	users := make([]UserSkillDto, len(page.Data))
 	for i, u := range page.Data {
 		users[i] = UserSkillDto{}.FromDomain(u)

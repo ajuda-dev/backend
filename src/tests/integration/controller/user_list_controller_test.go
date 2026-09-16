@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -27,20 +27,20 @@ func listUsersRaw(t *testing.T, app *fiber.App, query string) (int, string) {
 	return resp.StatusCode, string(body)
 }
 
-func listUsers(t *testing.T, app *fiber.App, query string) dto.PageableUserDto {
+func listUsers(t *testing.T, app *fiber.App, query string) userdto.PageableUserDto {
 	t.Helper()
 	status, body := listUsersRaw(t, app, query)
 	if status != fiber.StatusOK {
 		t.Fatalf("esperava 200 na listagem de usuários, recebeu %d (body: %s)", status, body)
 	}
-	var page dto.PageableUserDto
+	var page userdto.PageableUserDto
 	if err := json.Unmarshal([]byte(body), &page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
 	return page
 }
 
-func userNames(page dto.PageableUserDto) []string {
+func userNames(page userdto.PageableUserDto) []string {
 	names := make([]string, len(page.Data))
 	for i, u := range page.Data {
 		names[i] = u.Name
@@ -59,8 +59,8 @@ func TestListUsersWithoutFiltersReturnsAllUsers(t *testing.T) {
 	carla := createUserForSkillSearch(t, "carla", "carla@ajuda.dev")
 	java := createSkillForTest(t, "JAVA")
 	goSkill := createSkillForTest(t, "GO")
-	assignSkillViaApi(t, app, java.Id, ana.Id, domain.LevelTeach)
-	assignSkillViaApi(t, app, goSkill.Id, bruno.Id, domain.LevelWantToLearn)
+	assignSkillViaApi(t, app, java.Id, ana.Id, skilldomain.LevelTeach)
+	assignSkillViaApi(t, app, goSkill.Id, bruno.Id, skilldomain.LevelWantToLearn)
 
 	page := listUsers(t, app, "")
 	if page.HasNext {
@@ -217,7 +217,7 @@ func TestListUsersByNameAndEmailAndSkill(t *testing.T) {
 	ana := createUserForSkillSearch(t, "ana silva", "ana.silva@ajuda.dev")
 	createUserForSkillSearch(t, "ana souza", "ana.souza@ajuda.dev")
 	java := createSkillForTest(t, "JAVA")
-	assignSkillViaApi(t, app, java.Id, ana.Id, domain.LevelTeach)
+	assignSkillViaApi(t, app, java.Id, ana.Id, skilldomain.LevelTeach)
 
 	page := listUsers(t, app, "?skill=JAVA&name=ana&email=ana.silva@ajuda.dev")
 	if len(page.Data) != 1 || page.Data[0].Id != ana.Id {
@@ -299,7 +299,7 @@ func TestListUsersResponseDoesNotExposeEmail(t *testing.T) {
 	app := setupApp()
 	ana := createUserForSkillSearch(t, "ana", "ana@ajuda.dev")
 	java := createSkillForTest(t, "JAVA")
-	assignSkillViaApi(t, app, java.Id, ana.Id, domain.LevelTeach)
+	assignSkillViaApi(t, app, java.Id, ana.Id, skilldomain.LevelTeach)
 
 	for _, query := range []string{"?skill=JAVA", ""} {
 		status, body := listUsersRaw(t, app, query)
@@ -330,7 +330,7 @@ func TestListUsersEmailFilterWorksWhileEmailHidden(t *testing.T) {
 	if strings.Contains(body, "email") {
 		t.Errorf("o body não deve conter 'email' mesmo filtrando por ele, recebeu %s", body)
 	}
-	var page dto.PageableUserDto
+	var page userdto.PageableUserDto
 	if err := json.Unmarshal([]byte(body), &page); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}

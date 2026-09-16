@@ -4,13 +4,15 @@ import (
 	"strings"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	"github.com/ajuda-dev/backend/src/service/validation"
 	"github.com/samborkent/uuidv7"
 )
 
 type CommunityValidator interface {
-	ValidatorRegisterCommunity(community domain.CommunityDomain) *rest_err.RestErr
-	ValidateUpdateCommunity(community domain.CommunityDomain) *rest_err.RestErr
+	ValidatorRegisterCommunity(community communitydomain.CommunityDomain) *rest_err.RestErr
+	ValidateUpdateCommunity(community communitydomain.CommunityDomain) *rest_err.RestErr
 }
 
 type communityValidator struct{}
@@ -19,9 +21,9 @@ func NewCommunityValidator() CommunityValidator {
 	return &communityValidator{}
 }
 
-func (c *communityValidator) ValidatorRegisterCommunity(community domain.CommunityDomain) *rest_err.RestErr {
+func (c *communityValidator) ValidatorRegisterCommunity(community communitydomain.CommunityDomain) *rest_err.RestErr {
 	causes := []rest_err.Causes{}
-	if !isValidName(community.Name, true) {
+	if !validation.IsValidName(community.Name, true) {
 		causes = append(causes, rest_err.Causes{
 			Field:   "name",
 			Message: "Name is not valid",
@@ -33,7 +35,7 @@ func (c *communityValidator) ValidatorRegisterCommunity(community domain.Communi
 			Message: "Description is not valid",
 		})
 	}
-	if community.Address == (domain.AddressDomain{}) || !uuidv7.IsValidString(community.Address.Id) {
+	if community.Address == (addressdomain.AddressDomain{}) || !uuidv7.IsValidString(community.Address.Id) {
 		causes = append(causes, rest_err.Causes{
 			Field:   "addressId",
 			Message: "AddressId is not valid",
@@ -56,7 +58,7 @@ func (c *communityValidator) ValidatorRegisterCommunity(community domain.Communi
 	return nil
 }
 
-func (c *communityValidator) ValidateUpdateCommunity(community domain.CommunityDomain) *rest_err.RestErr {
+func (c *communityValidator) ValidateUpdateCommunity(community communitydomain.CommunityDomain) *rest_err.RestErr {
 	causes := []rest_err.Causes{}
 
 	name := strings.TrimSpace(community.Name)
@@ -69,7 +71,7 @@ func (c *communityValidator) ValidateUpdateCommunity(community domain.CommunityD
 			Message: "provide at least one field to update",
 		})
 	}
-	if name != "" && !isValidName(community.Name, true) {
+	if name != "" && !validation.IsValidName(community.Name, true) {
 		causes = append(causes, rest_err.Causes{
 			Field:   "name",
 			Message: "Name is not valid",

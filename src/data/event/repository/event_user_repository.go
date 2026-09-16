@@ -5,37 +5,39 @@ import (
 	"errors"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	evententity "github.com/ajuda-dev/backend/src/data/event/entity"
+	notificationrepo "github.com/ajuda-dev/backend/src/data/notification/repository"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type EventUserRepository interface {
-	CreateOrUpdate(eventUser *domain.EventUserDomain, maxSlots *int) (*domain.EventUserDomain, *rest_err.RestErr)
-	FindByEvent(eventId string, status string) ([]*domain.EventUserDomain, *rest_err.RestErr)
-	FindByUser(userId string, role string, status string) ([]*domain.EventUserDomain, *rest_err.RestErr)
-	FindById(id string) (*domain.EventUserDomain, *rest_err.RestErr)
-	UpdateStatus(eventId string, userId string, status string, maxSlots *int) (*domain.EventUserDomain, *rest_err.RestErr)
+	CreateOrUpdate(eventUser *eventdomain.EventUserDomain, maxSlots *int) (*eventdomain.EventUserDomain, *rest_err.RestErr)
+	FindByEvent(eventId string, status string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr)
+	FindByUser(userId string, role string, status string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr)
+	FindById(id string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
+	UpdateStatus(eventId string, userId string, status string, maxSlots *int) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 	CountConfirmedByEvent(eventId string) (int64, *rest_err.RestErr)
 	CountActiveByUserId(userId string) (int64, *rest_err.RestErr)
 }
 
 type eventUserRepository struct {
 	database *gorm.DB
-	outbox   OutboxEventRepository
+	outbox   notificationrepo.OutboxEventRepository
 }
 
-func NewEventUserRepository(db *gorm.DB, outbox OutboxEventRepository) EventUserRepository {
+func NewEventUserRepository(db *gorm.DB, outbox notificationrepo.OutboxEventRepository) EventUserRepository {
 	return &eventUserRepository{
 		database: db,
 		outbox:   outbox,
 	}
 }
 
-func (e *eventUserRepository) FindById(id string) (*domain.EventUserDomain, *rest_err.RestErr) {
-	var eventUserEntity entity.EventUserEntity
+func (e *eventUserRepository) FindById(id string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	var eventUserEntity evententity.EventUserEntity
 	if err := e.database.Preload("User").Where("id = ?", id).First(&eventUserEntity).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, rest_err.NewNotFoundError("participant not found")
@@ -45,8 +47,8 @@ func (e *eventUserRepository) FindById(id string) (*domain.EventUserDomain, *res
 	return eventUserEntity.ToDomain(), nil
 }
 
-func (e *eventUserRepository) FindByEvent(eventId string, status string) ([]*domain.EventUserDomain, *rest_err.RestErr) {
-	var entities []entity.EventUserEntity
+func (e *eventUserRepository) FindByEvent(eventId string, status string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	var entities []evententity.EventUserEntity
 	query := e.database.Preload("User").Where("event_id = ?", eventId)
 	if status != "" {
 		query = query.Where("status = ?", status)
@@ -54,11 +56,11 @@ func (e *eventUserRepository) FindByEvent(eventId string, status string) ([]*dom
 	if err := query.Order("created_at").Find(&entities).Error; err != nil {
 		return nil, rest_err.NewInternalServerError("Error getting participants: " + err.Error())
 	}
-	return entity.ToEventUserDomainList(entities), nil
+	return evententity.ToEventUserDomainList(entities), nil
 }
 
-func (e *eventUserRepository) FindByUser(userId string, role string, status string) ([]*domain.EventUserDomain, *rest_err.RestErr) {
-	var entities []entity.EventUserEntity
+func (e *eventUserRepository) FindByUser(userId string, role string, status string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	var entities []evententity.EventUserEntity
 	query := e.database.Preload("User").Where("user_id = ?", userId)
 	if role != "" {
 		query = query.Where("role = ?", role)
@@ -69,15 +71,15 @@ func (e *eventUserRepository) FindByUser(userId string, role string, status stri
 	if err := query.Order("created_at").Find(&entities).Error; err != nil {
 		return nil, rest_err.NewInternalServerError("Error getting participants: " + err.Error())
 	}
-	return entity.ToEventUserDomainList(entities), nil
+	return evententity.ToEventUserDomainList(entities), nil
 }
 
 func (e *eventUserRepository) CountConfirmedByEvent(eventId string) (int64, *rest_err.RestErr) {
 	var count int64
-	err := e.database.Model(&entity.EventUserEntity{}).
+	err := e.database.Model(&evententity.EventUserEntity{}).
 		Joins("JOIN events ON events.id = event_users.event_id").
 		Where("events.deleted_at IS NULL AND event_users.event_id = ? AND event_users.status = ?",
-			eventId, domain.StatusConfirmed).
+			eventId, eventdomain.StatusConfirmed).
 		Count(&count).Error
 	if err != nil {
 		return 0, rest_err.NewInternalServerError("Error counting participants: " + err.Error())
@@ -87,10 +89,10 @@ func (e *eventUserRepository) CountConfirmedByEvent(eventId string) (int64, *res
 
 func (e *eventUserRepository) CountActiveByUserId(userId string) (int64, *rest_err.RestErr) {
 	var count int64
-	err := e.database.Model(&entity.EventUserEntity{}).
+	err := e.database.Model(&evententity.EventUserEntity{}).
 		Joins("JOIN events ON events.id = event_users.event_id").
 		Where("events.deleted_at IS NULL AND event_users.user_id = ? AND event_users.status IN ?",
-			userId, []string{domain.StatusRequested, domain.StatusConfirmed}).
+			userId, []string{eventdomain.StatusRequested, eventdomain.StatusConfirmed}).
 		Count(&count).Error
 	if err != nil {
 		return 0, rest_err.NewInternalServerError("Error counting participations: " + err.Error())
@@ -98,24 +100,24 @@ func (e *eventUserRepository) CountActiveByUserId(userId string) (int64, *rest_e
 	return count, nil
 }
 
-func (e *eventUserRepository) CreateOrUpdate(eventUser *domain.EventUserDomain, maxSlots *int) (*domain.EventUserDomain, *rest_err.RestErr) {
-	var result *domain.EventUserDomain
+func (e *eventUserRepository) CreateOrUpdate(eventUser *eventdomain.EventUserDomain, maxSlots *int) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	var result *eventdomain.EventUserDomain
 	txErr := e.database.Transaction(func(tx *gorm.DB) error {
 		if _, lockErr := lockEventRow(tx, eventUser.EventId); lockErr != nil {
 			return lockErr
 		}
-		if eventUser.Status == domain.StatusConfirmed {
+		if eventUser.Status == eventdomain.StatusConfirmed {
 			if err := checkEventCapacity(tx, eventUser.EventId, maxSlots); err != nil {
 				return err
 			}
-			if eventUser.Role == domain.RoleMentee {
+			if eventUser.Role == eventdomain.RoleMentee {
 				if err := checkConfirmedMentee(tx, eventUser.EventId, ""); err != nil {
 					return err
 				}
 			}
 		}
 
-		var existing entity.EventUserEntity
+		var existing evententity.EventUserEntity
 		queryErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("event_id = ? AND user_id = ?", eventUser.EventId, eventUser.UserId).
 			First(&existing).Error
@@ -123,7 +125,7 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *domain.EventUserDomain, 
 			return rest_err.NewInternalServerError("Error getting participant: " + queryErr.Error())
 		}
 		if errors.Is(queryErr, gorm.ErrRecordNotFound) {
-			eventUserEntity := (&entity.EventUserEntity{}).FromDomain(*eventUser)
+			eventUserEntity := (&evententity.EventUserEntity{}).FromDomain(*eventUser)
 			eventUserEntity.Id = uuidv7.New().String()
 			if err := tx.Create(eventUserEntity).Error; err != nil {
 				return rest_err.NewInternalServerError("Error creating participant: " + err.Error())
@@ -136,8 +138,8 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *domain.EventUserDomain, 
 		}
 
 		switch existing.Status {
-		case domain.StatusCancelled, domain.StatusRejected:
-			if err := tx.Model(&entity.EventUserEntity{}).Where("id = ?", existing.Id).
+		case eventdomain.StatusCancelled, eventdomain.StatusRejected:
+			if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", existing.Id).
 				Updates(map[string]interface{}{"role": eventUser.Role, "status": eventUser.Status}).Error; err != nil {
 				return rest_err.NewInternalServerError("Error updating participant: " + err.Error())
 			}
@@ -148,7 +150,7 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *domain.EventUserDomain, 
 				return err
 			}
 			return nil
-		case domain.StatusRequested:
+		case eventdomain.StatusRequested:
 			return rest_err.NewBadRequestValidationError("Invalid participation data",
 				[]rest_err.Causes{{
 					Field:   "user_id",
@@ -168,15 +170,15 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *domain.EventUserDomain, 
 	return result, nil
 }
 
-func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status string, maxSlots *int) (*domain.EventUserDomain, *rest_err.RestErr) {
-	var result *domain.EventUserDomain
+func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status string, maxSlots *int) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	var result *eventdomain.EventUserDomain
 	txErr := e.database.Transaction(func(tx *gorm.DB) error {
 		eventRow, lockErr := lockEventRow(tx, eventId)
 		if lockErr != nil {
 			return lockErr
 		}
 
-		var existing entity.EventUserEntity
+		var existing evententity.EventUserEntity
 		queryErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("event_id = ? AND user_id = ?", eventId, userId).
 			First(&existing).Error
@@ -189,8 +191,8 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 		if !isValidStatusTransition(existing.Status, status) {
 			return invalidStatusTransitionError(existing.Status, status)
 		}
-		if status == domain.StatusConfirmed {
-			if existing.Role == domain.RoleMentee {
+		if status == eventdomain.StatusConfirmed {
+			if existing.Role == eventdomain.RoleMentee {
 				if err := checkConfirmedMentee(tx, eventId, userId); err != nil {
 					return err
 				}
@@ -199,7 +201,7 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 				return err
 			}
 		}
-		if err := tx.Model(&entity.EventUserEntity{}).Where("id = ?", existing.Id).
+		if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", existing.Id).
 			Update("status", status).Error; err != nil {
 			return rest_err.NewInternalServerError("Error updating participant status: " + err.Error())
 		}
@@ -216,19 +218,19 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 	return result, nil
 }
 
-func (e *eventUserRepository) insertMentoringInviteOutbox(tx *gorm.DB, eventUser *domain.EventUserDomain) error {
-	if e.outbox == nil || eventUser.Status != domain.StatusRequested {
+func (e *eventUserRepository) insertMentoringInviteOutbox(tx *gorm.DB, eventUser *eventdomain.EventUserDomain) error {
+	if e.outbox == nil || eventUser.Status != eventdomain.StatusRequested {
 		return nil
 	}
 	payload, _ := json.Marshal(map[string]string{
 		"event_id": eventUser.EventId,
-		"category": domain.CategoryMentoring,
+		"category": eventdomain.CategoryMentoring,
 	})
-	return insertOutboxForUsers(e.outbox, tx, domain.OutboxTypeMentoringInvitePending, []string{eventUser.UserId}, payload)
+	return insertOutboxForUsers(e.outbox, tx, notificationdomain.OutboxTypeMentoringInvitePending, []string{eventUser.UserId}, payload)
 }
 
-func (e *eventUserRepository) insertMentoringInviteResponseOutbox(tx *gorm.DB, event *entity.EventEntity, actorId, status string) error {
-	if e.outbox == nil || event == nil || event.Category != domain.CategoryMentoring {
+func (e *eventUserRepository) insertMentoringInviteResponseOutbox(tx *gorm.DB, event *evententity.EventEntity, actorId, status string) error {
+	if e.outbox == nil || event == nil || event.Category != eventdomain.CategoryMentoring {
 		return nil
 	}
 	outboxType := mentoringInviteResponseOutboxType(status)
@@ -244,17 +246,17 @@ func (e *eventUserRepository) insertMentoringInviteResponseOutbox(tx *gorm.DB, e
 
 func mentoringInviteResponseOutboxType(status string) string {
 	switch status {
-	case domain.StatusConfirmed:
-		return domain.OutboxTypeMentoringInviteAccepted
-	case domain.StatusRejected:
-		return domain.OutboxTypeMentoringInviteRejected
+	case eventdomain.StatusConfirmed:
+		return notificationdomain.OutboxTypeMentoringInviteAccepted
+	case eventdomain.StatusRejected:
+		return notificationdomain.OutboxTypeMentoringInviteRejected
 	default:
 		return ""
 	}
 }
 
-func lockEventRow(tx *gorm.DB, eventId string) (*entity.EventEntity, error) {
-	var eventEntity entity.EventEntity
+func lockEventRow(tx *gorm.DB, eventId string) (*evententity.EventEntity, error) {
+	var eventEntity evententity.EventEntity
 	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("id = ?", eventId).First(&eventEntity).Error
 	if err != nil {
@@ -271,8 +273,8 @@ func checkEventCapacity(tx *gorm.DB, eventId string, maxSlots *int) error {
 		return nil
 	}
 	var confirmed int64
-	if err := tx.Model(&entity.EventUserEntity{}).
-		Where("event_id = ? AND status = ?", eventId, domain.StatusConfirmed).
+	if err := tx.Model(&evententity.EventUserEntity{}).
+		Where("event_id = ? AND status = ?", eventId, eventdomain.StatusConfirmed).
 		Count(&confirmed).Error; err != nil {
 		return rest_err.NewInternalServerError("Error counting participants: " + err.Error())
 	}
@@ -288,8 +290,8 @@ func checkEventCapacity(tx *gorm.DB, eventId string, maxSlots *int) error {
 
 func checkConfirmedMentee(tx *gorm.DB, eventId string, userId string) error {
 	var mentees int64
-	query := tx.Model(&entity.EventUserEntity{}).
-		Where("event_id = ? AND role = ? AND status = ?", eventId, domain.RoleMentee, domain.StatusConfirmed)
+	query := tx.Model(&evententity.EventUserEntity{}).
+		Where("event_id = ? AND role = ? AND status = ?", eventId, eventdomain.RoleMentee, eventdomain.StatusConfirmed)
 	if userId != "" {
 		query = query.Where("user_id <> ?", userId)
 	}
@@ -308,12 +310,12 @@ func checkConfirmedMentee(tx *gorm.DB, eventId string, userId string) error {
 
 func isValidStatusTransition(current string, target string) bool {
 	switch current {
-	case domain.StatusRequested:
-		return target == domain.StatusConfirmed ||
-			target == domain.StatusRejected ||
-			target == domain.StatusCancelled
-	case domain.StatusConfirmed:
-		return target == domain.StatusCancelled
+	case eventdomain.StatusRequested:
+		return target == eventdomain.StatusConfirmed ||
+			target == eventdomain.StatusRejected ||
+			target == eventdomain.StatusCancelled
+	case eventdomain.StatusConfirmed:
+		return target == eventdomain.StatusCancelled
 	}
 	return false
 }
@@ -341,7 +343,7 @@ func eventRelatedRecipientIds(tx *gorm.DB, eventId, ownerId, actorId string) ([]
 	if ownerId != "" && ownerId != actorId {
 		ids[ownerId] = struct{}{}
 	}
-	var participants []entity.EventUserEntity
+	var participants []evententity.EventUserEntity
 	if err := tx.Select("user_id").Where("event_id = ?", eventId).Find(&participants).Error; err != nil {
 		return nil, rest_err.NewInternalServerError("Error listing event participants: " + err.Error())
 	}
@@ -357,7 +359,7 @@ func eventRelatedRecipientIds(tx *gorm.DB, eventId, ownerId, actorId string) ([]
 	return recipients, nil
 }
 
-func eventUpdateOutboxPayload(event *entity.EventEntity, actorId, status string) json.RawMessage {
+func eventUpdateOutboxPayload(event *evententity.EventEntity, actorId, status string) json.RawMessage {
 	data := map[string]string{
 		"event_id": event.Id,
 		"title":    event.Title,
@@ -372,7 +374,7 @@ func eventUpdateOutboxPayload(event *entity.EventEntity, actorId, status string)
 	return payload
 }
 
-func insertOutboxForUsers(outbox OutboxEventRepository, tx *gorm.DB, outboxType string, userIds []string, payload json.RawMessage) error {
+func insertOutboxForUsers(outbox notificationrepo.OutboxEventRepository, tx *gorm.DB, outboxType string, userIds []string, payload json.RawMessage) error {
 	if outbox == nil || outboxType == "" {
 		return nil
 	}
@@ -380,11 +382,11 @@ func insertOutboxForUsers(outbox OutboxEventRepository, tx *gorm.DB, outboxType 
 		if userId == "" {
 			continue
 		}
-		if err := outbox.Create(tx, &domain.OutboxEventDomain{
+		if err := outbox.Create(tx, &notificationdomain.OutboxEventDomain{
 			Type:    outboxType,
 			UserId:  userId,
 			Payload: payload,
-			Status:  domain.OutboxStatusPending,
+			Status:  notificationdomain.OutboxStatusPending,
 		}); err != nil {
 			return err
 		}

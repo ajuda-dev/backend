@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -41,10 +41,10 @@ func getUserProfileRawBody(t *testing.T, resp *http.Response) (string, map[strin
 	return string(raw), body
 }
 
-func decodeUserProfileDtoOut(t *testing.T, resp *http.Response) dto.UserProfileDtoOut {
+func decodeUserProfileDtoOut(t *testing.T, resp *http.Response) userdto.UserProfileDtoOut {
 	t.Helper()
 	defer resp.Body.Close()
-	var respDto dto.UserProfileDtoOut
+	var respDto userdto.UserProfileDtoOut
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestGetUserByIdSelfReturnsFullProfile(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "get_self@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "get_self@ajuda.dev", userdomain.UserRoleUser)
 	token := validTokenFor(t, user.Id)
 	updateUserProfile(t, app, user.Id, []byte(`{
 		"description": "Desenvolvedor backend",
@@ -105,15 +105,15 @@ func TestGetUserByIdSelfReturnsFullProfile(t *testing.T) {
 	if respDto.Email != user.Email {
 		t.Errorf("esperava email '%s' para o próprio usuário, recebeu '%s'", user.Email, respDto.Email)
 	}
-	if !respDto.ConfigVisibility[domain.VisibilityKeyLinkedin].ShareWithCommunity {
-		if _, exists := respDto.ConfigVisibility[domain.VisibilityKeyLinkedin]; !exists {
+	if !respDto.ConfigVisibility[userdomain.VisibilityKeyLinkedin].ShareWithCommunity {
+		if _, exists := respDto.ConfigVisibility[userdomain.VisibilityKeyLinkedin]; !exists {
 			t.Errorf("esperava linkedin presente no perfil completo, recebeu %+v", respDto.ConfigVisibility)
 		}
 	}
-	if respDto.ConfigVisibility[domain.VisibilityKeyLinkedin].Value != "https://www.linkedin.com/in/devrocha/" {
-		t.Errorf("esperava linkedin não compartilhado visível para o próprio, recebeu %+v", respDto.ConfigVisibility[domain.VisibilityKeyLinkedin])
+	if respDto.ConfigVisibility[userdomain.VisibilityKeyLinkedin].Value != "https://www.linkedin.com/in/devrocha/" {
+		t.Errorf("esperava linkedin não compartilhado visível para o próprio, recebeu %+v", respDto.ConfigVisibility[userdomain.VisibilityKeyLinkedin])
 	}
-	emailConfig := respDto.ConfigVisibility[domain.VisibilityKeyEmail]
+	emailConfig := respDto.ConfigVisibility[userdomain.VisibilityKeyEmail]
 	if emailConfig.Value != user.Email {
 		t.Errorf("esperava email.value '%s' espelhado, recebeu '%s'", user.Email, emailConfig.Value)
 	}
@@ -123,8 +123,8 @@ func TestGetUserByIdAdminReturnsFullProfile(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	target := createUserWithRole(t, "get_admin_target@ajuda.dev", domain.UserRoleUser)
-	admin := createUserWithRole(t, "get_admin@ajuda.dev", domain.UserRoleAdmin)
+	target := createUserWithRole(t, "get_admin_target@ajuda.dev", userdomain.UserRoleUser)
+	admin := createUserWithRole(t, "get_admin@ajuda.dev", userdomain.UserRoleAdmin)
 	updateUserProfile(t, app, target.Id, []byte(`{
 		"description": "Resumo do alvo",
 		"configVisibility": {
@@ -144,7 +144,7 @@ func TestGetUserByIdAdminReturnsFullProfile(t *testing.T) {
 	if respDto.Description != "Resumo do alvo" {
 		t.Errorf("esperava description 'Resumo do alvo', recebeu '%s'", respDto.Description)
 	}
-	linkedin, exists := respDto.ConfigVisibility[domain.VisibilityKeyLinkedin]
+	linkedin, exists := respDto.ConfigVisibility[userdomain.VisibilityKeyLinkedin]
 	if !exists {
 		t.Fatalf("esperava linkedin presente no perfil completo do admin, recebeu %+v", respDto.ConfigVisibility)
 	}
@@ -160,8 +160,8 @@ func TestGetUserByIdThirdPartySeesOnlySharedFields(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	target := createUserWithRole(t, "get_third_target@ajuda.dev", domain.UserRoleUser)
-	other := createUserWithRole(t, "get_third_other@ajuda.dev", domain.UserRoleUser)
+	target := createUserWithRole(t, "get_third_target@ajuda.dev", userdomain.UserRoleUser)
+	other := createUserWithRole(t, "get_third_other@ajuda.dev", userdomain.UserRoleUser)
 	updateUserProfile(t, app, target.Id, []byte(`{
 		"description": "Resumo do alvo",
 		"configVisibility": {
@@ -177,13 +177,13 @@ func TestGetUserByIdThirdPartySeesOnlySharedFields(t *testing.T) {
 	}
 	_, body := getUserProfileRawBody(t, resp)
 	config := visibilityKeys(t, body)
-	if _, exists := config[domain.VisibilityKeyGithub]; !exists {
+	if _, exists := config[userdomain.VisibilityKeyGithub]; !exists {
 		t.Errorf("esperava github compartilhado no mapa, recebeu %+v", config)
 	}
-	if _, exists := config[domain.VisibilityKeyPhone]; !exists {
+	if _, exists := config[userdomain.VisibilityKeyPhone]; !exists {
 		t.Errorf("esperava phone compartilhado no mapa, recebeu %+v", config)
 	}
-	if _, exists := config[domain.VisibilityKeyLinkedin]; exists {
+	if _, exists := config[userdomain.VisibilityKeyLinkedin]; exists {
 		t.Errorf("esperava linkedin ausente do mapa para terceiro, recebeu %+v", config)
 	}
 	if body["name"] != target.Name {
@@ -198,8 +198,8 @@ func TestGetUserByIdThirdPartyWithoutSharedEmailDoesNotReceiveEmail(t *testing.T
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	target := createUserWithRole(t, "get_noemail_target@ajuda.dev", domain.UserRoleUser)
-	other := createUserWithRole(t, "get_noemail_other@ajuda.dev", domain.UserRoleUser)
+	target := createUserWithRole(t, "get_noemail_target@ajuda.dev", userdomain.UserRoleUser)
+	other := createUserWithRole(t, "get_noemail_other@ajuda.dev", userdomain.UserRoleUser)
 	updateUserProfile(t, app, target.Id, []byte(`{
 		"configVisibility": {
 			"github": { "value": "https://github.com/LucasFreitasRocha", "shareWithCommunity": true },
@@ -216,7 +216,7 @@ func TestGetUserByIdThirdPartyWithoutSharedEmailDoesNotReceiveEmail(t *testing.T
 		t.Errorf("esperava email ausente no topo para terceiro, recebeu '%v'", body["email"])
 	}
 	config := visibilityKeys(t, body)
-	if _, exists := config[domain.VisibilityKeyEmail]; exists {
+	if _, exists := config[userdomain.VisibilityKeyEmail]; exists {
 		t.Errorf("esperava chave email ausente do mapa para terceiro, recebeu %+v", config)
 	}
 }
@@ -225,8 +225,8 @@ func TestGetUserByIdThirdPartyWithSharedEmailReceivesEmail(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	target := createUserWithRole(t, "get_email_target@ajuda.dev", domain.UserRoleUser)
-	other := createUserWithRole(t, "get_email_other@ajuda.dev", domain.UserRoleUser)
+	target := createUserWithRole(t, "get_email_target@ajuda.dev", userdomain.UserRoleUser)
+	other := createUserWithRole(t, "get_email_other@ajuda.dev", userdomain.UserRoleUser)
 	updateUserProfile(t, app, target.Id, []byte(`{
 		"configVisibility": {
 			"github": { "value": "https://github.com/LucasFreitasRocha", "shareWithCommunity": true },
@@ -243,7 +243,7 @@ func TestGetUserByIdThirdPartyWithSharedEmailReceivesEmail(t *testing.T) {
 		t.Errorf("esperava email '%s' no topo para terceiro, recebeu '%v'", target.Email, body["email"])
 	}
 	config := visibilityKeys(t, body)
-	emailEntry, exists := config[domain.VisibilityKeyEmail].(map[string]any)
+	emailEntry, exists := config[userdomain.VisibilityKeyEmail].(map[string]any)
 	if !exists {
 		t.Fatalf("esperava chave email no mapa para terceiro, recebeu %+v", config)
 	}
@@ -259,8 +259,8 @@ func TestGetUserByIdModeratorSeesOnlySharedFields(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	target := createUserWithRole(t, "get_mod_target@ajuda.dev", domain.UserRoleUser)
-	moderator := createUserWithRole(t, "get_mod@ajuda.dev", domain.UserRoleModerator)
+	target := createUserWithRole(t, "get_mod_target@ajuda.dev", userdomain.UserRoleUser)
+	moderator := createUserWithRole(t, "get_mod@ajuda.dev", userdomain.UserRoleModerator)
 	updateUserProfile(t, app, target.Id, []byte(`{
 		"configVisibility": {
 			"github":   { "value": "https://github.com/LucasFreitasRocha", "shareWithCommunity": true },
@@ -274,10 +274,10 @@ func TestGetUserByIdModeratorSeesOnlySharedFields(t *testing.T) {
 	}
 	_, body := getUserProfileRawBody(t, resp)
 	config := visibilityKeys(t, body)
-	if _, exists := config[domain.VisibilityKeyGithub]; !exists {
+	if _, exists := config[userdomain.VisibilityKeyGithub]; !exists {
 		t.Errorf("esperava github compartilhado no mapa, recebeu %+v", config)
 	}
-	if _, exists := config[domain.VisibilityKeyLinkedin]; exists {
+	if _, exists := config[userdomain.VisibilityKeyLinkedin]; exists {
 		t.Errorf("esperava linkedin ausente do mapa para moderador, recebeu %+v", config)
 	}
 	if _, exists := body["email"]; exists {
@@ -289,7 +289,7 @@ func TestGetUserByIdNotFound(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	requester := createUserWithRole(t, "get_notfound@ajuda.dev", domain.UserRoleUser)
+	requester := createUserWithRole(t, "get_notfound@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doGetUserProfile(t, app, uuidv7.New().String(), validTokenFor(t, requester.Id))
 	if resp.StatusCode != fiber.StatusNotFound {
@@ -305,8 +305,8 @@ func TestGetUserByIdSoftDeletedNotFound(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	target := createUserWithRole(t, "get_deleted_target@ajuda.dev", domain.UserRoleUser)
-	requester := createUserWithRole(t, "get_deleted_requester@ajuda.dev", domain.UserRoleUser)
+	target := createUserWithRole(t, "get_deleted_target@ajuda.dev", userdomain.UserRoleUser)
+	requester := createUserWithRole(t, "get_deleted_requester@ajuda.dev", userdomain.UserRoleUser)
 	if err := userRepository.SoftDeleteById(target.Id); err != nil {
 		t.Fatalf("failed to soft delete user: %v", err)
 	}
@@ -325,7 +325,7 @@ func TestGetUserByIdInvalidId(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	requester := createUserWithRole(t, "get_invalid@ajuda.dev", domain.UserRoleUser)
+	requester := createUserWithRole(t, "get_invalid@ajuda.dev", userdomain.UserRoleUser)
 	token := validTokenFor(t, requester.Id)
 
 	for _, invalidId := range []string{"abc", "123", "not-a-uuid"} {
@@ -345,7 +345,7 @@ func TestGetUserByIdWithoutToken(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	target := createUserWithRole(t, "get_notoken_target@ajuda.dev", domain.UserRoleUser)
+	target := createUserWithRole(t, "get_notoken_target@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doGetUserProfile(t, app, target.Id, "")
 	if resp.StatusCode != fiber.StatusUnauthorized {
@@ -367,9 +367,9 @@ func TestGetUserByIdNeverReturnsPassword(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	target := createUserWithHashedPassword(t, app, "get_secret_target@ajuda.dev", domain.UserRoleUser, "123456")
-	admin := createUserWithRole(t, "get_secret_admin@ajuda.dev", domain.UserRoleAdmin)
-	other := createUserWithRole(t, "get_secret_other@ajuda.dev", domain.UserRoleUser)
+	target := createUserWithHashedPassword(t, app, "get_secret_target@ajuda.dev", userdomain.UserRoleUser, "123456")
+	admin := createUserWithRole(t, "get_secret_admin@ajuda.dev", userdomain.UserRoleAdmin)
+	other := createUserWithRole(t, "get_secret_other@ajuda.dev", userdomain.UserRoleUser)
 	updateUserProfile(t, app, target.Id, []byte(`{
 		"configVisibility": {
 			"github": { "value": "https://github.com/LucasFreitasRocha", "shareWithCommunity": true }

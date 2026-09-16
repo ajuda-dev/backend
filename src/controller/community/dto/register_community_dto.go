@@ -1,7 +1,9 @@
 package dto
 
 import (
-	"github.com/ajuda-dev/backend/src/service/domain"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 type RegisterCommunityDto struct {
@@ -12,14 +14,14 @@ type RegisterCommunityDto struct {
 	AddressId   string `json:"address_id"`
 }
 
-func (r *RegisterCommunityDto) ToDomain() *domain.CommunityDomain {
-	return &domain.CommunityDomain{
+func (r *RegisterCommunityDto) ToDomain() *communitydomain.CommunityDomain {
+	return &communitydomain.CommunityDomain{
 		Name:        r.Name,
 		Description: r.Description,
-		Owner: domain.UserDomain{
+		Owner: userdomain.UserDomain{
 			Id: r.OwnerId,
 		},
-		Address: domain.AddressDomain{
+		Address: addressdomain.AddressDomain{
 			Id: r.AddressId,
 		},
 	}

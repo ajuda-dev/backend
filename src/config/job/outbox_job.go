@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/logger"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	notificationrepo "github.com/ajuda-dev/backend/src/data/notification/repository"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -19,12 +19,12 @@ type OutboxConfig struct {
 }
 
 type OutboxHandler interface {
-	Handle(event domain.OutboxEventDomain) error
+	Handle(event notificationdomain.OutboxEventDomain) error
 }
 
 type LogOutboxHandler struct{}
 
-func (LogOutboxHandler) Handle(event domain.OutboxEventDomain) error {
+func (LogOutboxHandler) Handle(event notificationdomain.OutboxEventDomain) error {
 	logger.Info("outbox event processed",
 		zap.Int64("id", event.Id),
 		zap.String("type", event.Type),
@@ -62,7 +62,7 @@ func StartOutboxJob(db *gorm.DB, cfg OutboxConfig, handler OutboxHandler) {
 	if handler == nil {
 		handler = LogOutboxHandler{}
 	}
-	repo := repository.NewOutboxEventRepository(db)
+	repo := notificationrepo.NewOutboxEventRepository(db)
 	ticker := time.NewTicker(cfg.PollInterval)
 	go func() {
 		for range ticker.C {
@@ -74,7 +74,7 @@ func StartOutboxJob(db *gorm.DB, cfg OutboxConfig, handler OutboxHandler) {
 		zap.Int("batch_size", cfg.BatchSize))
 }
 
-func RunOutboxOnce(repo repository.OutboxEventRepository, handler OutboxHandler, batchSize int) {
+func RunOutboxOnce(repo notificationrepo.OutboxEventRepository, handler OutboxHandler, batchSize int) {
 	if handler == nil {
 		handler = LogOutboxHandler{}
 	}
@@ -84,16 +84,16 @@ func RunOutboxOnce(repo repository.OutboxEventRepository, handler OutboxHandler,
 		return
 	}
 	for _, event := range pending {
-		if claimErr := repo.UpdateStatus(event.Id, domain.OutboxStatusPending, domain.OutboxStatusProcessing); claimErr != nil {
+		if claimErr := repo.UpdateStatus(event.Id, notificationdomain.OutboxStatusPending, notificationdomain.OutboxStatusProcessing); claimErr != nil {
 			logger.Error("outbox claim failed", claimErr, zap.Int64("id", event.Id))
 			continue
 		}
 		if handleErr := handler.Handle(event); handleErr != nil {
 			logger.Error("outbox handler failed", handleErr, zap.Int64("id", event.Id))
-			_ = repo.UpdateStatus(event.Id, domain.OutboxStatusProcessing, domain.OutboxStatusFailed)
+			_ = repo.UpdateStatus(event.Id, notificationdomain.OutboxStatusProcessing, notificationdomain.OutboxStatusFailed)
 			continue
 		}
-		if sentErr := repo.UpdateStatus(event.Id, domain.OutboxStatusProcessing, domain.OutboxStatusSent); sentErr != nil {
+		if sentErr := repo.UpdateStatus(event.Id, notificationdomain.OutboxStatusProcessing, notificationdomain.OutboxStatusSent); sentErr != nil {
 			logger.Error("outbox mark sent failed", sentErr, zap.Int64("id", event.Id))
 		}
 	}

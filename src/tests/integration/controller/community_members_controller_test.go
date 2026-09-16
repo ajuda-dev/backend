@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -17,7 +17,7 @@ func newGetCommunityMembersRequest(communityId string, query string) *http.Reque
 	return httptest.NewRequest(http.MethodGet, "/v1/community/"+communityId+"/members"+query, nil)
 }
 
-func getCommunityMembersViaApi(t *testing.T, app *fiber.App, communityId string, query string, token string) dto.PageableCommunityMemberDto {
+func getCommunityMembersViaApi(t *testing.T, app *fiber.App, communityId string, query string, token string) communitydto.PageableCommunityMemberDto {
 	t.Helper()
 	resp, err := doAuthedRequest(app, newGetCommunityMembersRequest(communityId, query), token)
 	if err != nil {
@@ -28,7 +28,7 @@ func getCommunityMembersViaApi(t *testing.T, app *fiber.App, communityId string,
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("esperava 200 ao listar membros, recebeu %d (body: %s)", resp.StatusCode, string(body))
 	}
-	var respDto dto.PageableCommunityMemberDto
+	var respDto communitydto.PageableCommunityMemberDto
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -137,9 +137,9 @@ func TestGetCommunityMembersHidesUndeclaredEmail(t *testing.T) {
 	joinCommunityViaApi(t, app, communityId, validTokenFor(t, hidden.Id))
 	joinCommunityViaApi(t, app, communityId, validTokenFor(t, shared.Id))
 
-	_, updateErr := userRepository.Update(shared.Id, &domain.UserDomain{
-		ConfigVisibility: domain.ConfigVisibility{
-			domain.VisibilityKeyEmail: {Value: shared.Email, ShareWithCommunity: true},
+	_, updateErr := userRepository.Update(shared.Id, &userdomain.UserDomain{
+		ConfigVisibility: userdomain.ConfigVisibility{
+			userdomain.VisibilityKeyEmail: {Value: shared.Email, ShareWithCommunity: true},
 		},
 	})
 	if updateErr != nil {

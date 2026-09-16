@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
 	"gorm.io/gorm"
 )
 
@@ -25,8 +25,8 @@ func (a *AddressEntity) TableName() string {
 	return "addresses"
 }
 
-func (a *AddressEntity) ToDomainAddress() *domain.AddressDomain {
-	return &domain.AddressDomain{
+func (a *AddressEntity) ToDomainAddress() *addressdomain.AddressDomain {
+	return &addressdomain.AddressDomain{
 		Id:         a.Id,
 		City:       a.City,
 		State:      a.State,
@@ -37,7 +37,7 @@ func (a *AddressEntity) ToDomainAddress() *domain.AddressDomain {
 	}
 }
 
-func (a *AddressEntity) FromDomainAddress(address *domain.AddressDomain) *AddressEntity {
+func (a *AddressEntity) FromDomainAddress(address *addressdomain.AddressDomain) *AddressEntity {
 	return &AddressEntity{
 		Id:         address.Id,
 		City:       strings.ToLower(address.City),
@@ -49,8 +49,8 @@ func (a *AddressEntity) FromDomainAddress(address *domain.AddressDomain) *Addres
 	}
 }
 
-func ToAddressDomainList(entities []AddressEntity) []*domain.AddressDomain {
-	addresses := make([]*domain.AddressDomain, len(entities))
+func ToAddressDomainList(entities []AddressEntity) []*addressdomain.AddressDomain {
+	addresses := make([]*addressdomain.AddressDomain, len(entities))
 	for i, e := range entities {
 		addresses[i] = e.ToDomainAddress()
 	}

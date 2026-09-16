@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 const (
@@ -44,7 +44,7 @@ func NewGithubProvider(clientId, clientSecret, callbackUrl, authorizeUrl, tokenU
 }
 
 func (g *githubProvider) Name() string {
-	return domain.OAuthProviderGithub
+	return userdomain.OAuthProviderGithub
 }
 
 func (g *githubProvider) AuthorizationURL(state string) string {
@@ -111,7 +111,7 @@ type githubEmailResponse struct {
 	Verified bool   `json:"verified"`
 }
 
-func (g *githubProvider) FetchUserInfo(accessToken string) (*domain.OAuthUserInfo, *rest_err.RestErr) {
+func (g *githubProvider) FetchUserInfo(accessToken string) (*userdomain.OAuthUserInfo, *rest_err.RestErr) {
 	var user githubUserResponse
 	if err := g.getJSON("/user", accessToken, &user); err != nil {
 		return nil, err
@@ -134,8 +134,8 @@ func (g *githubProvider) FetchUserInfo(accessToken string) (*domain.OAuthUserInf
 		name = user.Login
 	}
 
-	return &domain.OAuthUserInfo{
-		Provider:         domain.OAuthProviderGithub,
+	return &userdomain.OAuthUserInfo{
+		Provider:         userdomain.OAuthProviderGithub,
 		ProviderUserId:   strconv.FormatInt(user.Id, 10),
 		ProviderUsername: user.Login,
 		Name:             name,

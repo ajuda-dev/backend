@@ -1,4 +1,4 @@
-package controller
+package address
 
 import (
 	"regexp"
@@ -6,9 +6,9 @@ import (
 
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service"
+	addressdto "github.com/ajuda-dev/backend/src/controller/address/dto"
+	addressrepo "github.com/ajuda-dev/backend/src/data/address/repository"
+	"github.com/ajuda-dev/backend/src/service/address"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -20,10 +20,10 @@ type AddressController interface {
 }
 
 type addressController struct {
-	addressService service.AddressService
+	addressService address.AddressService
 }
 
-func NewAddressController(addressService service.AddressService) AddressController {
+func NewAddressController(addressService address.AddressService) AddressController {
 	return &addressController{
 		addressService: addressService,
 	}
@@ -35,15 +35,15 @@ func NewAddressController(addressService service.AddressService) AddressControll
 // @Tags         addresses
 // @Accept       json
 // @Produce      json
-// @Param        address  body  dto.AddressDto  true  "Dados do endereço"
-// @Success      201   {object}  dto.AddressDto
+// @Param        address  body  addressdto.AddressDto  true  "Dados do endereço"
+// @Success      201   {object}  addressdto.AddressDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/address/register [post]
 func (a *addressController) RegisterAddress() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		var addressDto dto.AddressDto
+		var addressDto addressdto.AddressDto
 		if err := c.BodyParser(&addressDto); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Não foi possível processar o corpo da requisição",
@@ -68,7 +68,7 @@ func (a *addressController) RegisterAddress() fiber.Handler {
 // @Param        city      query   string  false  "Cidade (busca parcial, case-insensitive, ignora acentos)"
 // @Param        state     query   string  false  "UF (igualdade exata, ex. SP)"
 // @Param        zip_code  query   string  false  "CEP (igualdade pelos dígitos, aceita com ou sem hífen)"
-// @Success      200   {object}  dto.PageableAddressDto
+// @Success      200   {object}  addressdto.PageableAddressDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
@@ -78,7 +78,7 @@ func (a *addressController) GetAllAddresses() fiber.Handler {
 		page, _ := strconv.Atoi(c.Query("page", "1"))
 		limit, _ := strconv.Atoi(c.Query("limit", "10"))
 
-		filter := repository.AddressFilter{
+		filter := addressrepo.AddressFilter{
 			City:    c.Query("city"),
 			State:   c.Query("state"),
 			ZipCode: c.Query("zip_code"),
@@ -94,6 +94,6 @@ func (a *addressController) GetAllAddresses() fiber.Handler {
 			logger.Error("error: ", e)
 			return c.Status(e.Code).JSON(e)
 		}
-		return c.Status(fiber.StatusOK).JSON(dto.PageableAddressDto{}.FromDomain(*result))
+		return c.Status(fiber.StatusOK).JSON(addressdto.PageableAddressDto{}.FromDomain(*result))
 	}
 }

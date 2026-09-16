@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/ajuda-dev/backend/src/service/domain"
+import (
+	addressdto "github.com/ajuda-dev/backend/src/controller/address/dto"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+)
 
 type PageableCommunityDto struct {
 	HasNext bool           `json:"has_next"`
@@ -8,21 +12,21 @@ type PageableCommunityDto struct {
 }
 
 type CommunityDto struct {
-	Id          string      `json:"id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	Address     *AddressDto `json:"address"`
-	Owner       *UserDtoOut `json:"owner"`
+	Id          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Address     *addressdto.AddressDto `json:"address"`
+	Owner       *userdto.UserDtoOut    `json:"owner"`
 }
 
-func (pc PageableCommunityDto) FromDomain(domain domain.PageableCommunity) *PageableCommunityDto {
+func (pc PageableCommunityDto) FromDomain(domain communitydomain.PageableCommunity) *PageableCommunityDto {
 	return &PageableCommunityDto{
 		HasNext: domain.HasNext,
 		Data:    toCommunityDtoSlice(domain.Data),
 	}
 }
 
-func toCommunityDtoSlice(domains []*domain.CommunityDomain) []CommunityDto {
+func toCommunityDtoSlice(domains []*communitydomain.CommunityDomain) []CommunityDto {
 	dtos := make([]CommunityDto, len(domains))
 	for i, d := range domains {
 		dtos[i] = CommunityDto{}.FromDomain(d)
@@ -30,12 +34,12 @@ func toCommunityDtoSlice(domains []*domain.CommunityDomain) []CommunityDto {
 	return dtos
 }
 
-func (c CommunityDto) FromDomain(community *domain.CommunityDomain) CommunityDto {
+func (c CommunityDto) FromDomain(community *communitydomain.CommunityDomain) CommunityDto {
 	return CommunityDto{
 		Id:          community.Id,
 		Name:        community.Name,
 		Description: community.Description,
-		Address:     (&AddressDto{}).FromDomain(&community.Address),
-		Owner:       (&UserDtoOut{}).FromDomainUser(&community.Owner),
+		Address:     (&addressdto.AddressDto{}).FromDomain(&community.Address),
+		Owner:       (&userdto.UserDtoOut{}).FromDomainUser(&community.Owner),
 	}
 }

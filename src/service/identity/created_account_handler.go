@@ -1,4 +1,4 @@
-package service
+package identity
 
 import (
 	"encoding/json"
@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/client/email"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userrepo "github.com/ajuda-dev/backend/src/data/identity/repository"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 )
 
 type createdAccountPayload struct {
@@ -17,15 +18,15 @@ type createdAccountPayload struct {
 }
 
 type CreatedAccountHandler struct {
-	users  repository.UserRepository
-	codes  repository.EmailCodeRepository
+	users  userrepo.UserRepository
+	codes  userrepo.EmailCodeRepository
 	sender email.EmailSender
 	cfg    EmailCodeConfig
 }
 
 func NewCreatedAccountHandler(
-	users repository.UserRepository,
-	codes repository.EmailCodeRepository,
+	users userrepo.UserRepository,
+	codes userrepo.EmailCodeRepository,
 	sender email.EmailSender,
 	cfg EmailCodeConfig,
 ) *CreatedAccountHandler {
@@ -40,7 +41,7 @@ func NewCreatedAccountHandler(
 	}
 }
 
-func (h *CreatedAccountHandler) Handle(event domain.OutboxEventDomain) error {
+func (h *CreatedAccountHandler) Handle(event notificationdomain.OutboxEventDomain) error {
 	if h == nil || h.users == nil || h.codes == nil {
 		return errors.New("created account handler is not configured")
 	}
@@ -77,7 +78,7 @@ func (h *CreatedAccountHandler) Handle(event domain.OutboxEventDomain) error {
 	expiresAt := time.Now().Add(time.Duration(ttl) * time.Minute)
 	if replaceErr := h.codes.ReplaceActive(
 		user.Id,
-		domain.EmailCodePurposeConfirm,
+		userdomain.EmailCodePurposeConfirm,
 		hashEmailConfirmCode(code, h.cfg.Secret),
 		expiresAt,
 	); replaceErr != nil {

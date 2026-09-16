@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	addressentity "github.com/ajuda-dev/backend/src/data/address/entity"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
 	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
 )
@@ -17,30 +17,30 @@ type AddressFilter struct {
 }
 
 type AddressRepository interface {
-	CreateAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
-	GetAddressById(id string) (*domain.AddressDomain, *rest_err.RestErr)
-	SearchAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
-	FindAll(filter AddressFilter, page int, limit int) (*domain.PageableAddress, *rest_err.RestErr)
+	CreateAddress(address *addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr)
+	GetAddressById(id string) (*addressdomain.AddressDomain, *rest_err.RestErr)
+	SearchAddress(address *addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr)
+	FindAll(filter AddressFilter, page int, limit int) (*addressdomain.PageableAddress, *rest_err.RestErr)
 }
 
 type addressRepository struct {
 	database *gorm.DB
 }
 
-func (a *addressRepository) CreateAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr) {
-	var addressEntity entity.AddressEntity
+func (a *addressRepository) CreateAddress(address *addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr) {
+	var addressEntity addressentity.AddressEntity
 	addressEntity = *addressEntity.FromDomainAddress(address)
 	addressEntity.Id = uuidv7.New().String()
 	if err := a.database.Create(&addressEntity).Error; err != nil {
-		return &domain.AddressDomain{}, rest_err.NewInternalServerError(err.Error())
+		return &addressdomain.AddressDomain{}, rest_err.NewInternalServerError(err.Error())
 	}
 
 	return addressEntity.ToDomainAddress(), nil
 }
 
-func (a *addressRepository) SearchAddress(address *domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr) {
-	var results []entity.AddressEntity
-	query := a.database.Model(&entity.AddressEntity{})
+func (a *addressRepository) SearchAddress(address *addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr) {
+	var results []addressentity.AddressEntity
+	query := a.database.Model(&addressentity.AddressEntity{})
 
 	street := strings.ToLower(strings.TrimSpace(address.Street))
 	number := strings.TrimSpace(address.Number)
@@ -72,8 +72,8 @@ func (a *addressRepository) SearchAddress(address *domain.AddressDomain) (*domai
 	return results[0].ToDomainAddress(), nil
 }
 
-func (a *addressRepository) GetAddressById(id string) (*domain.AddressDomain, *rest_err.RestErr) {
-	var addressEntity entity.AddressEntity
+func (a *addressRepository) GetAddressById(id string) (*addressdomain.AddressDomain, *rest_err.RestErr) {
+	var addressEntity addressentity.AddressEntity
 	if err := a.database.Where("id = ?", id).First(&addressEntity).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, rest_err.NewNotFoundError("Address not found")
@@ -83,9 +83,9 @@ func (a *addressRepository) GetAddressById(id string) (*domain.AddressDomain, *r
 	return addressEntity.ToDomainAddress(), nil
 }
 
-func (a *addressRepository) FindAll(filter AddressFilter, page int, limit int) (*domain.PageableAddress, *rest_err.RestErr) {
-	var addresses []entity.AddressEntity
-	query := a.database.Model(&entity.AddressEntity{})
+func (a *addressRepository) FindAll(filter AddressFilter, page int, limit int) (*addressdomain.PageableAddress, *rest_err.RestErr) {
+	var addresses []addressentity.AddressEntity
+	query := a.database.Model(&addressentity.AddressEntity{})
 
 	if page <= 0 {
 		page = 1
@@ -123,9 +123,9 @@ func (a *addressRepository) FindAll(filter AddressFilter, page int, limit int) (
 	if hasNext {
 		addresses = addresses[:limit]
 	}
-	return &domain.PageableAddress{
+	return &addressdomain.PageableAddress{
 		HasNext: hasNext,
-		Data:    entity.ToAddressDomainList(addresses),
+		Data:    addressentity.ToAddressDomainList(addresses),
 	}, nil
 }
 

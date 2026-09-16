@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -45,7 +45,7 @@ func TestUpdateUserProfileSuccess(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "profile_success@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "profile_success@ajuda.dev", userdomain.UserRoleUser)
 
 	body := []byte(`{
 		"name": "Lucas Rocha",
@@ -67,16 +67,16 @@ func TestUpdateUserProfileSuccess(t *testing.T) {
 	if respDto.Description != "Desenvolvedor backend" {
 		t.Errorf("esperava description 'Desenvolvedor backend' na resposta, recebeu '%s'", respDto.Description)
 	}
-	if respDto.ConfigVisibility[domain.VisibilityKeyGithub].Value != "https://github.com/LucasFreitasRocha" {
-		t.Errorf("esperava github na resposta, recebeu %+v", respDto.ConfigVisibility[domain.VisibilityKeyGithub])
+	if respDto.ConfigVisibility[userdomain.VisibilityKeyGithub].Value != "https://github.com/LucasFreitasRocha" {
+		t.Errorf("esperava github na resposta, recebeu %+v", respDto.ConfigVisibility[userdomain.VisibilityKeyGithub])
 	}
-	if !respDto.ConfigVisibility[domain.VisibilityKeyGithub].ShareWithCommunity {
-		t.Errorf("esperava github com shareWithCommunity true na resposta, recebeu %+v", respDto.ConfigVisibility[domain.VisibilityKeyGithub])
+	if !respDto.ConfigVisibility[userdomain.VisibilityKeyGithub].ShareWithCommunity {
+		t.Errorf("esperava github com shareWithCommunity true na resposta, recebeu %+v", respDto.ConfigVisibility[userdomain.VisibilityKeyGithub])
 	}
-	if respDto.ConfigVisibility[domain.VisibilityKeyPhone].Value != "+55 (11) 99999-9999" {
-		t.Errorf("esperava phone na resposta, recebeu %+v", respDto.ConfigVisibility[domain.VisibilityKeyPhone])
+	if respDto.ConfigVisibility[userdomain.VisibilityKeyPhone].Value != "+55 (11) 99999-9999" {
+		t.Errorf("esperava phone na resposta, recebeu %+v", respDto.ConfigVisibility[userdomain.VisibilityKeyPhone])
 	}
-	emailConfig := respDto.ConfigVisibility[domain.VisibilityKeyEmail]
+	emailConfig := respDto.ConfigVisibility[userdomain.VisibilityKeyEmail]
 	if emailConfig.Value != user.Email {
 		t.Errorf("esperava email.value '%s' espelhado na resposta, recebeu '%s'", user.Email, emailConfig.Value)
 	}
@@ -88,15 +88,15 @@ func TestUpdateUserProfileSuccess(t *testing.T) {
 	if raw == "" {
 		t.Fatalf("esperava config_visibility persistida no banco, recebeu NULL")
 	}
-	var persisted map[string]domain.VisibilityConfig
+	var persisted map[string]userdomain.VisibilityConfig
 	if err := json.Unmarshal([]byte(raw), &persisted); err != nil {
 		t.Fatalf("erro ao decodificar config_visibility do banco: %v", err)
 	}
-	if persisted[domain.VisibilityKeyLinkedin].Value != "https://www.linkedin.com/in/devrocha/" {
-		t.Errorf("esperava linkedin persistido no jsonb, recebeu %+v", persisted[domain.VisibilityKeyLinkedin])
+	if persisted[userdomain.VisibilityKeyLinkedin].Value != "https://www.linkedin.com/in/devrocha/" {
+		t.Errorf("esperava linkedin persistido no jsonb, recebeu %+v", persisted[userdomain.VisibilityKeyLinkedin])
 	}
-	if persisted[domain.VisibilityKeyEmail].Value != user.Email {
-		t.Errorf("esperava email espelhado no jsonb, recebeu %+v", persisted[domain.VisibilityKeyEmail])
+	if persisted[userdomain.VisibilityKeyEmail].Value != user.Email {
+		t.Errorf("esperava email espelhado no jsonb, recebeu %+v", persisted[userdomain.VisibilityKeyEmail])
 	}
 	if rawDescription(t, user.Id) != "Desenvolvedor backend" {
 		t.Errorf("esperava description persistida, recebeu '%s'", rawDescription(t, user.Id))
@@ -107,7 +107,7 @@ func TestUpdateUserProfilePartialMerge(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "profile_merge@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "profile_merge@ajuda.dev", userdomain.UserRoleUser)
 	token := validTokenFor(t, user.Id)
 
 	first := []byte(`{
@@ -132,25 +132,25 @@ func TestUpdateUserProfilePartialMerge(t *testing.T) {
 		t.Fatalf("esperava 200 no update parcial, recebeu %d", resp.StatusCode)
 	}
 	respDto := decodeUserDtoOut(t, resp)
-	if respDto.ConfigVisibility[domain.VisibilityKeyGithub].Value != "https://github.com/novo" {
-		t.Errorf("esperava github atualizado, recebeu %+v", respDto.ConfigVisibility[domain.VisibilityKeyGithub])
+	if respDto.ConfigVisibility[userdomain.VisibilityKeyGithub].Value != "https://github.com/novo" {
+		t.Errorf("esperava github atualizado, recebeu %+v", respDto.ConfigVisibility[userdomain.VisibilityKeyGithub])
 	}
-	if respDto.ConfigVisibility[domain.VisibilityKeyGithub].ShareWithCommunity {
-		t.Errorf("esperava github com shareWithCommunity false, recebeu %+v", respDto.ConfigVisibility[domain.VisibilityKeyGithub])
+	if respDto.ConfigVisibility[userdomain.VisibilityKeyGithub].ShareWithCommunity {
+		t.Errorf("esperava github com shareWithCommunity false, recebeu %+v", respDto.ConfigVisibility[userdomain.VisibilityKeyGithub])
 	}
-	if respDto.ConfigVisibility[domain.VisibilityKeyLinkedin].Value != "https://www.linkedin.com/in/antigo/" {
-		t.Errorf("esperava linkedin intacto, recebeu %+v", respDto.ConfigVisibility[domain.VisibilityKeyLinkedin])
+	if respDto.ConfigVisibility[userdomain.VisibilityKeyLinkedin].Value != "https://www.linkedin.com/in/antigo/" {
+		t.Errorf("esperava linkedin intacto, recebeu %+v", respDto.ConfigVisibility[userdomain.VisibilityKeyLinkedin])
 	}
 
-	var persisted map[string]domain.VisibilityConfig
+	var persisted map[string]userdomain.VisibilityConfig
 	if err := json.Unmarshal([]byte(rawConfigVisibility(t, user.Id)), &persisted); err != nil {
 		t.Fatalf("erro ao decodificar config_visibility do banco: %v", err)
 	}
-	if persisted[domain.VisibilityKeyLinkedin].Value != "https://www.linkedin.com/in/antigo/" {
-		t.Errorf("esperava linkedin intacto no jsonb, recebeu %+v", persisted[domain.VisibilityKeyLinkedin])
+	if persisted[userdomain.VisibilityKeyLinkedin].Value != "https://www.linkedin.com/in/antigo/" {
+		t.Errorf("esperava linkedin intacto no jsonb, recebeu %+v", persisted[userdomain.VisibilityKeyLinkedin])
 	}
-	if persisted[domain.VisibilityKeyEmail].Value != user.Email {
-		t.Errorf("esperava email espelhado no jsonb, recebeu %+v", persisted[domain.VisibilityKeyEmail])
+	if persisted[userdomain.VisibilityKeyEmail].Value != user.Email {
+		t.Errorf("esperava email espelhado no jsonb, recebeu %+v", persisted[userdomain.VisibilityKeyEmail])
 	}
 }
 
@@ -158,7 +158,7 @@ func TestUpdateUserProfileClearLink(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "profile_clear@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "profile_clear@ajuda.dev", userdomain.UserRoleUser)
 	token := validTokenFor(t, user.Id)
 
 	first := []byte(`{
@@ -182,16 +182,16 @@ func TestUpdateUserProfileClearLink(t *testing.T) {
 		t.Fatalf("esperava 200 ao limpar o github, recebeu %d", resp.StatusCode)
 	}
 	respDto := decodeUserDtoOut(t, resp)
-	if respDto.ConfigVisibility[domain.VisibilityKeyGithub].Value != "" {
-		t.Errorf("esperava github limpo na resposta, recebeu %+v", respDto.ConfigVisibility[domain.VisibilityKeyGithub])
+	if respDto.ConfigVisibility[userdomain.VisibilityKeyGithub].Value != "" {
+		t.Errorf("esperava github limpo na resposta, recebeu %+v", respDto.ConfigVisibility[userdomain.VisibilityKeyGithub])
 	}
 
-	var persisted map[string]domain.VisibilityConfig
+	var persisted map[string]userdomain.VisibilityConfig
 	if err := json.Unmarshal([]byte(rawConfigVisibility(t, user.Id)), &persisted); err != nil {
 		t.Fatalf("erro ao decodificar config_visibility do banco: %v", err)
 	}
-	if persisted[domain.VisibilityKeyGithub].Value != "" {
-		t.Errorf("esperava github limpo no jsonb, recebeu %+v", persisted[domain.VisibilityKeyGithub])
+	if persisted[userdomain.VisibilityKeyGithub].Value != "" {
+		t.Errorf("esperava github limpo no jsonb, recebeu %+v", persisted[userdomain.VisibilityKeyGithub])
 	}
 }
 
@@ -199,7 +199,7 @@ func TestUpdateUserDescription(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "profile_desc@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "profile_desc@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"description": "  Resumo do usuário  "}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusOK {
@@ -221,7 +221,7 @@ func TestUpdateUserRejectsInvalidURL(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "profile_badurl@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "profile_badurl@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"configVisibility": {"github": {"value": "github.com/lucas", "shareWithCommunity": true}}}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -241,7 +241,7 @@ func TestUpdateUserRejectsInvalidPhone(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "profile_badphone@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "profile_badphone@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"configVisibility": {"phone": {"value": "123", "shareWithCommunity": false}}}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -258,7 +258,7 @@ func TestUpdateUserRejectsShareWithoutValue(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "profile_share@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "profile_share@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"configVisibility": {"linkedin": {"value": "", "shareWithCommunity": true}}}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -275,7 +275,7 @@ func TestUpdateUserRejectsUnknownVisibilityKey(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "profile_unknown@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "profile_unknown@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"configVisibility": {"twitter": {"value": "https://x.com/lucas", "shareWithCommunity": true}}}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -292,7 +292,7 @@ func TestUpdateUserRejectsEmailValue(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "profile_emailvalue@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "profile_emailvalue@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"configVisibility": {"email": {"value": "outro@ajudadev.dev", "shareWithCommunity": true}}}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -309,14 +309,14 @@ func TestUpdateUserAcceptsEmailShareTrue(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "profile_emailshare@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "profile_emailshare@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"configVisibility": {"email": {"shareWithCommunity": true}}}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 no email com shareWithCommunity true, recebeu %d", resp.StatusCode)
 	}
 	respDto := decodeUserDtoOut(t, resp)
-	emailConfig := respDto.ConfigVisibility[domain.VisibilityKeyEmail]
+	emailConfig := respDto.ConfigVisibility[userdomain.VisibilityKeyEmail]
 	if !emailConfig.ShareWithCommunity {
 		t.Errorf("esperava email.shareWithCommunity true na resposta, recebeu %+v", emailConfig)
 	}
@@ -324,15 +324,15 @@ func TestUpdateUserAcceptsEmailShareTrue(t *testing.T) {
 		t.Errorf("esperava email.value '%s' espelhado, recebeu '%s'", user.Email, emailConfig.Value)
 	}
 
-	var persisted map[string]domain.VisibilityConfig
+	var persisted map[string]userdomain.VisibilityConfig
 	if err := json.Unmarshal([]byte(rawConfigVisibility(t, user.Id)), &persisted); err != nil {
 		t.Fatalf("erro ao decodificar config_visibility do banco: %v", err)
 	}
-	if !persisted[domain.VisibilityKeyEmail].ShareWithCommunity {
-		t.Errorf("esperava email.shareWithCommunity true persistido, recebeu %+v", persisted[domain.VisibilityKeyEmail])
+	if !persisted[userdomain.VisibilityKeyEmail].ShareWithCommunity {
+		t.Errorf("esperava email.shareWithCommunity true persistido, recebeu %+v", persisted[userdomain.VisibilityKeyEmail])
 	}
-	if persisted[domain.VisibilityKeyEmail].Value != user.Email {
-		t.Errorf("esperava email.value '%s' persistido, recebeu '%s'", user.Email, persisted[domain.VisibilityKeyEmail].Value)
+	if persisted[userdomain.VisibilityKeyEmail].Value != user.Email {
+		t.Errorf("esperava email.value '%s' persistido, recebeu '%s'", user.Email, persisted[userdomain.VisibilityKeyEmail].Value)
 	}
 }
 
@@ -380,7 +380,7 @@ func TestLoginUserDoesNotReturnProfile(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithHashedPassword(t, app, "profile_login@ajuda.dev", domain.UserRoleUser, "123456")
+	user := createUserWithHashedPassword(t, app, "profile_login@ajuda.dev", userdomain.UserRoleUser, "123456")
 
 	updateBody := []byte(`{
 		"description": "Resumo",
@@ -412,7 +412,7 @@ func TestLoginUserDoesNotReturnProfile(t *testing.T) {
 	if _, exists := loginBodyOut["configVisibility"]; exists {
 		t.Errorf("esperava response do login sem 'configVisibility', recebeu %+v", loginBodyOut)
 	}
-	var loginDto dto.LoginUserDtoOut
+	var loginDto userdto.LoginUserDtoOut
 	raw, err := json.Marshal(loginBodyOut)
 	if err != nil {
 		t.Fatalf("erro ao remarshalar body do login: %v", err)
@@ -420,7 +420,7 @@ func TestLoginUserDoesNotReturnProfile(t *testing.T) {
 	if err := json.Unmarshal(raw, &loginDto); err != nil {
 		t.Fatalf("erro ao decodificar body do login: %v", err)
 	}
-	if loginDto.Token != "" || loginDto.Id != user.Id || loginDto.Email != user.Email || loginDto.Role != domain.UserRoleUser {
+	if loginDto.Token != "" || loginDto.Id != user.Id || loginDto.Email != user.Email || loginDto.Role != userdomain.UserRoleUser {
 		t.Errorf("esperava id/email/role e token ausente no login (navegador usa cookie), recebeu %+v", loginDto)
 	}
 	if !loginDto.EmailVerified {

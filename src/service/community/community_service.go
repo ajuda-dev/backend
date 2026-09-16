@@ -1,33 +1,36 @@
-package service
+package community
 
 import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
-	"github.com/ajuda-dev/backend/src/service/validator"
+	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
+	"github.com/ajuda-dev/backend/src/service/address"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	communityvalidator "github.com/ajuda-dev/backend/src/service/community/validator"
+	"github.com/ajuda-dev/backend/src/service/identity"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 type CommunityService interface {
-	CreateCommunity(community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr)
-	GetCommunityById(id string) (*domain.CommunityDomain, *rest_err.RestErr)
-	GetAll(filter repository.CommunityFilter, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
-	UpdateCommunity(id string, requesterId string, changes *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr)
+	CreateCommunity(community *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr)
+	GetCommunityById(id string) (*communitydomain.CommunityDomain, *rest_err.RestErr)
+	GetAll(filter communityrepo.CommunityFilter, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr)
+	UpdateCommunity(id string, requesterId string, changes *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr)
 	DeleteCommunity(id string, requesterId string) *rest_err.RestErr
 }
 
 type communityService struct {
-	userService             UserService
-	addressService          AddressService
-	communityRepository     repository.CommunityRepository
-	communityUserRepository repository.CommunityUserRepository
-	communityValidator      validator.CommunityValidator
+	userService             identity.UserService
+	addressService          address.AddressService
+	communityRepository     communityrepo.CommunityRepository
+	communityUserRepository communityrepo.CommunityUserRepository
+	communityValidator      communityvalidator.CommunityValidator
 }
 
-func NewCommunityService(userService UserService,
-	addressService AddressService,
-	communityRepository repository.CommunityRepository,
-	communityUserRepository repository.CommunityUserRepository,
-	communityValidator validator.CommunityValidator) CommunityService {
+func NewCommunityService(userService identity.UserService,
+	addressService address.AddressService,
+	communityRepository communityrepo.CommunityRepository,
+	communityUserRepository communityrepo.CommunityUserRepository,
+	communityValidator communityvalidator.CommunityValidator) CommunityService {
 	return &communityService{
 		userService:             userService,
 		addressService:          addressService,
@@ -37,10 +40,10 @@ func NewCommunityService(userService UserService,
 	}
 }
 
-func (c *communityService) CreateCommunity(community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr) {
+func (c *communityService) CreateCommunity(community *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
 	err := c.communityValidator.ValidatorRegisterCommunity(*community)
 	if err != nil {
-		return &domain.CommunityDomain{}, err
+		return &communitydomain.CommunityDomain{}, err
 	}
 	rc, err_rc := c.communityRepository.FindByName(community.Name)
 
@@ -49,7 +52,7 @@ func (c *communityService) CreateCommunity(community *domain.CommunityDomain) (*
 	}
 
 	if rc != nil {
-		return &domain.CommunityDomain{},
+		return &communitydomain.CommunityDomain{},
 			rest_err.NewBadRequestValidationError("Invalid community data", []rest_err.Causes{
 				{
 					Field:   "name",
@@ -62,16 +65,16 @@ func (c *communityService) CreateCommunity(community *domain.CommunityDomain) (*
 		if err_u.Code == 404 {
 
 		}
-		return &domain.CommunityDomain{}, err_u
+		return &communitydomain.CommunityDomain{}, err_u
 	}
-	if err := requireVerifiedEmail(user); err != nil {
-		return &domain.CommunityDomain{}, err
+	if err := identity.RequireVerifiedEmail(user); err != nil {
+		return &communitydomain.CommunityDomain{}, err
 	}
 	community.Owner = *user
 	address, err_a := c.addressService.GetAddressById(community.Address.Id)
 	if err_a != nil {
 		if err_a.Code == 404 {
-			return &domain.CommunityDomain{},
+			return &communitydomain.CommunityDomain{},
 				rest_err.NewBadRequestValidationError("Invalid community data", []rest_err.Causes{
 					{
 						Field:   "address_id",
@@ -79,22 +82,22 @@ func (c *communityService) CreateCommunity(community *domain.CommunityDomain) (*
 					},
 				})
 		}
-		return &domain.CommunityDomain{}, err_a
+		return &communitydomain.CommunityDomain{}, err_a
 	}
 	community.Address = *address
 	return c.communityRepository.CreateCommunity(community)
 }
 
-func (c *communityService) GetCommunityById(id string) (*domain.CommunityDomain, *rest_err.RestErr) {
+func (c *communityService) GetCommunityById(id string) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
 	return c.communityRepository.FindById(id)
 }
 
-func (c *communityService) GetAll(filter repository.CommunityFilter, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
+func (c *communityService) GetAll(filter communityrepo.CommunityFilter, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr) {
 	return c.communityRepository.FindAll(filter, page, limit)
 }
 
-func (c *communityService) UpdateCommunity(id string, requesterId string, changes *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(c.userService, requesterId)
+func (c *communityService) UpdateCommunity(id string, requesterId string, changes *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(c.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +105,7 @@ func (c *communityService) UpdateCommunity(id string, requesterId string, change
 	if err != nil {
 		return nil, err
 	}
-	if !roleAtLeast(requester.Role, domain.UserRoleModerator) && community.Owner.Id != requester.Id {
+	if !identity.RoleAtLeast(requester.Role, userdomain.UserRoleModerator) && community.Owner.Id != requester.Id {
 		return nil, rest_err.NewForbiddenError("only the community owner can update this community")
 	}
 	if err := c.communityValidator.ValidateUpdateCommunity(*changes); err != nil {
@@ -141,7 +144,7 @@ func (c *communityService) UpdateCommunity(id string, requesterId string, change
 }
 
 func (c *communityService) DeleteCommunity(id string, requesterId string) *rest_err.RestErr {
-	requester, err := authenticatedUser(c.userService, requesterId)
+	requester, err := identity.AuthenticatedUser(c.userService, requesterId)
 	if err != nil {
 		return err
 	}
@@ -149,7 +152,7 @@ func (c *communityService) DeleteCommunity(id string, requesterId string) *rest_
 	if err != nil {
 		return err
 	}
-	if !roleAtLeast(requester.Role, domain.UserRoleModerator) {
+	if !identity.RoleAtLeast(requester.Role, userdomain.UserRoleModerator) {
 		if community.Owner.Id != requester.Id {
 			return rest_err.NewForbiddenError("only the community owner can delete this community")
 		}

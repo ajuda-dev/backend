@@ -1,14 +1,14 @@
-package controller
+package skill
 
 import (
 	"strconv"
 
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/controller/dto"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service"
+	skilldto "github.com/ajuda-dev/backend/src/controller/skill/dto"
+	skillrepo "github.com/ajuda-dev/backend/src/data/skill/repository"
+	"github.com/ajuda-dev/backend/src/service/skill"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -22,10 +22,10 @@ type SkillController interface {
 }
 
 type skillController struct {
-	skillService service.SkillService
+	skillService skill.SkillService
 }
 
-func NewSkillController(skillService service.SkillService) SkillController {
+func NewSkillController(skillService skill.SkillService) SkillController {
 	return &skillController{
 		skillService: skillService,
 	}
@@ -37,15 +37,15 @@ func NewSkillController(skillService service.SkillService) SkillController {
 // @Tags         skills
 // @Accept       json
 // @Produce      json
-// @Param        skill  body  dto.RegisterSkillDto  true  "Dados da skill"
-// @Success      201   {object}  dto.RegisterSkillDto
+// @Param        skill  body  skilldto.RegisterSkillDto  true  "Dados da skill"
+// @Success      201   {object}  skilldto.RegisterSkillDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/skill/register [post]
 func (s *skillController) RegisterSkill() fiber.Handler {
 	return func(cf *fiber.Ctx) error {
-		var registerSkillDto dto.RegisterSkillDto
+		var registerSkillDto skilldto.RegisterSkillDto
 		if err := cf.BodyParser(&registerSkillDto); err != nil {
 			logger.Error("erro body request", err)
 			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -69,7 +69,7 @@ func (s *skillController) RegisterSkill() fiber.Handler {
 // @Accept       json
 // @Produce      json
 // @Param        id  path  string  true  "ID da skill"
-// @Success      200   {object}  dto.SkillDto
+// @Success      200   {object}  skilldto.SkillDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
@@ -88,7 +88,7 @@ func (s *skillController) GetSkillById() fiber.Handler {
 			logger.Error("error: ", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusOK).JSON(dto.SkillDto{}.FromDomain(skill))
+		return cf.Status(fiber.StatusOK).JSON(skilldto.SkillDto{}.FromDomain(skill))
 	}
 }
 
@@ -101,7 +101,7 @@ func (s *skillController) GetSkillById() fiber.Handler {
 // @Param        name   query  string  false  "Prefixo do nome da skill"
 // @Param        page   query  int     false  "Página"
 // @Param        limit  query  int     false  "Limite"
-// @Success      200   {object}  dto.PageableSkillDto
+// @Success      200   {object}  skilldto.PageableSkillDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
@@ -111,7 +111,7 @@ func (s *skillController) GetAllSkills() fiber.Handler {
 		page, _ := strconv.Atoi(cf.Query("page", "1"))
 		limit, _ := strconv.Atoi(cf.Query("limit", "10"))
 
-		result, e := s.skillService.GetAll(repository.SkillFilter{
+		result, e := s.skillService.GetAll(skillrepo.SkillFilter{
 			Name: cf.Query("name"),
 		}, page, limit)
 		if e != nil {
@@ -119,7 +119,7 @@ func (s *skillController) GetAllSkills() fiber.Handler {
 			return cf.Status(e.Code).JSON(e)
 		}
 
-		dtoResult := dto.PageableSkillDto{}.FromDomain(*result)
+		dtoResult := skilldto.PageableSkillDto{}.FromDomain(*result)
 		return cf.Status(fiber.StatusOK).JSON(dtoResult)
 	}
 }
@@ -131,8 +131,8 @@ func (s *skillController) GetAllSkills() fiber.Handler {
 // @Accept       json
 // @Produce      json
 // @Param        id    path  string  true  "ID da skill"
-// @Param        body  body  dto.UpdateSkillDto  true  "Novo nome da skill"
-// @Success      200   {object}  dto.RegisterSkillDto
+// @Param        body  body  skilldto.UpdateSkillDto  true  "Novo nome da skill"
+// @Success      200   {object}  skilldto.RegisterSkillDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Failure      403   {object}  map[string]interface{}
@@ -147,7 +147,7 @@ func (s *skillController) UpdateSkill() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
 		}
-		var updateSkillDto dto.UpdateSkillDto
+		var updateSkillDto skilldto.UpdateSkillDto
 		if err := cf.BodyParser(&updateSkillDto); err != nil {
 			logger.Error("erro body request", err)
 			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -160,7 +160,7 @@ func (s *skillController) UpdateSkill() fiber.Handler {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusOK).JSON(dto.RegisterSkillDto{}.FromDomain(skill))
+		return cf.Status(fiber.StatusOK).JSON(skilldto.RegisterSkillDto{}.FromDomain(skill))
 	}
 }
 

@@ -1,21 +1,21 @@
-package service
+package identity
 
 import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 var roleRank = map[string]int{
-	domain.UserRoleUser:      1,
-	domain.UserRoleModerator: 2,
-	domain.UserRoleAdmin:     3,
+	userdomain.UserRoleUser:      1,
+	userdomain.UserRoleModerator: 2,
+	userdomain.UserRoleAdmin:     3,
 }
 
-func roleAtLeast(role string, minimum string) bool {
+func RoleAtLeast(role string, minimum string) bool {
 	return roleRank[role] >= roleRank[minimum]
 }
 
-func authenticatedUser(userService UserService, requesterId string) (*domain.UserDomain, *rest_err.RestErr) {
+func AuthenticatedUser(userService UserService, requesterId string) (*userdomain.UserDomain, *rest_err.RestErr) {
 	requester, err := userService.FindById(requesterId)
 	if err != nil {
 		if err.Code == rest_err.NOT_FOUND {
@@ -26,7 +26,7 @@ func authenticatedUser(userService UserService, requesterId string) (*domain.Use
 	return requester, nil
 }
 
-func requireVerifiedEmail(user *domain.UserDomain) *rest_err.RestErr {
+func RequireVerifiedEmail(user *userdomain.UserDomain) *rest_err.RestErr {
 	if user.EmailVerified() {
 		return nil
 	}

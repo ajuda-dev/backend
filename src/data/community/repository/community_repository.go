@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communityentity "github.com/ajuda-dev/backend/src/data/community/entity"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
 	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
 )
@@ -17,11 +17,11 @@ type CommunityFilter struct {
 }
 
 type CommunityRepository interface {
-	CreateCommunity(community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr)
-	FindByName(name string) (*domain.CommunityDomain, *rest_err.RestErr)
-	FindById(id string) (*domain.CommunityDomain, *rest_err.RestErr)
-	FindAll(filter CommunityFilter, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr)
-	Update(id string, community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr)
+	CreateCommunity(community *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr)
+	FindByName(name string) (*communitydomain.CommunityDomain, *rest_err.RestErr)
+	FindById(id string) (*communitydomain.CommunityDomain, *rest_err.RestErr)
+	FindAll(filter CommunityFilter, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr)
+	Update(id string, community *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
 	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
 }
@@ -36,18 +36,18 @@ func NewCommunityRepository(db *gorm.DB) CommunityRepository {
 	}
 }
 
-func (c *communityRepository) CreateCommunity(community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr) {
-	var communityEntity entity.CommunityEntity
+func (c *communityRepository) CreateCommunity(community *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
+	var communityEntity communityentity.CommunityEntity
 	communityEntity = *communityEntity.FromDomain(*community)
 	communityEntity.Id = uuidv7.New().String()
 	if err := c.database.Create(&communityEntity).Error; err != nil {
-		return &domain.CommunityDomain{}, rest_err.NewInternalServerError(err.Error())
+		return &communitydomain.CommunityDomain{}, rest_err.NewInternalServerError(err.Error())
 	}
 	return communityEntity.ToDomain(), nil
 }
 
-func (c *communityRepository) FindByName(name string) (*domain.CommunityDomain, *rest_err.RestErr) {
-	var communityEntity entity.CommunityEntity
+func (c *communityRepository) FindByName(name string) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
+	var communityEntity communityentity.CommunityEntity
 	if err := c.database.Where("name = ?", name).First(&communityEntity).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, rest_err.NewNotFoundError("community not found")
@@ -57,8 +57,8 @@ func (c *communityRepository) FindByName(name string) (*domain.CommunityDomain, 
 	return communityEntity.ToDomain(), nil
 }
 
-func (c *communityRepository) FindById(id string) (*domain.CommunityDomain, *rest_err.RestErr) {
-	var communityEntity entity.CommunityEntity
+func (c *communityRepository) FindById(id string) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
+	var communityEntity communityentity.CommunityEntity
 	if err := c.database.Preload("Address").Preload("Owner").Where("id = ?", id).First(&communityEntity).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, rest_err.NewNotFoundError("community not found")
@@ -68,7 +68,7 @@ func (c *communityRepository) FindById(id string) (*domain.CommunityDomain, *res
 	return communityEntity.ToDomain(), nil
 }
 
-func (c *communityRepository) Update(id string, community *domain.CommunityDomain) (*domain.CommunityDomain, *rest_err.RestErr) {
+func (c *communityRepository) Update(id string, community *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
 	// map (e não struct): `Updates` com struct ignora campos zero, e aqui "vazio"
 	// significa "não alterar" — só entram as chaves efetivamente informadas.
 	fields := map[string]interface{}{}
@@ -81,7 +81,7 @@ func (c *communityRepository) Update(id string, community *domain.CommunityDomai
 	if community.Address.Id != "" {
 		fields["address_id"] = community.Address.Id
 	}
-	result := c.database.Model(&entity.CommunityEntity{}).
+	result := c.database.Model(&communityentity.CommunityEntity{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Updates(fields)
 	if result.Error != nil {
@@ -91,7 +91,7 @@ func (c *communityRepository) Update(id string, community *domain.CommunityDomai
 }
 
 func (c *communityRepository) SoftDeleteById(id string) *rest_err.RestErr {
-	result := c.database.Where("id = ?", id).Delete(&entity.CommunityEntity{})
+	result := c.database.Where("id = ?", id).Delete(&communityentity.CommunityEntity{})
 	if result.Error != nil {
 		return rest_err.NewInternalServerError("Error deleting community: " + result.Error.Error())
 	}
@@ -103,7 +103,7 @@ func (c *communityRepository) SoftDeleteById(id string) *rest_err.RestErr {
 
 func (c *communityRepository) CountByOwnerId(userId string) (int64, *rest_err.RestErr) {
 	var count int64
-	if err := c.database.Model(&entity.CommunityEntity{}).
+	if err := c.database.Model(&communityentity.CommunityEntity{}).
 		Where("owner_id = ?", userId).
 		Count(&count).Error; err != nil {
 		return 0, rest_err.NewInternalServerError("Error counting communities: " + err.Error())
@@ -111,8 +111,8 @@ func (c *communityRepository) CountByOwnerId(userId string) (int64, *rest_err.Re
 	return count, nil
 }
 
-func (c *communityRepository) FindAll(filter CommunityFilter, page int, limit int) (*domain.PageableCommunity, *rest_err.RestErr) {
-	var communities []entity.CommunityEntity
+func (c *communityRepository) FindAll(filter CommunityFilter, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr) {
+	var communities []communityentity.CommunityEntity
 	query := c.database.Model(&communities)
 
 	if page <= 0 {
@@ -143,15 +143,15 @@ func (c *communityRepository) FindAll(filter CommunityFilter, page int, limit in
 	offset := (page - 1) * limit
 	result := query.Preload("Address").Preload("Owner").Offset(offset).Limit(limit + 1).Find(&communities)
 	if result.Error != nil {
-		return &domain.PageableCommunity{}, rest_err.NewInternalServerError(result.Error.Error())
+		return &communitydomain.PageableCommunity{}, rest_err.NewInternalServerError(result.Error.Error())
 	}
 
 	hasNext := len(communities) > limit
 	if hasNext {
 		communities = communities[:limit]
 	}
-	return &domain.PageableCommunity{
+	return &communitydomain.PageableCommunity{
 		HasNext: hasNext,
-		Data:    entity.ToCommunityDomainList(communities),
+		Data:    communityentity.ToCommunityDomainList(communities),
 	}, nil
 }

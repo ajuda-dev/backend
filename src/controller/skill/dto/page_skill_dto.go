@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/ajuda-dev/backend/src/service/domain"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 )
 
 type PageableSkillDto struct {
@@ -14,14 +14,14 @@ type SkillDto struct {
 	Name string `json:"name"`
 }
 
-func (s SkillDto) FromDomain(skill *domain.SkillDomain) SkillDto {
+func (s SkillDto) FromDomain(skill *skilldomain.SkillDomain) SkillDto {
 	return SkillDto{
 		Id:   skill.Id,
 		Name: skill.Name,
 	}
 }
 
-func (p PageableSkillDto) FromDomain(page domain.PageableSkill) *PageableSkillDto {
+func (p PageableSkillDto) FromDomain(page skilldomain.PageableSkill) *PageableSkillDto {
 	skills := make([]SkillDto, len(page.Data))
 	for i, s := range page.Data {
 		skills[i] = SkillDto{}.FromDomain(s)

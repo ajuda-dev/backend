@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/entity"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -179,7 +179,7 @@ func expectOAuthBadRequest(t *testing.T, response *http.Response) {
 func countUsersByEmail(t *testing.T, email string) int64 {
 	t.Helper()
 	var count int64
-	if err := db.Model(&entity.UserEntity{}).Where("email = ?", email).Count(&count).Error; err != nil {
+	if err := db.Model(&userentity.UserEntity{}).Where("email = ?", email).Count(&count).Error; err != nil {
 		t.Fatalf("erro ao contar usuários: %v", err)
 	}
 	return count
@@ -248,7 +248,7 @@ func TestOAuthGithubCallbackCreatesUserAndSetsSessionCookie(t *testing.T) {
 		t.Fatalf("esperava token JWT válido no cookie de sessão, erro: %v", err)
 	}
 
-	var userEntity entity.UserEntity
+	var userEntity userentity.UserEntity
 	if err := db.Where("email = ?", fake.email).First(&userEntity).Error; err != nil {
 		t.Fatalf("esperava usuário criado pelo oauth: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestOAuthGithubCallbackCreatesUserAndSetsSessionCookie(t *testing.T) {
 		t.Fatal("esperava email_verified_at preenchido no usuário criado via oauth")
 	}
 
-	var accountEntity entity.OAuthAccountEntity
+	var accountEntity userentity.OAuthAccountEntity
 	if err := db.Where("provider = ? AND provider_user_id = ?", "github", "42").First(&accountEntity).Error; err != nil {
 		t.Fatalf("esperava vínculo do usuário com o provedor: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestOAuthGithubLoginReusesLinkedAccount(t *testing.T) {
 	}
 
 	var accountsCount int64
-	if err := db.Model(&entity.OAuthAccountEntity{}).Where("provider = ?", "github").Count(&accountsCount).Error; err != nil {
+	if err := db.Model(&userentity.OAuthAccountEntity{}).Where("provider = ?", "github").Count(&accountsCount).Error; err != nil {
 		t.Fatalf("erro ao contar vínculos: %v", err)
 	}
 	if accountsCount != 1 {
@@ -325,7 +325,7 @@ func TestOAuthGithubLoginLinksExistingUserByEmail(t *testing.T) {
 		t.Errorf("esperava nenhum usuário duplicado, recebeu %d usuários com o email '%s'", usersCount, fake.email)
 	}
 
-	var accountEntity entity.OAuthAccountEntity
+	var accountEntity userentity.OAuthAccountEntity
 	if err := db.Where("provider = ? AND provider_user_id = ?", "github", "99").First(&accountEntity).Error; err != nil {
 		t.Fatalf("esperava vínculo criado para o usuário existente: %v", err)
 	}

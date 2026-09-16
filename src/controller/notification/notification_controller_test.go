@@ -1,4 +1,4 @@
-package controller
+package notification
 
 import (
 	"net"

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -38,7 +38,7 @@ func TestFrontendPlan04Flow(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("esperado 200 na listagem, obtido %d", resp.StatusCode)
 	}
-	var page dto.PageableCommunityDto
+	var page communitydto.PageableCommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		t.Fatalf("erro ao decodificar listagem: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestFrontendPlan04Flow(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("esperado 200 no filtro, obtido %d", resp.StatusCode)
 	}
-	var filtered dto.PageableCommunityDto
+	var filtered communitydto.PageableCommunityDto
 	if err := json.NewDecoder(resp.Body).Decode(&filtered); err != nil {
 		t.Fatalf("erro ao decodificar filtro: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestFrontendPlan04Flow(t *testing.T) {
 	}
 
 	// 4) Membership: outro usuário entra e sai
-	member := createUserWithRole(t, "membro.plano04@ajudadev.dev", domain.UserRoleUser)
+	member := createUserWithRole(t, "membro.plano04@ajudadev.dev", userdomain.UserRoleUser)
 	memberToken := validTokenFor(t, member.Id)
 
 	joinReq := httptest.NewRequest("POST", "/v1/community/"+communityId+"/join", nil)
@@ -102,7 +102,7 @@ func TestFrontendPlan04Flow(t *testing.T) {
 	if joinResp.StatusCode != http.StatusCreated {
 		t.Fatalf("esperado 201 no join, obtido %d", joinResp.StatusCode)
 	}
-	var membership dto.CommunityUserDto
+	var membership communitydto.CommunityUserDto
 	if err := json.NewDecoder(joinResp.Body).Decode(&membership); err != nil {
 		t.Fatalf("erro ao decodificar membership: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestFrontendPlan04Flow(t *testing.T) {
 	}
 }
 
-func findCommunityInPages(t *testing.T, app *fiber.App, token string, id string) *dto.CommunityDto {
+func findCommunityInPages(t *testing.T, app *fiber.App, token string, id string) *communitydto.CommunityDto {
 	t.Helper()
 	for page := 1; page <= 20; page++ {
 		req := httptest.NewRequest("GET", "/v1/community?page="+strconv.Itoa(page)+"&limit=100", nil)
@@ -157,7 +157,7 @@ func findCommunityInPages(t *testing.T, app *fiber.App, token string, id string)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("esperado 200 na página %d, obtido %d", page, resp.StatusCode)
 		}
-		var body dto.PageableCommunityDto
+		var body communitydto.PageableCommunityDto
 		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 			t.Fatalf("erro ao decodificar página %d: %v", page, err)
 		}

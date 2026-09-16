@@ -1,4 +1,4 @@
-package service
+package identity
 
 import (
 	"crypto/rand"
@@ -8,8 +8,8 @@ import (
 
 	"github.com/ajuda-dev/backend/src/client/oauth"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userrepo "github.com/ajuda-dev/backend/src/data/identity/repository"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 const (
@@ -17,8 +17,8 @@ const (
 	oauthNameMaxLength = 100
 )
 
-func NewOAuthService(oauthRegistry *oauth.Registry, oauthAccountRepository repository.OAuthAccountRepository,
-	userRepository repository.UserRepository, authService AuthService) OAuthService {
+func NewOAuthService(oauthRegistry *oauth.Registry, oauthAccountRepository userrepo.OAuthAccountRepository,
+	userRepository userrepo.UserRepository, authService AuthService) OAuthService {
 	return &oauthService{
 		oauthRegistry:          oauthRegistry,
 		oauthAccountRepository: oauthAccountRepository,
@@ -29,13 +29,13 @@ func NewOAuthService(oauthRegistry *oauth.Registry, oauthAccountRepository repos
 
 type OAuthService interface {
 	LoginURL(provider string) (string, string, *rest_err.RestErr)
-	Authenticate(provider string, code string) (*domain.UserDomain, string, *rest_err.RestErr)
+	Authenticate(provider string, code string) (*userdomain.UserDomain, string, *rest_err.RestErr)
 }
 
 type oauthService struct {
 	oauthRegistry          *oauth.Registry
-	oauthAccountRepository repository.OAuthAccountRepository
-	userRepository         repository.UserRepository
+	oauthAccountRepository userrepo.OAuthAccountRepository
+	userRepository         userrepo.UserRepository
 	authService            AuthService
 }
 
@@ -51,7 +51,7 @@ func (o *oauthService) LoginURL(providerName string) (string, string, *rest_err.
 	return provider.AuthorizationURL(state), state, nil
 }
 
-func (o *oauthService) Authenticate(providerName string, code string) (*domain.UserDomain, string, *rest_err.RestErr) {
+func (o *oauthService) Authenticate(providerName string, code string) (*userdomain.UserDomain, string, *rest_err.RestErr) {
 	provider, providerErr := o.getProvider(providerName)
 	if providerErr != nil {
 		return nil, "", providerErr
@@ -88,7 +88,7 @@ func (o *oauthService) getProvider(providerName string) (oauth.Provider, *rest_e
 
 // findOrCreateUser reaproveita o vínculo já existente com o provedor; sem vínculo,
 // casa pelo e-mail verificado do provedor e, por fim, cria um usuário novo sem senha.
-func (o *oauthService) findOrCreateUser(providerName string, userInfo *domain.OAuthUserInfo) (*domain.UserDomain, *rest_err.RestErr) {
+func (o *oauthService) findOrCreateUser(providerName string, userInfo *userdomain.OAuthUserInfo) (*userdomain.UserDomain, *rest_err.RestErr) {
 	account, err := o.oauthAccountRepository.FindByProviderAndProviderUserId(providerName, userInfo.ProviderUserId)
 	if err != nil && err.Code != rest_err.NOT_FOUND {
 		return nil, err
@@ -113,7 +113,7 @@ func (o *oauthService) findOrCreateUser(providerName string, userInfo *domain.OA
 		}
 	}
 
-	if _, err := o.oauthAccountRepository.Create(&domain.OAuthAccountDomain{
+	if _, err := o.oauthAccountRepository.Create(&userdomain.OAuthAccountDomain{
 		UserId:         user.Id,
 		Provider:       providerName,
 		ProviderUserId: userInfo.ProviderUserId,
@@ -125,7 +125,7 @@ func (o *oauthService) findOrCreateUser(providerName string, userInfo *domain.OA
 	return user, nil
 }
 
-func (o *oauthService) createOAuthUser(userInfo *domain.OAuthUserInfo, email string) (*domain.UserDomain, *rest_err.RestErr) {
+func (o *oauthService) createOAuthUser(userInfo *userdomain.OAuthUserInfo, email string) (*userdomain.UserDomain, *rest_err.RestErr) {
 	name := strings.TrimSpace(userInfo.Name)
 	if name == "" {
 		name = strings.TrimSpace(userInfo.ProviderUsername)
@@ -134,10 +134,10 @@ func (o *oauthService) createOAuthUser(userInfo *domain.OAuthUserInfo, email str
 		name = email
 	}
 	now := time.Now()
-	return o.userRepository.CreateUser(&domain.UserDomain{
+	return o.userRepository.CreateUser(&userdomain.UserDomain{
 		Name:            truncateOAuthValue(name),
 		Email:           email,
-		Role:            domain.UserRoleUser,
+		Role:            userdomain.UserRoleUser,
 		EmailVerifiedAt: &now,
 	})
 }

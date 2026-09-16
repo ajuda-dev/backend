@@ -1,32 +1,33 @@
-package service
+package event
 
 import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/repository"
-	"github.com/ajuda-dev/backend/src/service/domain"
-	"github.com/ajuda-dev/backend/src/service/validator"
+	eventrepo "github.com/ajuda-dev/backend/src/data/event/repository"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	eventvalidator "github.com/ajuda-dev/backend/src/service/event/validator"
+	"github.com/ajuda-dev/backend/src/service/identity"
 )
 
 type EventUserService interface {
-	JoinEvent(eventId string, requesterId string) (*domain.EventUserDomain, *rest_err.RestErr)
-	AddParticipant(eventId string, requesterId string, targetUserId string, role string) (*domain.EventUserDomain, *rest_err.RestErr)
-	GetParticipants(eventId string, status string, requesterId string) ([]*domain.EventUserDomain, *rest_err.RestErr)
-	UpdateParticipantStatus(eventId string, userId string, requesterId string, status string) (*domain.EventUserDomain, *rest_err.RestErr)
-	CancelParticipation(eventId string, userId string, requesterId string) (*domain.EventUserDomain, *rest_err.RestErr)
+	JoinEvent(eventId string, requesterId string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
+	AddParticipant(eventId string, requesterId string, targetUserId string, role string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
+	GetParticipants(eventId string, status string, requesterId string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr)
+	UpdateParticipantStatus(eventId string, userId string, requesterId string, status string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
+	CancelParticipation(eventId string, userId string, requesterId string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 }
 
 type eventUserService struct {
-	userService         UserService
+	userService         identity.UserService
 	eventService        EventService
-	eventUserRepository repository.EventUserRepository
-	eventUserValidator  validator.EventUserValidator
+	eventUserRepository eventrepo.EventUserRepository
+	eventUserValidator  eventvalidator.EventUserValidator
 }
 
 func NewEventUserService(
-	userService UserService,
+	userService identity.UserService,
 	eventService EventService,
-	eventUserRepository repository.EventUserRepository,
-	eventUserValidator validator.EventUserValidator) EventUserService {
+	eventUserRepository eventrepo.EventUserRepository,
+	eventUserValidator eventvalidator.EventUserValidator) EventUserService {
 	return &eventUserService{
 		userService:         userService,
 		eventService:        eventService,
@@ -35,8 +36,8 @@ func NewEventUserService(
 	}
 }
 
-func (e *eventUserService) JoinEvent(eventId string, requesterId string) (*domain.EventUserDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(e.userService, requesterId)
+func (e *eventUserService) JoinEvent(eventId string, requesterId string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -47,11 +48,11 @@ func (e *eventUserService) JoinEvent(eventId string, requesterId string) (*domai
 	if !isEventApproved(event) {
 		return nil, eventNotApprovedError()
 	}
-	eventUser := &domain.EventUserDomain{
+	eventUser := &eventdomain.EventUserDomain{
 		EventId: eventId,
 		UserId:  requester.Id,
-		Role:    domain.RoleAttendee,
-		Status:  domain.StatusConfirmed,
+		Role:    eventdomain.RoleAttendee,
+		Status:  eventdomain.StatusConfirmed,
 	}
 	if err := e.eventUserValidator.ValidateJoin(*eventUser, event.Category); err != nil {
 		return nil, err
@@ -59,8 +60,8 @@ func (e *eventUserService) JoinEvent(eventId string, requesterId string) (*domai
 	return e.eventUserRepository.CreateOrUpdate(eventUser, event.MaxSlots)
 }
 
-func (e *eventUserService) AddParticipant(eventId string, requesterId string, targetUserId string, role string) (*domain.EventUserDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(e.userService, requesterId)
+func (e *eventUserService) AddParticipant(eventId string, requesterId string, targetUserId string, role string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -72,13 +73,13 @@ func (e *eventUserService) AddParticipant(eventId string, requesterId string, ta
 		return nil, forbiddenManageEvent()
 	}
 	creatorRole := ""
-	if event.Category == domain.CategoryMentoring {
+	if event.Category == eventdomain.CategoryMentoring {
 		creatorRole, err = e.creatorRole(event)
 		if err != nil {
 			return nil, err
 		}
 	}
-	eventUser := &domain.EventUserDomain{
+	eventUser := &eventdomain.EventUserDomain{
 		EventId: eventId,
 		UserId:  targetUserId,
 		Role:    role,
@@ -86,10 +87,10 @@ func (e *eventUserService) AddParticipant(eventId string, requesterId string, ta
 	if err := e.eventUserValidator.ValidateAddParticipant(*eventUser, event.Category, creatorRole); err != nil {
 		return nil, err
 	}
-	if event.Category == domain.CategoryMentoring {
-		eventUser.Status = domain.StatusRequested
+	if event.Category == eventdomain.CategoryMentoring {
+		eventUser.Status = eventdomain.StatusRequested
 	} else {
-		eventUser.Status = domain.StatusConfirmed
+		eventUser.Status = eventdomain.StatusConfirmed
 	}
 	if err := e.validateUserExists(eventUser.UserId); err != nil {
 		return nil, err
@@ -97,8 +98,8 @@ func (e *eventUserService) AddParticipant(eventId string, requesterId string, ta
 	return e.eventUserRepository.CreateOrUpdate(eventUser, event.MaxSlots)
 }
 
-func (e *eventUserService) GetParticipants(eventId string, status string, requesterId string) ([]*domain.EventUserDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(e.userService, requesterId)
+func (e *eventUserService) GetParticipants(eventId string, status string, requesterId string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -114,13 +115,13 @@ func (e *eventUserService) GetParticipants(eventId string, status string, reques
 		return nil, err
 	}
 	for _, participant := range participants {
-		applyVisibilityFilter(participant.User, requester)
+		identity.ApplyVisibilityFilter(participant.User, requester)
 	}
 	return participants, nil
 }
 
-func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string, requesterId string, status string) (*domain.EventUserDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(e.userService, requesterId)
+func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string, requesterId string, status string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +132,7 @@ func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string
 	if userId != requester.Id {
 		return nil, rest_err.NewForbiddenError("only the invited user can accept or reject this invitation")
 	}
-	if status == domain.StatusConfirmed && !isEventApproved(event) {
+	if status == eventdomain.StatusConfirmed && !isEventApproved(event) {
 		return nil, eventNotApprovedError()
 	}
 	if err := e.eventUserValidator.ValidateUpdateParticipantStatus(status); err != nil {
@@ -140,8 +141,8 @@ func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string
 	return e.eventUserRepository.UpdateStatus(eventId, userId, status, event.MaxSlots)
 }
 
-func (e *eventUserService) CancelParticipation(eventId string, userId string, requesterId string) (*domain.EventUserDomain, *rest_err.RestErr) {
-	requester, err := authenticatedUser(e.userService, requesterId)
+func (e *eventUserService) CancelParticipation(eventId string, userId string, requesterId string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +153,7 @@ func (e *eventUserService) CancelParticipation(eventId string, userId string, re
 	if userId != requester.Id && !canManageEvent(requester, event) {
 		return nil, forbiddenManageEvent()
 	}
-	if event.Category == domain.CategoryMentoring && userId == event.Owner.Id {
+	if event.Category == eventdomain.CategoryMentoring && userId == event.Owner.Id {
 		return nil, rest_err.NewBadRequestValidationError(
 			"Invalid participation data",
 			[]rest_err.Causes{{
@@ -160,10 +161,10 @@ func (e *eventUserService) CancelParticipation(eventId string, userId string, re
 				Message: "the creator cannot leave the event; cancel the event instead",
 			}})
 	}
-	return e.eventUserRepository.UpdateStatus(eventId, userId, domain.StatusCancelled, event.MaxSlots)
+	return e.eventUserRepository.UpdateStatus(eventId, userId, eventdomain.StatusCancelled, event.MaxSlots)
 }
 
-func (e *eventUserService) creatorRole(event *domain.EventDomain) (string, *rest_err.RestErr) {
+func (e *eventUserService) creatorRole(event *eventdomain.EventDomain) (string, *rest_err.RestErr) {
 	participants, err := e.eventUserRepository.FindByEvent(event.Id, "")
 	if err != nil {
 		return "", err
@@ -173,7 +174,7 @@ func (e *eventUserService) creatorRole(event *domain.EventDomain) (string, *rest
 			return participant.Role, nil
 		}
 	}
-	return domain.RoleMentor, nil
+	return eventdomain.RoleMentor, nil
 }
 
 func (e *eventUserService) validateUserExists(userId string) *rest_err.RestErr {

@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/ajuda-dev/backend/src/service/domain"
+import (
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+)
 
 // Atualização parcial: campo vazio significa "não alterar".
 // Não há OwnerId de propósito — troca de dono não é feita por este endpoint.
@@ -10,11 +13,11 @@ type UpdateCommunityDto struct {
 	AddressId   string `json:"address_id"`
 }
 
-func (u *UpdateCommunityDto) ToDomain() *domain.CommunityDomain {
-	return &domain.CommunityDomain{
+func (u *UpdateCommunityDto) ToDomain() *communitydomain.CommunityDomain {
+	return &communitydomain.CommunityDomain{
 		Name:        u.Name,
 		Description: u.Description,
-		Address: domain.AddressDomain{
+		Address: addressdomain.AddressDomain{
 			Id: u.AddressId,
 		},
 	}

@@ -1,4 +1,4 @@
-package validator
+package validation
 
 import (
 	"net/url"
@@ -9,7 +9,7 @@ import (
 var emailRegex = regexp.MustCompile(`^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`)
 var phoneAllowedChars = regexp.MustCompile(`^\+?[0-9()\-. ]+$`)
 
-func isValidName(name string, isCommunity bool) bool {
+func IsValidName(name string, isCommunity bool) bool {
 	if strings.TrimSpace(name) == "" {
 		return false
 	}
@@ -24,14 +24,14 @@ func isValidName(name string, isCommunity bool) bool {
 	return re.MatchString(name) && len(name) <= 50
 }
 
-func isValidEmail(email string) bool {
+func IsValidEmail(email string) bool {
 	if strings.TrimSpace(email) == "" {
 		return false
 	}
 	return emailRegex.MatchString(email)
 }
 
-func isValidHTTPURL(raw string) bool {
+func IsValidHTTPURL(raw string) bool {
 	parsed, err := url.ParseRequestURI(strings.TrimSpace(raw))
 	if err != nil {
 		return false
@@ -39,7 +39,7 @@ func isValidHTTPURL(raw string) bool {
 	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
 }
 
-func isValidPhone(phone string) bool {
+func IsValidPhone(phone string) bool {
 	trimmed := strings.TrimSpace(phone)
 	if trimmed == "" || !phoneAllowedChars.MatchString(trimmed) {
 		return false

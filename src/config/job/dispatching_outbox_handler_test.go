@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +14,7 @@ type routeRecordingHandler struct {
 	err   error
 }
 
-func (h *routeRecordingHandler) Handle(event domain.OutboxEventDomain) error {
+func (h *routeRecordingHandler) Handle(event notificationdomain.OutboxEventDomain) error {
 	h.calls++
 	return h.err
 }
@@ -24,7 +24,7 @@ func TestDispatchingOutboxHandler_RoutesInboxToSSE(t *testing.T) {
 	created := &routeRecordingHandler{}
 	handler := NewDispatchingOutboxHandler(inbox, created)
 
-	require.NoError(t, handler.Handle(domain.OutboxEventDomain{Type: domain.OutboxTypeCommunityEventApproved}))
+	require.NoError(t, handler.Handle(notificationdomain.OutboxEventDomain{Type: notificationdomain.OutboxTypeCommunityEventApproved}))
 	assert.Equal(t, 1, inbox.calls)
 	assert.Equal(t, 0, created.calls)
 }
@@ -34,25 +34,25 @@ func TestDispatchingOutboxHandler_RoutesCreatedAccount(t *testing.T) {
 	created := &routeRecordingHandler{}
 	handler := NewDispatchingOutboxHandler(inbox, created)
 
-	require.NoError(t, handler.Handle(domain.OutboxEventDomain{Type: domain.OutboxTypeCreatedAccount}))
+	require.NoError(t, handler.Handle(notificationdomain.OutboxEventDomain{Type: notificationdomain.OutboxTypeCreatedAccount}))
 	assert.Equal(t, 0, inbox.calls)
 	assert.Equal(t, 1, created.calls)
 }
 
 func TestDispatchingOutboxHandler_UnknownTypeFails(t *testing.T) {
 	handler := NewDispatchingOutboxHandler(&routeRecordingHandler{}, &routeRecordingHandler{})
-	err := handler.Handle(domain.OutboxEventDomain{Type: "PASSWORD_RESET"})
+	err := handler.Handle(notificationdomain.OutboxEventDomain{Type: "PASSWORD_RESET"})
 	require.Error(t, err)
 }
 
 func TestDispatchingOutboxHandler_CreatedAccountHandlerError(t *testing.T) {
 	created := &routeRecordingHandler{err: errors.New("smtp down")}
 	handler := NewDispatchingOutboxHandler(&routeRecordingHandler{}, created)
-	err := handler.Handle(domain.OutboxEventDomain{Type: domain.OutboxTypeCreatedAccount})
+	err := handler.Handle(notificationdomain.OutboxEventDomain{Type: notificationdomain.OutboxTypeCreatedAccount})
 	require.EqualError(t, err, "smtp down")
 }
 
 func TestInboxNotificationTypes_ExcludesCreatedAccount(t *testing.T) {
-	assert.False(t, domain.IsInboxNotificationType(domain.OutboxTypeCreatedAccount))
-	assert.True(t, domain.IsInboxNotificationType(domain.OutboxTypeCommunityEventPendingApproval))
+	assert.False(t, notificationdomain.IsInboxNotificationType(notificationdomain.OutboxTypeCreatedAccount))
+	assert.True(t, notificationdomain.IsInboxNotificationType(notificationdomain.OutboxTypeCommunityEventPendingApproval))
 }

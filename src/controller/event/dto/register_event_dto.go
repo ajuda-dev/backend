@@ -3,7 +3,10 @@ package dto
 import (
 	"time"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 type RegisterEventDto struct {
@@ -23,17 +26,17 @@ type RegisterEventDto struct {
 	Status      string    `json:"status"`
 }
 
-func (r *RegisterEventDto) ToDomain() *domain.EventDomain {
-	var community *domain.CommunityDomain
+func (r *RegisterEventDto) ToDomain() *eventdomain.EventDomain {
+	var community *communitydomain.CommunityDomain
 	if r.CommunityId != nil {
-		community = &domain.CommunityDomain{Id: *r.CommunityId}
+		community = &communitydomain.CommunityDomain{Id: *r.CommunityId}
 	}
-	var address *domain.AddressDomain
+	var address *addressdomain.AddressDomain
 	if r.AddressId != nil {
-		address = &domain.AddressDomain{Id: *r.AddressId}
+		address = &addressdomain.AddressDomain{Id: *r.AddressId}
 	}
-	return &domain.EventDomain{
-		Owner:       domain.UserDomain{Id: r.OwnerId},
+	return &eventdomain.EventDomain{
+		Owner:       userdomain.UserDomain{Id: r.OwnerId},
 		Community:   community,
 		Address:     address,
 		Category:    r.Category,
@@ -48,7 +51,7 @@ func (r *RegisterEventDto) ToDomain() *domain.EventDomain {
 	}
 }
 
-func (r RegisterEventDto) FromDomain(event *domain.EventDomain) interface{} {
+func (r RegisterEventDto) FromDomain(event *eventdomain.EventDomain) interface{} {
 	dtoEvent := &RegisterEventDto{
 		Id:          event.Id,
 		OwnerId:     event.Owner.Id,

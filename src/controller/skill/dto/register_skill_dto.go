@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/ajuda-dev/backend/src/service/domain"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 )
 
 type RegisterSkillDto struct {
@@ -9,13 +9,13 @@ type RegisterSkillDto struct {
 	Name string `json:"name"`
 }
 
-func (r *RegisterSkillDto) ToDomain() *domain.SkillDomain {
-	return &domain.SkillDomain{
+func (r *RegisterSkillDto) ToDomain() *skilldomain.SkillDomain {
+	return &skilldomain.SkillDomain{
 		Name: r.Name,
 	}
 }
 
-func (r RegisterSkillDto) FromDomain(skill *domain.SkillDomain) RegisterSkillDto {
+func (r RegisterSkillDto) FromDomain(skill *skilldomain.SkillDomain) RegisterSkillDto {
 	return RegisterSkillDto{
 		Id:   skill.Id,
 		Name: skill.Name,
@@ -26,8 +26,8 @@ type UpdateSkillDto struct {
 	Name string `json:"name"`
 }
 
-func (u *UpdateSkillDto) ToDomain() *domain.SkillDomain {
-	return &domain.SkillDomain{
+func (u *UpdateSkillDto) ToDomain() *skilldomain.SkillDomain {
+	return &skilldomain.SkillDomain{
 		Name: u.Name,
 	}
 }

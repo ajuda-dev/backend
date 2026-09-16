@@ -6,8 +6,12 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	notificationrepo "github.com/ajuda-dev/backend/src/data/notification/repository"
+	skillentity "github.com/ajuda-dev/backend/src/data/skill/entity"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
 )
@@ -19,11 +23,11 @@ type UserFilter struct {
 }
 
 type UserRepository interface {
-	CreateUser(user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
-	GetUserByEmail(email string) (*domain.UserDomain, *rest_err.RestErr)
-	FindById(id string) (*domain.UserDomain, *rest_err.RestErr)
-	FindAll(filter UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr)
-	Update(id string, user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr)
+	CreateUser(user *userdomain.UserDomain) (*userdomain.UserDomain, *rest_err.RestErr)
+	GetUserByEmail(email string) (*userdomain.UserDomain, *rest_err.RestErr)
+	FindById(id string) (*userdomain.UserDomain, *rest_err.RestErr)
+	FindAll(filter UserFilter, page int, limit int) (*userdomain.PageableUser, *rest_err.RestErr)
+	Update(id string, user *userdomain.UserDomain) (*userdomain.UserDomain, *rest_err.RestErr)
 	UpdatePassword(id string, hashedPassword string) *rest_err.RestErr
 	MarkEmailVerified(id string, at time.Time) *rest_err.RestErr
 	SoftDeleteById(id string) *rest_err.RestErr
@@ -31,21 +35,21 @@ type UserRepository interface {
 
 type userRepository struct {
 	database *gorm.DB
-	outbox   OutboxEventRepository
+	outbox   notificationrepo.OutboxEventRepository
 }
 
 // FindById implements UserRepository.
-func (u *userRepository) FindById(id string) (*domain.UserDomain, *rest_err.RestErr) {
-	var userEntity entity.UserEntity
+func (u *userRepository) FindById(id string) (*userdomain.UserDomain, *rest_err.RestErr) {
+	var userEntity userentity.UserEntity
 	if err := u.database.Where("id = ?", id).First(&userEntity).Error; err != nil {
 		return handlerErrorDataBase(err)
 	}
 	return userEntity.ToDomainUser(), nil
 }
 
-func (u *userRepository) FindAll(filter UserFilter, page int, limit int) (*domain.PageableUser, *rest_err.RestErr) {
-	var users []entity.UserEntity
-	query := u.database.Model(&entity.UserEntity{})
+func (u *userRepository) FindAll(filter UserFilter, page int, limit int) (*userdomain.PageableUser, *rest_err.RestErr) {
+	var users []userentity.UserEntity
+	query := u.database.Model(&userentity.UserEntity{})
 
 	// Caminho A (com skill): mantém o mecanismo atual — join + match exato do nome.
 	if filter.SkillName != "" {
@@ -64,7 +68,7 @@ func (u *userRepository) FindAll(filter UserFilter, page int, limit int) (*domai
 	}
 	email := strings.ToLower(strings.TrimSpace(filter.Email))
 	if email != "" {
-		// match exato e case-insensitive; e-mail é ASCII por validação (common_validator.go).
+		// match exato e case-insensitive; e-mail é ASCII por validação (service/validation).
 		query = query.Where("LOWER(users.email) = ?", email)
 	}
 
@@ -85,9 +89,9 @@ func (u *userRepository) FindAll(filter UserFilter, page int, limit int) (*domai
 		users = users[:limit]
 	}
 
-	pageable := &domain.PageableUser{
+	pageable := &userdomain.PageableUser{
 		HasNext: hasNext,
-		Data:    make([]*domain.UserDomain, 0, len(users)),
+		Data:    make([]*userdomain.UserDomain, 0, len(users)),
 	}
 	if len(users) == 0 {
 		return pageable, nil
@@ -97,7 +101,7 @@ func (u *userRepository) FindAll(filter UserFilter, page int, limit int) (*domai
 	for i := range users {
 		ids[i] = users[i].Id
 	}
-	var skillUsers []entity.SkillUserEntity
+	var skillUsers []skillentity.SkillUserEntity
 	if err := u.database.Preload("Skill").
 		Joins("JOIN skills ON skills.id = skill_users.skill_id").
 		Where("skill_users.user_id IN ?", ids).
@@ -106,8 +110,8 @@ func (u *userRepository) FindAll(filter UserFilter, page int, limit int) (*domai
 		return nil, rest_err.NewInternalServerError(err.Error())
 	}
 
-	skillsByUser := make(map[string][]domain.SkillDomain, len(users))
-	for _, skillUser := range entity.ToSkillUserDomainList(skillUsers) {
+	skillsByUser := make(map[string][]skilldomain.SkillDomain, len(users))
+	for _, skillUser := range skillentity.ToSkillUserDomainList(skillUsers) {
 		if skillUser.Skill != nil {
 			skillsByUser[skillUser.UserId] = append(skillsByUser[skillUser.UserId], *skillUser.Skill)
 		}
@@ -120,15 +124,15 @@ func (u *userRepository) FindAll(filter UserFilter, page int, limit int) (*domai
 	return pageable, nil
 }
 
-func NewUserRepository(db *gorm.DB, outbox OutboxEventRepository) UserRepository {
+func NewUserRepository(db *gorm.DB, outbox notificationrepo.OutboxEventRepository) UserRepository {
 	return &userRepository{
 		database: db,
 		outbox:   outbox,
 	}
 }
 
-func (u *userRepository) CreateUser(user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr) {
-	userEntity := entity.FromDomainUser(user)
+func (u *userRepository) CreateUser(user *userdomain.UserDomain) (*userdomain.UserDomain, *rest_err.RestErr) {
+	userEntity := userentity.FromDomainUser(user)
 	userEntity.Id = uuidv7.New().String()
 	enqueueCreatedAccount := u.outbox != nil && userEntity.EmailVerifiedAt == nil
 	if !enqueueCreatedAccount && userEntity.EmailVerifiedAt == nil {
@@ -138,10 +142,10 @@ func (u *userRepository) CreateUser(user *domain.UserDomain) (*domain.UserDomain
 
 	if !enqueueCreatedAccount {
 		if err := u.database.Create(userEntity).Error; err != nil {
-			return &domain.UserDomain{}, rest_err.NewInternalServerError(err.Error())
+			return &userdomain.UserDomain{}, rest_err.NewInternalServerError(err.Error())
 		}
 		if userEntity.Role == "" {
-			userEntity.Role = domain.UserRoleUser
+			userEntity.Role = userdomain.UserRoleUser
 		}
 		return userEntity.ToDomainUser(), nil
 	}
@@ -154,11 +158,11 @@ func (u *userRepository) CreateUser(user *domain.UserDomain) (*domain.UserDomain
 			"email": userEntity.Email,
 			"name":  userEntity.Name,
 		})
-		outboxEvent := &domain.OutboxEventDomain{
-			Type:    domain.OutboxTypeCreatedAccount,
+		outboxEvent := &notificationdomain.OutboxEventDomain{
+			Type:    notificationdomain.OutboxTypeCreatedAccount,
 			UserId:  userEntity.Id,
 			Payload: payload,
-			Status:  domain.OutboxStatusPending,
+			Status:  notificationdomain.OutboxStatusPending,
 		}
 		if err := u.outbox.Create(tx, outboxEvent); err != nil {
 			return err
@@ -169,19 +173,19 @@ func (u *userRepository) CreateUser(user *domain.UserDomain) (*domain.UserDomain
 		return nil, toRestErr(txErr)
 	}
 	if userEntity.Role == "" {
-		userEntity.Role = domain.UserRoleUser
+		userEntity.Role = userdomain.UserRoleUser
 	}
 	return userEntity.ToDomainUser(), nil
 }
-func (u *userRepository) GetUserByEmail(email string) (*domain.UserDomain, *rest_err.RestErr) {
-	var userEntity entity.UserEntity
+func (u *userRepository) GetUserByEmail(email string) (*userdomain.UserDomain, *rest_err.RestErr) {
+	var userEntity userentity.UserEntity
 	if err := u.database.Where("email = ?", email).First(&userEntity).Error; err != nil {
 		return handlerErrorDataBase(err)
 	}
 	return userEntity.ToDomainUser(), nil
 }
 
-func (u *userRepository) Update(id string, user *domain.UserDomain) (*domain.UserDomain, *rest_err.RestErr) {
+func (u *userRepository) Update(id string, user *userdomain.UserDomain) (*userdomain.UserDomain, *rest_err.RestErr) {
 	// map (e não struct) porque `Updates` com struct ignora campos zero, e aqui
 	// "vazio" significa "não alterar". Hoje só o nome é atualizável; o padrão
 	// fica pronto para o plano de troca de e-mail/senha sem reescrita.
@@ -193,9 +197,9 @@ func (u *userRepository) Update(id string, user *domain.UserDomain) (*domain.Use
 		fields["description"] = user.Description
 	}
 	if user.ConfigVisibility != nil {
-		fields["config_visibility"] = entity.UserConfigVisibilityFromDomain(user.ConfigVisibility)
+		fields["config_visibility"] = userentity.UserConfigVisibilityFromDomain(user.ConfigVisibility)
 	}
-	result := u.database.Model(&entity.UserEntity{}).
+	result := u.database.Model(&userentity.UserEntity{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Updates(fields)
 	if result.Error != nil {
@@ -205,7 +209,7 @@ func (u *userRepository) Update(id string, user *domain.UserDomain) (*domain.Use
 }
 
 func (u *userRepository) UpdatePassword(id string, hashedPassword string) *rest_err.RestErr {
-	result := u.database.Model(&entity.UserEntity{}).
+	result := u.database.Model(&userentity.UserEntity{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Update("password", hashedPassword)
 	if result.Error != nil {
@@ -218,7 +222,7 @@ func (u *userRepository) UpdatePassword(id string, hashedPassword string) *rest_
 }
 
 func (u *userRepository) MarkEmailVerified(id string, at time.Time) *rest_err.RestErr {
-	result := u.database.Model(&entity.UserEntity{}).
+	result := u.database.Model(&userentity.UserEntity{}).
 		Where("id = ? AND deleted_at IS NULL AND email_verified_at IS NULL", id).
 		Update("email_verified_at", at)
 	if result.Error != nil {
@@ -228,7 +232,7 @@ func (u *userRepository) MarkEmailVerified(id string, at time.Time) *rest_err.Re
 }
 
 func (u *userRepository) SoftDeleteById(id string) *rest_err.RestErr {
-	result := u.database.Where("id = ?", id).Delete(&entity.UserEntity{})
+	result := u.database.Where("id = ?", id).Delete(&userentity.UserEntity{})
 	if result.Error != nil {
 		return rest_err.NewInternalServerError("Error deleting user: " + result.Error.Error())
 	}
@@ -238,7 +242,7 @@ func (u *userRepository) SoftDeleteById(id string) *rest_err.RestErr {
 	return nil
 }
 
-func handlerErrorDataBase(err error) (*domain.UserDomain, *rest_err.RestErr) {
+func handlerErrorDataBase(err error) (*userdomain.UserDomain, *rest_err.RestErr) {
 	if err == gorm.ErrRecordNotFound {
 		return nil, rest_err.NewNotFoundError("User not found")
 	}

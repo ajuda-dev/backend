@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/ajuda-dev/backend/src/service/domain"
+	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 )
 
 type SkillUserDto struct {
@@ -12,7 +12,7 @@ type SkillUserDto struct {
 	Skill   *SkillDto `json:"skill,omitempty"`
 }
 
-func (s SkillUserDto) FromDomain(skillUser *domain.SkillUserDomain) SkillUserDto {
+func (s SkillUserDto) FromDomain(skillUser *skilldomain.SkillUserDomain) SkillUserDto {
 	dtoSkillUser := SkillUserDto{
 		Id:      skillUser.Id,
 		SkillId: skillUser.SkillId,
@@ -26,7 +26,7 @@ func (s SkillUserDto) FromDomain(skillUser *domain.SkillUserDomain) SkillUserDto
 	return dtoSkillUser
 }
 
-func ToSkillUserDtoList(skillUsers []*domain.SkillUserDomain) []SkillUserDto {
+func ToSkillUserDtoList(skillUsers []*skilldomain.SkillUserDomain) []SkillUserDto {
 	dtos := make([]SkillUserDto, len(skillUsers))
 	for i, su := range skillUsers {
 		dtos[i] = SkillUserDto{}.FromDomain(su)
@@ -39,8 +39,8 @@ type AssignSkillDto struct {
 	Level  string `json:"level"`
 }
 
-func (a *AssignSkillDto) ToDomain(skillId string) *domain.SkillUserDomain {
-	return &domain.SkillUserDomain{
+func (a *AssignSkillDto) ToDomain(skillId string) *skilldomain.SkillUserDomain {
+	return &skilldomain.SkillUserDomain{
 		SkillId: skillId,
 		UserId:  a.UserId,
 		Level:   a.Level,

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 	"golang.org/x/crypto/bcrypt"
@@ -34,10 +34,10 @@ func doPutUser(t *testing.T, app *fiber.App, userId string, body []byte, token s
 	return resp
 }
 
-func decodeUserDtoOut(t *testing.T, resp *http.Response) dto.UserDtoOut {
+func decodeUserDtoOut(t *testing.T, resp *http.Response) userdto.UserDtoOut {
 	t.Helper()
 	defer resp.Body.Close()
-	var respDto dto.UserDtoOut
+	var respDto userdto.UserDtoOut
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -53,7 +53,7 @@ func userUpdatedAt(t *testing.T, userId string) time.Time {
 	return updatedAt
 }
 
-func createUserWithHashedPassword(t *testing.T, app *fiber.App, email string, role string, password string) *domain.UserDomain {
+func createUserWithHashedPassword(t *testing.T, app *fiber.App, email string, role string, password string) *userdomain.UserDomain {
 	t.Helper()
 	user := createUserWithRole(t, email, role)
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -71,7 +71,7 @@ func TestUpdateUserSelfSuccess(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "upd_self@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "upd_self@ajuda.dev", userdomain.UserRoleUser)
 	before := userUpdatedAt(t, user.Id)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"name": "Lucas Rocha"}`), validTokenFor(t, user.Id))
@@ -105,7 +105,7 @@ func TestUpdateUserDoesNotChangeEmailNorPassword(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithHashedPassword(t, app, "upd_side@ajuda.dev", domain.UserRoleUser, "123456")
+	user := createUserWithHashedPassword(t, app, "upd_side@ajuda.dev", userdomain.UserRoleUser, "123456")
 	before, findErr := userRepository.FindById(user.Id)
 	if findErr != nil {
 		t.Fatalf("failed to find user before update: %v", findErr)
@@ -136,8 +136,8 @@ func TestUpdateUserOtherUserForbidden(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	requester := createUserWithRole(t, "upd_other_requester@ajuda.dev", domain.UserRoleUser)
-	target := createUserWithRole(t, "upd_other_target@ajuda.dev", domain.UserRoleUser)
+	requester := createUserWithRole(t, "upd_other_requester@ajuda.dev", userdomain.UserRoleUser)
+	target := createUserWithRole(t, "upd_other_target@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, target.Id, []byte(`{"name": "Invadido"}`), validTokenFor(t, requester.Id))
 	if resp.StatusCode != fiber.StatusForbidden {
@@ -161,8 +161,8 @@ func TestUpdateUserModeratorCannotUpdateOthers(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	moderator := createUserWithRole(t, "upd_mod@ajuda.dev", domain.UserRoleModerator)
-	target := createUserWithRole(t, "upd_mod_target@ajuda.dev", domain.UserRoleUser)
+	moderator := createUserWithRole(t, "upd_mod@ajuda.dev", userdomain.UserRoleModerator)
+	target := createUserWithRole(t, "upd_mod_target@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, target.Id, []byte(`{"name": "Moderado"}`), validTokenFor(t, moderator.Id))
 	if resp.StatusCode != fiber.StatusForbidden {
@@ -186,8 +186,8 @@ func TestUpdateUserAdminCanUpdateOthers(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	admin := createUserWithRole(t, "upd_admin@ajuda.dev", domain.UserRoleAdmin)
-	target := createUserWithRole(t, "upd_admin_target@ajuda.dev", domain.UserRoleUser)
+	admin := createUserWithRole(t, "upd_admin@ajuda.dev", userdomain.UserRoleAdmin)
+	target := createUserWithRole(t, "upd_admin_target@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, target.Id, []byte(`{"name": "Alterado pelo Admin"}`), validTokenFor(t, admin.Id))
 	if resp.StatusCode != fiber.StatusOK {
@@ -211,7 +211,7 @@ func TestUpdateUserAdminCanUpdateSelf(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	admin := createUserWithRole(t, "upd_admin_self@ajuda.dev", domain.UserRoleAdmin)
+	admin := createUserWithRole(t, "upd_admin_self@ajuda.dev", userdomain.UserRoleAdmin)
 
 	resp := doPutUser(t, app, admin.Id, []byte(`{"name": "Admin Renomeado"}`), validTokenFor(t, admin.Id))
 	if resp.StatusCode != fiber.StatusOK {
@@ -227,7 +227,7 @@ func TestUpdateUserUnauthorized(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "upd_unauth@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "upd_unauth@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"name": "Sem Token"}`), "")
 	resp.Body.Close()
@@ -249,7 +249,7 @@ func TestUpdateUserInvalidId(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "upd_badid@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "upd_badid@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, "abc", []byte(`{"name": "Nome"}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -266,7 +266,7 @@ func TestUpdateUserTargetNotFound(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	admin := createUserWithRole(t, "upd_404_admin@ajuda.dev", domain.UserRoleAdmin)
+	admin := createUserWithRole(t, "upd_404_admin@ajuda.dev", userdomain.UserRoleAdmin)
 
 	resp := doPutUser(t, app, uuidv7.New().String(), []byte(`{"name": "Fantasma"}`), validTokenFor(t, admin.Id))
 	if resp.StatusCode != fiber.StatusNotFound {
@@ -282,8 +282,8 @@ func TestUpdateUserTargetSoftDeleted(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	admin := createUserWithRole(t, "upd_soft_admin@ajuda.dev", domain.UserRoleAdmin)
-	target := createUserWithRole(t, "upd_soft_target@ajuda.dev", domain.UserRoleUser)
+	admin := createUserWithRole(t, "upd_soft_admin@ajuda.dev", userdomain.UserRoleAdmin)
+	target := createUserWithRole(t, "upd_soft_target@ajuda.dev", userdomain.UserRoleUser)
 
 	if delErr := userRepository.SoftDeleteById(target.Id); delErr != nil {
 		t.Fatalf("failed to soft delete user: %v", delErr)
@@ -299,7 +299,7 @@ func TestUpdateUserEmptyBody(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "upd_empty@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "upd_empty@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -319,7 +319,7 @@ func TestUpdateUserInvalidName(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "upd_badname@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "upd_badname@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"name": "Lucas 123"}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -344,7 +344,7 @@ func TestUpdateUserRejectsEmail(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "upd_email@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "upd_email@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"email": "novo@ajudadev.dev"}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -369,7 +369,7 @@ func TestUpdateUserRejectsPassword(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithHashedPassword(t, app, "upd_password@ajuda.dev", domain.UserRoleUser, "123456")
+	user := createUserWithHashedPassword(t, app, "upd_password@ajuda.dev", userdomain.UserRoleUser, "123456")
 	before, findErr := userRepository.FindById(user.Id)
 	if findErr != nil {
 		t.Fatalf("failed to find user before update: %v", findErr)
@@ -411,7 +411,7 @@ func TestUpdateUserRejectsEmailWithName(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "upd_email_name@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "upd_email_name@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"email": "novo@ajudadev.dev", "name": "Nome Novo"}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -439,14 +439,14 @@ func TestUpdateUserIgnoresRole(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "upd_role@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "upd_role@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doPutUser(t, app, user.Id, []byte(`{"name": "Quase Admin", "role": "ADMIN"}`), validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusOK {
 		t.Errorf("esperava 200 no update com role no body, recebeu %d", resp.StatusCode)
 	}
 	respDto := decodeUserDtoOut(t, resp)
-	if respDto.Role != domain.UserRoleUser {
+	if respDto.Role != userdomain.UserRoleUser {
 		t.Errorf("esperava role 'USER' na resposta, recebeu '%s'", respDto.Role)
 	}
 
@@ -454,7 +454,7 @@ func TestUpdateUserIgnoresRole(t *testing.T) {
 	if findErr != nil {
 		t.Fatalf("failed to find user after role attempt: %v", findErr)
 	}
-	if persisted.Role != domain.UserRoleUser {
+	if persisted.Role != userdomain.UserRoleUser {
 		t.Errorf("esperava role 'USER' preservada no banco, recebeu '%s'", persisted.Role)
 	}
 	if persisted.Name != "Quase Admin" {
@@ -466,7 +466,7 @@ func TestUpdateUserSameNameIsNotNotFound(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
-	user := createUserWithRole(t, "upd_noop@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "upd_noop@ajuda.dev", userdomain.UserRoleUser)
 
 	body, err := json.Marshal(map[string]string{"name": user.Name})
 	if err != nil {

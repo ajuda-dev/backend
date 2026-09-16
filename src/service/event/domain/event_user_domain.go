@@ -1,5 +1,9 @@
 package domain
 
+import (
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+)
+
 const (
 	RoleHost     = "HOST"
 	RoleMentor   = "MENTOR"
@@ -19,5 +23,5 @@ type EventUserDomain struct {
 	UserId  string
 	Role    string
 	Status  string
-	User    *UserDomain
+	User    *userdomain.UserDomain
 }

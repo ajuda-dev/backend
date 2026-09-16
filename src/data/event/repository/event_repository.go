@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	evententity "github.com/ajuda-dev/backend/src/data/event/entity"
+	notificationrepo "github.com/ajuda-dev/backend/src/data/notification/repository"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"github.com/samborkent/uuidv7"
 	"gorm.io/gorm"
 )
@@ -28,49 +30,49 @@ type EventFilter struct {
 }
 
 type EventRepository interface {
-	CreateEvent(event *domain.EventDomain) (*domain.EventDomain, *rest_err.RestErr)
-	FindById(id string) (*domain.EventDomain, *rest_err.RestErr)
-	FindAll(filter EventFilter, page int, limit int) (*domain.PageableEvent, *rest_err.RestErr)
+	CreateEvent(event *eventdomain.EventDomain) (*eventdomain.EventDomain, *rest_err.RestErr)
+	FindById(id string) (*eventdomain.EventDomain, *rest_err.RestErr)
+	FindAll(filter EventFilter, page int, limit int) (*eventdomain.PageableEvent, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
 	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
-	UpdateApprovalStatus(id string, current string, status string, actorId string) (*domain.EventDomain, *rest_err.RestErr)
+	UpdateApprovalStatus(id string, current string, status string, actorId string) (*eventdomain.EventDomain, *rest_err.RestErr)
 }
 
 type eventRepository struct {
 	database *gorm.DB
-	outbox   OutboxEventRepository
+	outbox   notificationrepo.OutboxEventRepository
 }
 
-func NewEventRepository(db *gorm.DB, outbox OutboxEventRepository) EventRepository {
+func NewEventRepository(db *gorm.DB, outbox notificationrepo.OutboxEventRepository) EventRepository {
 	return &eventRepository{
 		database: db,
 		outbox:   outbox,
 	}
 }
 
-func (e *eventRepository) CreateEvent(event *domain.EventDomain) (*domain.EventDomain, *rest_err.RestErr) {
+func (e *eventRepository) CreateEvent(event *eventdomain.EventDomain) (*eventdomain.EventDomain, *rest_err.RestErr) {
 	if event.Status == "" {
-		event.Status = domain.EventStatusPending
+		event.Status = eventdomain.EventStatusPending
 	}
 	txErr := e.database.Transaction(func(tx *gorm.DB) error {
-		eventEntity := (&entity.EventEntity{}).FromDomain(*event)
+		eventEntity := (&evententity.EventEntity{}).FromDomain(*event)
 		eventEntity.Id = uuidv7.New().String()
 		if err := tx.Create(eventEntity).Error; err != nil {
 			return rest_err.NewInternalServerError(err.Error())
 		}
 		event.Id = eventEntity.Id
-		if event.Status == domain.EventStatusPending && event.Community != nil && event.Community.Owner.Id != "" && e.outbox != nil {
+		if event.Status == eventdomain.EventStatusPending && event.Community != nil && event.Community.Owner.Id != "" && e.outbox != nil {
 			payload, _ := json.Marshal(map[string]string{
 				"event_id":     event.Id,
 				"title":        event.Title,
 				"community_id": event.Community.Id,
 				"category":     event.Category,
 			})
-			outboxEvent := &domain.OutboxEventDomain{
-				Type:    domain.OutboxTypeCommunityEventPendingApproval,
+			outboxEvent := &notificationdomain.OutboxEventDomain{
+				Type:    notificationdomain.OutboxTypeCommunityEventPendingApproval,
 				UserId:  event.Community.Owner.Id,
 				Payload: payload,
-				Status:  domain.OutboxStatusPending,
+				Status:  notificationdomain.OutboxStatusPending,
 			}
 			if err := e.outbox.Create(tx, outboxEvent); err != nil {
 				return err
@@ -84,8 +86,8 @@ func (e *eventRepository) CreateEvent(event *domain.EventDomain) (*domain.EventD
 	return event, nil
 }
 
-func (e *eventRepository) FindById(id string) (*domain.EventDomain, *rest_err.RestErr) {
-	var eventEntity entity.EventEntity
+func (e *eventRepository) FindById(id string) (*eventdomain.EventDomain, *rest_err.RestErr) {
+	var eventEntity evententity.EventEntity
 	query := e.database.Preload("Owner").
 		Preload("Address").
 		Preload("Community").
@@ -101,7 +103,7 @@ func (e *eventRepository) FindById(id string) (*domain.EventDomain, *rest_err.Re
 }
 
 func (e *eventRepository) SoftDeleteById(id string) *rest_err.RestErr {
-	result := e.database.Where("id = ?", id).Delete(&entity.EventEntity{})
+	result := e.database.Where("id = ?", id).Delete(&evententity.EventEntity{})
 	if result.Error != nil {
 		return rest_err.NewInternalServerError("Error deleting event: " + result.Error.Error())
 	}
@@ -113,7 +115,7 @@ func (e *eventRepository) SoftDeleteById(id string) *rest_err.RestErr {
 
 func (e *eventRepository) CountByOwnerId(userId string) (int64, *rest_err.RestErr) {
 	var count int64
-	if err := e.database.Model(&entity.EventEntity{}).
+	if err := e.database.Model(&evententity.EventEntity{}).
 		Where("owner_id = ?", userId).
 		Count(&count).Error; err != nil {
 		return 0, rest_err.NewInternalServerError("Error counting events: " + err.Error())
@@ -121,9 +123,9 @@ func (e *eventRepository) CountByOwnerId(userId string) (int64, *rest_err.RestEr
 	return count, nil
 }
 
-func (e *eventRepository) FindAll(filter EventFilter, page int, limit int) (*domain.PageableEvent, *rest_err.RestErr) {
-	var events []entity.EventEntity
-	query := e.database.Model(&entity.EventEntity{})
+func (e *eventRepository) FindAll(filter EventFilter, page int, limit int) (*eventdomain.PageableEvent, *rest_err.RestErr) {
+	var events []evententity.EventEntity
+	query := e.database.Model(&evententity.EventEntity{})
 
 	if page <= 0 {
 		page = 1
@@ -167,7 +169,7 @@ func (e *eventRepository) FindAll(filter EventFilter, page int, limit int) (*dom
 	} else if !filter.IncludeNonApproved {
 		query = query.Where(
 			"events.status = ? OR events.owner_id = ? OR events.community_id IN (SELECT id FROM community WHERE owner_id = ? AND deleted_at IS NULL)",
-			domain.EventStatusApproved, filter.RequesterId, filter.RequesterId)
+			eventdomain.EventStatusApproved, filter.RequesterId, filter.RequesterId)
 	}
 	query = query.Order("start_at")
 	query = query.Preload("Owner").
@@ -179,32 +181,32 @@ func (e *eventRepository) FindAll(filter EventFilter, page int, limit int) (*dom
 	offset := (page - 1) * limit
 	result := query.Offset(offset).Limit(limit + 1).Find(&events)
 	if result.Error != nil {
-		return &domain.PageableEvent{}, rest_err.NewInternalServerError(result.Error.Error())
+		return &eventdomain.PageableEvent{}, rest_err.NewInternalServerError(result.Error.Error())
 	}
 
 	hasNext := len(events) > limit
 	if hasNext {
 		events = events[:limit]
 	}
-	return &domain.PageableEvent{
+	return &eventdomain.PageableEvent{
 		HasNext: hasNext,
-		Data:    entity.ToEventDomainList(events),
+		Data:    evententity.ToEventDomainList(events),
 	}, nil
 }
 
 func isValidEventStatusTransition(current string, target string) bool {
 	switch current {
-	case domain.EventStatusPending:
-		return target == domain.EventStatusApproved || target == domain.EventStatusRejected
-	case domain.EventStatusRejected:
-		return target == domain.EventStatusApproved
+	case eventdomain.EventStatusPending:
+		return target == eventdomain.EventStatusApproved || target == eventdomain.EventStatusRejected
+	case eventdomain.EventStatusRejected:
+		return target == eventdomain.EventStatusApproved
 	}
 	return false
 }
 
-func (e *eventRepository) UpdateApprovalStatus(id string, current string, status string, actorId string) (*domain.EventDomain, *rest_err.RestErr) {
+func (e *eventRepository) UpdateApprovalStatus(id string, current string, status string, actorId string) (*eventdomain.EventDomain, *rest_err.RestErr) {
 	txErr := e.database.Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&entity.EventEntity{}).
+		result := tx.Model(&evententity.EventEntity{}).
 			Where("id = ? AND status = ? AND deleted_at IS NULL", id, current).
 			Update("status", status)
 		if result.Error != nil {
@@ -218,7 +220,7 @@ func (e *eventRepository) UpdateApprovalStatus(id string, current string, status
 					Message: "invalid status transition from " + current + " to " + status,
 				}})
 		}
-		var eventEntity entity.EventEntity
+		var eventEntity evententity.EventEntity
 		if err := tx.Where("id = ?", id).First(&eventEntity).Error; err != nil {
 			return rest_err.NewInternalServerError("Error getting event: " + err.Error())
 		}
@@ -230,7 +232,7 @@ func (e *eventRepository) UpdateApprovalStatus(id string, current string, status
 	return e.FindById(id)
 }
 
-func (e *eventRepository) insertCommunityApprovalOutbox(tx *gorm.DB, event *entity.EventEntity, actorId, status string) error {
+func (e *eventRepository) insertCommunityApprovalOutbox(tx *gorm.DB, event *evententity.EventEntity, actorId, status string) error {
 	if e.outbox == nil || event == nil {
 		return nil
 	}
@@ -247,10 +249,10 @@ func (e *eventRepository) insertCommunityApprovalOutbox(tx *gorm.DB, event *enti
 
 func communityApprovalOutboxType(status string) string {
 	switch status {
-	case domain.EventStatusApproved:
-		return domain.OutboxTypeCommunityEventApproved
-	case domain.EventStatusRejected:
-		return domain.OutboxTypeCommunityEventRejected
+	case eventdomain.EventStatusApproved:
+		return notificationdomain.OutboxTypeCommunityEventApproved
+	case eventdomain.EventStatusRejected:
+		return notificationdomain.OutboxTypeCommunityEventRejected
 	default:
 		return ""
 	}

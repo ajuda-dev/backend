@@ -7,9 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ajuda-dev/backend/src/controller/dto"
-	"github.com/ajuda-dev/backend/src/data/entity"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdto "github.com/ajuda-dev/backend/src/controller/identity/dto"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	notificationentity "github.com/ajuda-dev/backend/src/data/notification/entity"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
+	notificationdomain "github.com/ajuda-dev/backend/src/service/notification/domain"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -50,7 +52,7 @@ func TestRegisterReturnsEmailVerifiedFalse(t *testing.T) {
 		t.Fatalf("esperava 201 no register, recebeu %d", resp.StatusCode)
 	}
 
-	var respDto dto.UserDtoOut
+	var respDto userdto.UserDtoOut
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -70,7 +72,7 @@ func TestRegisterReturnsEmailVerifiedFalse(t *testing.T) {
 func TestLoginReturnsEmailVerifiedTrue(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	user := createUserWithHashedPassword(t, app, "verified_login@ajuda.dev", domain.UserRoleUser, "123456")
+	user := createUserWithHashedPassword(t, app, "verified_login@ajuda.dev", userdomain.UserRoleUser, "123456")
 
 	resp, err := app.Test(newUserLoginRequest([]byte(`{
 		"email": "` + user.Email + `",
@@ -84,7 +86,7 @@ func TestLoginReturnsEmailVerifiedTrue(t *testing.T) {
 		t.Fatalf("esperava 200 no login, recebeu %d", resp.StatusCode)
 	}
 
-	var respDto dto.LoginUserDtoOut
+	var respDto userdto.LoginUserDtoOut
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -96,7 +98,7 @@ func TestLoginReturnsEmailVerifiedTrue(t *testing.T) {
 func TestMeReturnsEmailVerifiedTrue(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	user := createUserWithRole(t, "verified_me@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "verified_me@ajuda.dev", userdomain.UserRoleUser)
 
 	resp, err := app.Test(newRequestWithSessionCookie(http.MethodGet, "/v1/user/me", validTokenFor(t, user.Id)))
 	if err != nil {
@@ -107,7 +109,7 @@ func TestMeReturnsEmailVerifiedTrue(t *testing.T) {
 		t.Fatalf("esperava 200 no /v1/user/me, recebeu %d", resp.StatusCode)
 	}
 
-	var respDto dto.UserDtoOut
+	var respDto userdto.UserDtoOut
 	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
 		t.Fatalf("erro ao decodificar body: %v", err)
 	}
@@ -119,7 +121,7 @@ func TestMeReturnsEmailVerifiedTrue(t *testing.T) {
 func TestMeReturnsEmailVerifiedFalseWhenTimestampIsNull(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	user := createUserWithRole(t, "unverified_me@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "unverified_me@ajuda.dev", userdomain.UserRoleUser)
 	clearEmailVerifiedAt(t, user.Id)
 
 	resp, err := app.Test(newRequestWithSessionCookie(http.MethodGet, "/v1/user/me", validTokenFor(t, user.Id)))
@@ -148,11 +150,11 @@ func TestLoginReturnsEmailVerifiedFalseWhenTimestampIsNull(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
 	}
-	user, createErr := userRepository.CreateUser(&domain.UserDomain{
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
 		Name:     "unverified login",
 		Email:    "unverified_login@ajuda.dev",
 		Password: string(hashedPassword),
-		Role:     domain.UserRoleUser,
+		Role:     userdomain.UserRoleUser,
 	})
 	if createErr != nil {
 		t.Fatalf("failed to create user: %v", createErr)
@@ -180,7 +182,7 @@ func TestLoginReturnsEmailVerifiedFalseWhenTimestampIsNull(t *testing.T) {
 func TestUpdateUserDoesNotChangeEmailVerifiedAt(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	user := createUserWithRole(t, "verified_update@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "verified_update@ajuda.dev", userdomain.UserRoleUser)
 	before := userEmailVerifiedAt(t, user.Id)
 	if before == nil {
 		t.Fatal("esperava email_verified_at preenchido antes do update")
@@ -210,7 +212,7 @@ func TestUpdateUserDoesNotChangeEmailVerifiedAt(t *testing.T) {
 func TestGetUserProfileDoesNotReturnEmailVerified(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
-	user := createUserWithRole(t, "verified_profile@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "verified_profile@ajuda.dev", userdomain.UserRoleUser)
 
 	resp := doGetUserProfile(t, app, user.Id, validTokenFor(t, user.Id))
 	if resp.StatusCode != fiber.StatusOK {
@@ -224,7 +226,7 @@ func TestGetUserProfileDoesNotReturnEmailVerified(t *testing.T) {
 
 func TestCreateUserWithoutOutboxSetsEmailVerifiedAt(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
-	user := createUserWithRole(t, "fixture_verified@ajuda.dev", domain.UserRoleUser)
+	user := createUserWithRole(t, "fixture_verified@ajuda.dev", userdomain.UserRoleUser)
 	if user.EmailVerifiedAt == nil {
 		t.Fatal("esperava email_verified_at preenchido no CreateUser sem outbox")
 	}
@@ -244,7 +246,7 @@ func TestOAuthCreateUserSetsEmailVerifiedAt(t *testing.T) {
 		t.Fatalf("esperava 302 no callback oauth, recebeu %d", response.StatusCode)
 	}
 
-	var userEntity entity.UserEntity
+	var userEntity userentity.UserEntity
 	if err := db.Where("email = ?", fake.email).First(&userEntity).Error; err != nil {
 		t.Fatalf("esperava usuário criado pelo oauth: %v", err)
 	}
@@ -267,13 +269,13 @@ func TestOAuthCreateUserDoesNotInsertCreatedAccount(t *testing.T) {
 		t.Fatalf("esperava 302 no callback oauth, recebeu %d", response.StatusCode)
 	}
 
-	var userEntity entity.UserEntity
+	var userEntity userentity.UserEntity
 	if err := db.Where("email = ?", fake.email).First(&userEntity).Error; err != nil {
 		t.Fatalf("esperava usuário criado pelo oauth: %v", err)
 	}
 	var count int64
-	if err := db.Model(&entity.OutboxEventEntity{}).
-		Where("user_id = ? AND type = ?", userEntity.Id, domain.OutboxTypeCreatedAccount).
+	if err := db.Model(&notificationentity.OutboxEventEntity{}).
+		Where("user_id = ? AND type = ?", userEntity.Id, notificationdomain.OutboxTypeCreatedAccount).
 		Count(&count).Error; err != nil {
 		t.Fatalf("failed to count outbox: %v", err)
 	}

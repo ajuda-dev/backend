@@ -5,7 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ajuda-dev/backend/src/data/entity"
+	addressentity "github.com/ajuda-dev/backend/src/data/address/entity"
+	communityentity "github.com/ajuda-dev/backend/src/data/community/entity"
+	evententity "github.com/ajuda-dev/backend/src/data/event/entity"
+	userentity "github.com/ajuda-dev/backend/src/data/identity/entity"
+	notificationentity "github.com/ajuda-dev/backend/src/data/notification/entity"
+	skillentity "github.com/ajuda-dev/backend/src/data/skill/entity"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -43,7 +48,7 @@ func Connect() (db *gorm.DB, err error) {
 	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS unaccent").Error; err != nil {
 		return nil, fmt.Errorf("error enabling unaccent extension: %w", err)
 	}
-	err = db.AutoMigrate(&entity.UserEntity{}, &entity.AddressEntity{}, &entity.CommunityEntity{}, &entity.EventEntity{}, &entity.EventUserEntity{}, &entity.SkillEntity{}, &entity.SkillUserEntity{}, &entity.CommunityUserEntity{}, &entity.OAuthAccountEntity{}, &entity.OutboxEventEntity{}, &entity.EmailCodeEntity{})
+	err = db.AutoMigrate(&userentity.UserEntity{}, &addressentity.AddressEntity{}, &communityentity.CommunityEntity{}, &evententity.EventEntity{}, &evententity.EventUserEntity{}, &skillentity.SkillEntity{}, &skillentity.SkillUserEntity{}, &communityentity.CommunityUserEntity{}, &userentity.OAuthAccountEntity{}, &notificationentity.OutboxEventEntity{}, &userentity.EmailCodeEntity{})
 	if err != nil {
 		return nil, fmt.Errorf("error doing AutoMigrate: %w", err)
 	}

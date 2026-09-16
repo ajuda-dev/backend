@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/ajuda-dev/backend/src/service/domain"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
 )
 
 type CommunityUserDto struct {
@@ -10,7 +10,7 @@ type CommunityUserDto struct {
 	UserId      string `json:"user_id"`
 }
 
-func (c CommunityUserDto) FromDomain(communityUser *domain.CommunityUserDomain) CommunityUserDto {
+func (c CommunityUserDto) FromDomain(communityUser *communitydomain.CommunityUserDomain) CommunityUserDto {
 	return CommunityUserDto{
 		Id:          communityUser.Id,
 		CommunityId: communityUser.CommunityId,

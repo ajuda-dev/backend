@@ -2,12 +2,17 @@ package routes
 
 import (
 	_ "github.com/ajuda-dev/backend/docs"
-	"github.com/ajuda-dev/backend/src/controller"
+	addressctrl "github.com/ajuda-dev/backend/src/controller/address"
+	communityctrl "github.com/ajuda-dev/backend/src/controller/community"
+	eventctrl "github.com/ajuda-dev/backend/src/controller/event"
+	identityctrl "github.com/ajuda-dev/backend/src/controller/identity"
+	notificationctrl "github.com/ajuda-dev/backend/src/controller/notification"
+	skillctrl "github.com/ajuda-dev/backend/src/controller/skill"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/swagger"
 )
 
-func SetupRoutesUser(app *fiber.App, userController controller.UserController, authController controller.AuthController, auth fiber.Handler) {
+func SetupRoutesUser(app *fiber.App, userController identityctrl.UserController, authController identityctrl.AuthController, auth fiber.Handler) {
 
 	user := app.Group("/v1/user")
 	user.Post("/register", userController.RegisterUser())
@@ -24,20 +29,20 @@ func SetupRoutesUser(app *fiber.App, userController controller.UserController, a
 	user.Delete("/:userId", auth, userController.DeleteUser())
 }
 
-func SetupRoutesAuth(app *fiber.App, oauthController controller.OAuthController) {
+func SetupRoutesAuth(app *fiber.App, oauthController identityctrl.OAuthController) {
 	auth := app.Group("/v1/auth")
 	// Rotas públicas por natureza: são o próprio fluxo de login, o usuário ainda não possui token.
 	auth.Get("/:provider/login", oauthController.StartLogin())
 	auth.Get("/:provider/callback", oauthController.Callback())
 }
 
-func SetupRoutesAddress(app *fiber.App, addressController controller.AddressController, auth fiber.Handler) {
+func SetupRoutesAddress(app *fiber.App, addressController addressctrl.AddressController, auth fiber.Handler) {
 	address := app.Group("/v1/address", auth)
 	address.Post("/register", addressController.RegisterAddress())
 	address.Get("", addressController.GetAllAddresses())
 }
 
-func SetupRoutesCommunities(app *fiber.App, communityController controller.CommunityController, auth fiber.Handler) {
+func SetupRoutesCommunities(app *fiber.App, communityController communityctrl.CommunityController, auth fiber.Handler) {
 	communities := app.Group("/v1/community", auth)
 	communities.Post("/register", communityController.RegisterCommunity())
 	communities.Get("/:id", communityController.GetCommunityById())
@@ -46,7 +51,7 @@ func SetupRoutesCommunities(app *fiber.App, communityController controller.Commu
 	communities.Delete("/:id", communityController.DeleteCommunity())
 }
 
-func SetupRoutesCommunityUsers(app *fiber.App, communityUserController controller.CommunityUserController, auth fiber.Handler) {
+func SetupRoutesCommunityUsers(app *fiber.App, communityUserController communityctrl.CommunityUserController, auth fiber.Handler) {
 	communities := app.Group("/v1/community", auth)
 	communities.Post("/:id/join", communityUserController.JoinCommunity())
 	communities.Delete("/:id/leave", communityUserController.LeaveCommunity())
@@ -56,7 +61,7 @@ func SetupRoutesCommunityUsers(app *fiber.App, communityUserController controlle
 	users.Get("/:userId/communities", auth, communityUserController.GetUserCommunities())
 }
 
-func SetupRoutesEvents(app *fiber.App, eventController controller.EventController, auth fiber.Handler) {
+func SetupRoutesEvents(app *fiber.App, eventController eventctrl.EventController, auth fiber.Handler) {
 	events := app.Group("/v1/event", auth)
 	events.Post("/register", eventController.RegisterEvent())
 	events.Get("/:id", eventController.GetEventById())
@@ -65,7 +70,7 @@ func SetupRoutesEvents(app *fiber.App, eventController controller.EventControlle
 	events.Delete("/:id", eventController.DeleteEventById())
 }
 
-func SetupRoutesEventUsers(app *fiber.App, eventUserController controller.EventUserController, auth fiber.Handler) {
+func SetupRoutesEventUsers(app *fiber.App, eventUserController eventctrl.EventUserController, auth fiber.Handler) {
 	events := app.Group("/v1/event", auth)
 	events.Post("/:eventId/join", eventUserController.JoinEvent())
 	events.Post("/:eventId/participants", eventUserController.AddParticipant())
@@ -74,7 +79,7 @@ func SetupRoutesEventUsers(app *fiber.App, eventUserController controller.EventU
 	events.Delete("/:eventId/participants/:userId", eventUserController.CancelParticipation())
 }
 
-func SetupRoutesSkills(app *fiber.App, skillController controller.SkillController, auth fiber.Handler) {
+func SetupRoutesSkills(app *fiber.App, skillController skillctrl.SkillController, auth fiber.Handler) {
 	skills := app.Group("/v1/skill", auth)
 	skills.Post("/register", skillController.RegisterSkill())
 	skills.Get("/:id", skillController.GetSkillById())
@@ -83,7 +88,7 @@ func SetupRoutesSkills(app *fiber.App, skillController controller.SkillControlle
 	skills.Delete("/:id", skillController.DeleteSkill())
 }
 
-func SetupRoutesSkillUsers(app *fiber.App, skillUserController controller.SkillUserController, auth fiber.Handler) {
+func SetupRoutesSkillUsers(app *fiber.App, skillUserController skillctrl.SkillUserController, auth fiber.Handler) {
 	skills := app.Group("/v1/skill", auth)
 	skills.Post("/:skillId/users", skillUserController.AssignSkill())
 
@@ -92,7 +97,7 @@ func SetupRoutesSkillUsers(app *fiber.App, skillUserController controller.SkillU
 	users.Delete("/:userId/skills/:skillId", auth, skillUserController.RemoveSkillFromUser())
 }
 
-func SetupRoutesNotifications(app *fiber.App, notificationController controller.NotificationController, auth fiber.Handler) {
+func SetupRoutesNotifications(app *fiber.App, notificationController notificationctrl.NotificationController, auth fiber.Handler) {
 	notifications := app.Group("/v1/notifications", auth)
 	notifications.Get("/stream", notificationController.Stream())
 	notifications.Get("", notificationController.List())

@@ -8,7 +8,7 @@ import (
 
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
-	"github.com/ajuda-dev/backend/src/service/domain"
+	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
 )
 
 // ViaCepResponse represents the JSON structure returned by ViaCEP API
@@ -25,7 +25,7 @@ var (
 )
 
 type AddressSearchClient interface {
-	SearchAddress(address domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr)
+	SearchAddress(address addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr)
 }
 
 type addressSearchClient struct {
@@ -35,7 +35,7 @@ func NewAddressSearchClient() AddressSearchClient {
 	return &addressSearchClient{}
 }
 
-func (a *addressSearchClient) SearchAddress(address domain.AddressDomain) (*domain.AddressDomain, *rest_err.RestErr) {
+func (a *addressSearchClient) SearchAddress(address addressdomain.AddressDomain) (*addressdomain.AddressDomain, *rest_err.RestErr) {
 	url := buildUrl(address)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -66,8 +66,8 @@ func (a *addressSearchClient) SearchAddress(address domain.AddressDomain) (*doma
 	return viaCepResponseToAddressDomain(data), nil
 }
 
-func viaCepResponseToAddressDomain(data ViaCepResponse) *domain.AddressDomain {
-	return &domain.AddressDomain{
+func viaCepResponseToAddressDomain(data ViaCepResponse) *addressdomain.AddressDomain {
+	return &addressdomain.AddressDomain{
 		City:    data.Localidade,
 		State:   data.Uf,
 		Street:  data.Logradouro,
@@ -75,7 +75,7 @@ func viaCepResponseToAddressDomain(data ViaCepResponse) *domain.AddressDomain {
 	}
 }
 
-func buildUrl(address domain.AddressDomain) string {
+func buildUrl(address addressdomain.AddressDomain) string {
 	if address.ZipCode != "" {
 		return fmt.Sprintf("%s/%s/json/", baseUrl, address.ZipCode)
 	}

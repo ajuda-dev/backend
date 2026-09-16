@@ -5,19 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ajuda-dev/backend/src/service/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 // UserConfigVisibility declara explicitamente as únicas chaves aceitas na coluna
 // jsonb config_visibility. Qualquer chave fora desta lista é descartada na
 // leitura (Scan) e na escrita (Value), mesmo que exista no banco.
 type UserConfigVisibility struct {
-	Github    *domain.VisibilityConfig `json:"github,omitempty"`
-	Linkedin  *domain.VisibilityConfig `json:"linkedin,omitempty"`
-	Otherlink *domain.VisibilityConfig `json:"otherlink,omitempty"`
-	Photo     *domain.VisibilityConfig `json:"photo,omitempty"`
-	Email     *domain.VisibilityConfig `json:"email,omitempty"`
-	Phone     *domain.VisibilityConfig `json:"phone,omitempty"`
+	Github    *userdomain.VisibilityConfig `json:"github,omitempty"`
+	Linkedin  *userdomain.VisibilityConfig `json:"linkedin,omitempty"`
+	Otherlink *userdomain.VisibilityConfig `json:"otherlink,omitempty"`
+	Photo     *userdomain.VisibilityConfig `json:"photo,omitempty"`
+	Email     *userdomain.VisibilityConfig `json:"email,omitempty"`
+	Phone     *userdomain.VisibilityConfig `json:"phone,omitempty"`
 }
 
 func (c UserConfigVisibility) IsEmpty() bool {
@@ -53,52 +53,52 @@ func (c *UserConfigVisibility) Scan(value any) error {
 	return json.Unmarshal(raw, c)
 }
 
-func (c UserConfigVisibility) ToDomain() domain.ConfigVisibility {
-	config := domain.ConfigVisibility{}
+func (c UserConfigVisibility) ToDomain() userdomain.ConfigVisibility {
+	config := userdomain.ConfigVisibility{}
 	if c.Github != nil {
-		config[domain.VisibilityKeyGithub] = *c.Github
+		config[userdomain.VisibilityKeyGithub] = *c.Github
 	}
 	if c.Linkedin != nil {
-		config[domain.VisibilityKeyLinkedin] = *c.Linkedin
+		config[userdomain.VisibilityKeyLinkedin] = *c.Linkedin
 	}
 	if c.Otherlink != nil {
-		config[domain.VisibilityKeyOtherlink] = *c.Otherlink
+		config[userdomain.VisibilityKeyOtherlink] = *c.Otherlink
 	}
 	if c.Photo != nil {
-		config[domain.VisibilityKeyPhoto] = *c.Photo
+		config[userdomain.VisibilityKeyPhoto] = *c.Photo
 	}
 	if c.Email != nil {
-		config[domain.VisibilityKeyEmail] = *c.Email
+		config[userdomain.VisibilityKeyEmail] = *c.Email
 	}
 	if c.Phone != nil {
-		config[domain.VisibilityKeyPhone] = *c.Phone
+		config[userdomain.VisibilityKeyPhone] = *c.Phone
 	}
 	return config
 }
 
-func UserConfigVisibilityFromDomain(config domain.ConfigVisibility) UserConfigVisibility {
+func UserConfigVisibilityFromDomain(config userdomain.ConfigVisibility) UserConfigVisibility {
 	entityConfig := UserConfigVisibility{}
-	if item, ok := config[domain.VisibilityKeyGithub]; ok {
+	if item, ok := config[userdomain.VisibilityKeyGithub]; ok {
 		github := item
 		entityConfig.Github = &github
 	}
-	if item, ok := config[domain.VisibilityKeyLinkedin]; ok {
+	if item, ok := config[userdomain.VisibilityKeyLinkedin]; ok {
 		linkedin := item
 		entityConfig.Linkedin = &linkedin
 	}
-	if item, ok := config[domain.VisibilityKeyOtherlink]; ok {
+	if item, ok := config[userdomain.VisibilityKeyOtherlink]; ok {
 		otherlink := item
 		entityConfig.Otherlink = &otherlink
 	}
-	if item, ok := config[domain.VisibilityKeyPhoto]; ok {
+	if item, ok := config[userdomain.VisibilityKeyPhoto]; ok {
 		photo := item
 		entityConfig.Photo = &photo
 	}
-	if item, ok := config[domain.VisibilityKeyEmail]; ok {
+	if item, ok := config[userdomain.VisibilityKeyEmail]; ok {
 		email := item
 		entityConfig.Email = &email
 	}
-	if item, ok := config[domain.VisibilityKeyPhone]; ok {
+	if item, ok := config[userdomain.VisibilityKeyPhone]; ok {
 		phone := item
 		entityConfig.Phone = &phone
 	}
