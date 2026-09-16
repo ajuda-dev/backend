@@ -151,7 +151,7 @@ func TestChangePasswordShortNewPasswordReturns400(t *testing.T) {
 	}
 }
 
-func TestChangePasswordOAuthUserReturns401(t *testing.T) {
+func TestChangePasswordOAuthUserSetsFirstPasswordWithoutCurrentPassword(t *testing.T) {
 	t.Cleanup(cleanUsersTable)
 	app := setupApp()
 	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
@@ -164,13 +164,80 @@ func TestChangePasswordOAuthUserReturns401(t *testing.T) {
 	}
 
 	resp, err := doAuthedRequest(app, newChangePasswordRequest(
+		[]byte(`{"newPassword":"nova456"}`)), validTokenFor(t, user.Id))
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("esperava 204 para conta GitHub/OAuth definir senha, recebeu %d body=%s", resp.StatusCode, body)
+	}
+
+	login, err := app.Test(newUserLoginRequest([]byte(`{"email":"change_oauth@ajuda.dev","password":"nova456"}`)))
+	if err != nil {
+		t.Fatalf("erro no login com senha recém-definida: %v", err)
+	}
+	defer login.Body.Close()
+	if login.StatusCode != fiber.StatusOK {
+		t.Errorf("esperava login com a senha definida 200, recebeu %d", login.StatusCode)
+	}
+
+	second, err := doAuthedRequest(app, newChangePasswordRequest(
+		[]byte(`{"newPassword":"outra789"}`)), validTokenFor(t, user.Id))
+	if err != nil {
+		t.Fatalf("erro na segunda troca sem currentPassword: %v", err)
+	}
+	defer second.Body.Close()
+	if second.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("depois de ter senha, currentPassword deveria ser obrigatório, recebeu %d", second.StatusCode)
+	}
+}
+
+func TestChangePasswordOAuthUserIgnoresCurrentPasswordWhenSettingFirst(t *testing.T) {
+	t.Cleanup(cleanUsersTable)
+	app := setupApp()
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
+		Name:     "oauth dummy current",
+		Email:    "change_oauth_dummy@ajuda.dev",
+		Password: "",
+	})
+	if createErr != nil {
+		t.Fatalf("failed to create oauth user: %v", createErr)
+	}
+
+	resp, err := doAuthedRequest(app, newChangePasswordRequest(
 		[]byte(`{"currentPassword":"qualquer","newPassword":"nova456"}`)), validTokenFor(t, user.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != fiber.StatusUnauthorized {
-		t.Errorf("esperava 401 para conta OAuth sem senha, recebeu %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("esperava 204 mesmo com currentPassword dummy, recebeu %d body=%s", resp.StatusCode, body)
+	}
+}
+
+func TestChangePasswordOAuthUserStillValidatesNewPassword(t *testing.T) {
+	t.Cleanup(cleanUsersTable)
+	app := setupApp()
+	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
+		Name:     "oauth short",
+		Email:    "change_oauth_short@ajuda.dev",
+		Password: "",
+	})
+	if createErr != nil {
+		t.Fatalf("failed to create oauth user: %v", createErr)
+	}
+
+	resp, err := doAuthedRequest(app, newChangePasswordRequest(
+		[]byte(`{"newPassword":"123"}`)), validTokenFor(t, user.Id))
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("esperava 400, recebeu %d", resp.StatusCode)
 	}
 }
 

@@ -163,9 +163,6 @@ func (a *authService) ResetPassword(emailAddr, code, newPassword string) *rest_e
 
 func (a *authService) ChangePassword(userId, currentPassword, newPassword string) *rest_err.RestErr {
 	causes := []rest_err.Causes{}
-	if currentPassword == "" {
-		causes = append(causes, rest_err.Causes{Field: "currentPassword", Message: "Password cannot be empty"})
-	}
 	if len(newPassword) < 6 {
 		causes = append(causes, rest_err.Causes{Field: "newPassword", Message: "Password must be at least 6 characters long"})
 	}
@@ -183,8 +180,16 @@ func (a *authService) ChangePassword(userId, currentPassword, newPassword string
 		}
 		return err
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
-		return rest_err.NewUnauthorizedError("invalid credentials")
+
+	if user.Password != "" {
+		if currentPassword == "" {
+			return rest_err.NewBadRequestValidationError("Invalid request", []rest_err.Causes{
+				{Field: "currentPassword", Message: "Password cannot be empty"},
+			})
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
+			return rest_err.NewUnauthorizedError("invalid credentials")
+		}
 	}
 
 	hashed, hashErr := hashPassword(newPassword)

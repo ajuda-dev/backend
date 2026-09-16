@@ -115,11 +115,11 @@ func (a *authController) ResetPassword() fiber.Handler {
 
 // ChangePassword godoc
 // @Summary      Troca a senha do usuário autenticado
-// @Description  Exige sessão válida (cookie ajudadev_session ou Authorization: Bearer). Só altera a senha da conta do token; currentPassword precisa conferir com o hash persistido. Conta OAuth sem senha ou senha atual inválida → 401. newPassword com no mínimo 6 caracteres.
+// @Description  Exige sessão válida (cookie ajudadev_session ou Authorization: Bearer). Só altera a senha da conta do token. Quem já tem senha precisa enviar currentPassword conferindo com o hash persistido. Conta GitHub/OAuth sem senha pode definir a primeira senha só com newPassword (a sessão já autentica). Senha atual inválida → 401. newPassword com no mínimo 6 caracteres.
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        body  body  userdto.ChangePasswordDtoIn  true  "Senha atual e nova senha"
+// @Param        body  body  userdto.ChangePasswordDtoIn  true  "Senha atual (obrigatória se a conta já tem senha) e nova senha"
 // @Success      204
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
