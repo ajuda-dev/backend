@@ -20,6 +20,7 @@ func SetupRoutesUser(app *fiber.App, userController identityctrl.UserController,
 	user.Post("/logout", userController.Logout())
 	user.Post("/forgot-password", authController.ForgotPassword())
 	user.Post("/reset-password", authController.ResetPassword())
+	user.Post("/change-password", auth, authController.ChangePassword())
 	user.Post("/verify-email", auth, userController.VerifyEmail())
 	user.Post("/resend-verification", auth, userController.ResendVerification())
 	user.Get("/me", auth, userController.Me())

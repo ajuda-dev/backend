@@ -48,6 +48,7 @@ type AuthService interface {
 	ValidateToken(tokenString string) (string, *rest_err.RestErr)
 	ForgotPassword(emailAddr string) *rest_err.RestErr
 	ResetPassword(emailAddr, code, newPassword string) *rest_err.RestErr
+	ChangePassword(userId, currentPassword, newPassword string) *rest_err.RestErr
 }
 
 type authService struct {
@@ -101,7 +102,7 @@ func (a *authService) ForgotPassword(emailAddr string) *rest_err.RestErr {
 
 	code := generatePasswordResetCode(user.Id, user.Password, now, a.emailCodeCfg.Secret, a.emailCodeCfg.TTLMinutes)
 	subject := "Recuperação de senha"
-	body := fmt.Sprintf("Seu código de recuperação de senha é: %s\nEste código expira em %d minutos.", code, a.emailCodeCfg.TTLMinutes)
+	body := fmt.Sprintf("Seu código de recuperação de senha é: %s \n Este código expira em %d minutos.", code, a.emailCodeCfg.TTLMinutes)
 	if sendErr := a.emailSender.Send(emailAddr, subject, body); sendErr != nil {
 		logger.Error("failed to send password reset email", sendErr, zap.String("email", emailAddr))
 	}
@@ -158,6 +159,39 @@ func (a *authService) ResetPassword(emailAddr, code, newPassword string) *rest_e
 	}
 	a.rateLimiter.ClearAttempts(emailAddr)
 	return nil
+}
+
+func (a *authService) ChangePassword(userId, currentPassword, newPassword string) *rest_err.RestErr {
+	causes := []rest_err.Causes{}
+	if currentPassword == "" {
+		causes = append(causes, rest_err.Causes{Field: "currentPassword", Message: "Password cannot be empty"})
+	}
+	if len(newPassword) < 6 {
+		causes = append(causes, rest_err.Causes{Field: "newPassword", Message: "Password must be at least 6 characters long"})
+	}
+	if newPassword == "" {
+		causes = append(causes, rest_err.Causes{Field: "newPassword", Message: "Password cannot be empty"})
+	}
+	if len(causes) > 0 {
+		return rest_err.NewBadRequestValidationError("Invalid request", causes)
+	}
+
+	user, err := a.userRepository.FindById(userId)
+	if err != nil {
+		if err.Code == rest_err.NOT_FOUND {
+			return rest_err.NewUnauthorizedError("invalid authenticated user")
+		}
+		return err
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
+		return rest_err.NewUnauthorizedError("invalid credentials")
+	}
+
+	hashed, hashErr := hashPassword(newPassword)
+	if hashErr != nil {
+		return rest_err.NewInternalServerError(hashErr.Error())
+	}
+	return a.userRepository.UpdatePassword(user.Id, hashed)
 }
 
 // CreateToken implements AuthService.

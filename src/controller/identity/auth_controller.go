@@ -18,6 +18,7 @@ type AuthController interface {
 	LoginUser() fiber.Handler
 	ForgotPassword() fiber.Handler
 	ResetPassword() fiber.Handler
+	ChangePassword() fiber.Handler
 }
 
 type authController struct {
@@ -106,6 +107,34 @@ func (a *authController) ResetPassword() fiber.Handler {
 			})
 		}
 		if err := a.authService.ResetPassword(body.Email, body.Code, body.NewPassword); err != nil {
+			return c.Status(err.Code).JSON(err)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	}
+}
+
+// ChangePassword godoc
+// @Summary      Troca a senha do usuário autenticado
+// @Description  Exige sessão válida (cookie ajudadev_session ou Authorization: Bearer). Só altera a senha da conta do token; currentPassword precisa conferir com o hash persistido. Conta OAuth sem senha ou senha atual inválida → 401. newPassword com no mínimo 6 caracteres.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Param        body  body  userdto.ChangePasswordDtoIn  true  "Senha atual e nova senha"
+// @Success      204
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/user/change-password [post]
+func (a *authController) ChangePassword() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		requesterId := c.Locals(middleware.UserIdKey).(string)
+		var body userdto.ChangePasswordDtoIn
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		if err := a.authService.ChangePassword(requesterId, body.CurrentPassword, body.NewPassword); err != nil {
 			return c.Status(err.Code).JSON(err)
 		}
 		return c.SendStatus(fiber.StatusNoContent)

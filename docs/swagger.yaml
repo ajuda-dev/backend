@@ -30,6 +30,13 @@ definitions:
       user_id:
         type: string
     type: object
+  dto.ChangePasswordDtoIn:
+    properties:
+      currentPassword:
+        type: string
+      newPassword:
+        type: string
+    type: object
   dto.CommunityDto:
     properties:
       address:
@@ -2060,6 +2067,41 @@ paths:
       summary: Remove skill do perfil do usuário
       tags:
       - skill_users
+  /v1/user/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Exige sessão válida (cookie ajudadev_session ou Authorization:
+        Bearer). Só altera a senha da conta do token; currentPassword precisa conferir
+        com o hash persistido. Conta OAuth sem senha ou senha atual inválida → 401.
+        newPassword com no mínimo 6 caracteres.
+      parameters:
+      - description: Senha atual e nova senha
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ChangePasswordDtoIn'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Troca a senha do usuário autenticado
+      tags:
+      - users
   /v1/user/forgot-password:
     post:
       consumes:

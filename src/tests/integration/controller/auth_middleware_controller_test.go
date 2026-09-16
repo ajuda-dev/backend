@@ -39,6 +39,7 @@ func protectedRoutes() []protectedRoute {
 		{http.MethodDelete, "/v1/skill/invalid-id"},
 		{http.MethodPost, "/v1/skill/invalid-id/users"},
 		{http.MethodGet, "/v1/user"},
+		{http.MethodPost, "/v1/user/change-password"},
 		{http.MethodGet, "/v1/user/invalid-id/skills"},
 		{http.MethodDelete, "/v1/user/invalid-id/skills/invalid-id"},
 	}

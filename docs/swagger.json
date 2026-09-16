@@ -2020,6 +2020,56 @@
                 }
             }
         },
+        "/v1/user/change-password": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Exige sessão válida (cookie ajudadev_session ou Authorization: Bearer). Só altera a senha da conta do token; currentPassword precisa conferir com o hash persistido. Conta OAuth sem senha ou senha atual inválida → 401. newPassword com no mínimo 6 caracteres.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Troca a senha do usuário autenticado",
+                "parameters": [
+                    {
+                        "description": "Senha atual e nova senha",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.ChangePasswordDtoIn"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/user/forgot-password": {
             "post": {
                 "description": "Sempre responde 204. Se o e-mail existir e tiver senha, envia um código de 6 caracteres por e-mail. Não revela se a conta existe. Rate limit por e-mail (429).",
@@ -2763,6 +2813,17 @@
                     "type": "string"
                 },
                 "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ChangePasswordDtoIn": {
+            "type": "object",
+            "properties": {
+                "currentPassword": {
+                    "type": "string"
+                },
+                "newPassword": {
                     "type": "string"
                 }
             }
