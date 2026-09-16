@@ -3,6 +3,7 @@ package skill
 import (
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
+	"github.com/ajuda-dev/backend/src/controller/middleware"
 	skilldto "github.com/ajuda-dev/backend/src/controller/skill/dto"
 	"github.com/ajuda-dev/backend/src/service/skill"
 	"github.com/gofiber/fiber/v2"
@@ -27,7 +28,7 @@ func NewSkillUserController(skillUserService skill.SkillUserService) SkillUserCo
 
 // AssignSkill godoc
 // @Summary      Adiciona skill ao perfil do usuário
-// @Description  Associa uma skill do catálogo a um usuário com um nível (WANT_TO_LEARN, LEARN_AND_TEACH ou TEACH). A linha é única por (skill, usuário): tentar associar de novo gera erro.
+// @Description  Associa uma skill do catálogo a um usuário com um nível (WANT_TO_LEARN, LEARN_AND_TEACH ou TEACH). A linha é única por (skill, usuário): tentar associar de novo gera erro. Somente o próprio usuário ou um admin podem executar.
 // @Tags         skill_users
 // @Accept       json
 // @Produce      json
@@ -35,8 +36,9 @@ func NewSkillUserController(skillUserService skill.SkillUserService) SkillUserCo
 // @Param        body  body  skilldto.AssignSkillDto  true  "Dados da associação"
 // @Success      201   {object}  skilldto.SkillUserDto
 // @Failure      400   {object}  map[string]interface{}
-// @Failure      404   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/skill/{skillId}/users [post]
 func (s *skillUserController) AssignSkill() fiber.Handler {
@@ -54,7 +56,8 @@ func (s *skillUserController) AssignSkill() fiber.Handler {
 				"error": "Não foi possível processar o corpo da requisição",
 			})
 		}
-		skillUser, err := s.skillUserService.AssignSkill(assignSkillDto.ToDomain(skillId))
+		requesterId := cf.Locals(middleware.UserIdKey).(string)
+		skillUser, err := s.skillUserService.AssignSkill(assignSkillDto.ToDomain(skillId), requesterId)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
@@ -94,7 +97,7 @@ func (s *skillUserController) GetUserSkills() fiber.Handler {
 
 // RemoveSkillFromUser godoc
 // @Summary      Remove skill do perfil do usuário
-// @Description  Remove fisicamente a associação entre o usuário e a skill
+// @Description  Remove fisicamente a associação entre o usuário e a skill. Somente o próprio usuário ou um admin podem executar.
 // @Tags         skill_users
 // @Accept       json
 // @Produce      json
@@ -102,8 +105,9 @@ func (s *skillUserController) GetUserSkills() fiber.Handler {
 // @Param        skillId  path  string  true  "ID da skill"
 // @Success      204
 // @Failure      400   {object}  map[string]interface{}
-// @Failure      404   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/user/{userId}/skills/{skillId} [delete]
 func (s *skillUserController) RemoveSkillFromUser() fiber.Handler {
@@ -120,7 +124,8 @@ func (s *skillUserController) RemoveSkillFromUser() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "skillId", Message: "skillId must be a valid UUID v7"}}))
 		}
-		err := s.skillUserService.RemoveSkillFromUser(userId, skillId)
+		requesterId := cf.Locals(middleware.UserIdKey).(string)
+		err := s.skillUserService.RemoveSkillFromUser(userId, skillId, requesterId)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)

@@ -1690,7 +1690,7 @@ paths:
       - application/json
       description: 'Associa uma skill do catálogo a um usuário com um nível (WANT_TO_LEARN,
         LEARN_AND_TEACH ou TEACH). A linha é única por (skill, usuário): tentar associar
-        de novo gera erro.'
+        de novo gera erro. Somente o próprio usuário ou um admin podem executar.'
       parameters:
       - description: ID da skill
         in: path
@@ -1717,6 +1717,11 @@ paths:
             type: object
         "401":
           description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
           schema:
             additionalProperties: true
             type: object
@@ -2030,7 +2035,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Remove fisicamente a associação entre o usuário e a skill
+      description: Remove fisicamente a associação entre o usuário e a skill. Somente o próprio usuário ou um admin podem executar.
       parameters:
       - description: ID do usuário
         in: path
@@ -2054,6 +2059,11 @@ paths:
             type: object
         "401":
           description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
           schema:
             additionalProperties: true
             type: object

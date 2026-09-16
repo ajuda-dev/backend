@@ -1894,7 +1894,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Associa uma skill do catálogo a um usuário com um nível (WANT_TO_LEARN, LEARN_AND_TEACH ou TEACH). A linha é única por (skill, usuário): tentar associar de novo gera erro.",
+                "description": "Associa uma skill do catálogo a um usuário com um nível (WANT_TO_LEARN, LEARN_AND_TEACH ou TEACH). A linha é única por (skill, usuário): tentar associar de novo gera erro. Somente o próprio usuário ou um admin podem executar.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1939,6 +1939,13 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2720,7 +2727,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Remove fisicamente a associação entre o usuário e a skill",
+                "description": "Remove fisicamente a associação entre o usuário e a skill. Somente o próprio usuário ou um admin podem executar.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2760,6 +2767,13 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true

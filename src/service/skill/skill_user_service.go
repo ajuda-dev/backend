@@ -4,14 +4,15 @@ import (
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	skillrepo "github.com/ajuda-dev/backend/src/data/skill/repository"
 	"github.com/ajuda-dev/backend/src/service/identity"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	skilldomain "github.com/ajuda-dev/backend/src/service/skill/domain"
 	skillvalidator "github.com/ajuda-dev/backend/src/service/skill/validator"
 )
 
 type SkillUserService interface {
-	AssignSkill(skillUser *skilldomain.SkillUserDomain) (*skilldomain.SkillUserDomain, *rest_err.RestErr)
+	AssignSkill(skillUser *skilldomain.SkillUserDomain, requesterId string) (*skilldomain.SkillUserDomain, *rest_err.RestErr)
 	GetUserSkills(userId string) ([]*skilldomain.SkillUserDomain, *rest_err.RestErr)
-	RemoveSkillFromUser(userId string, skillId string) *rest_err.RestErr
+	RemoveSkillFromUser(userId string, skillId string, requesterId string) *rest_err.RestErr
 }
 
 type skillUserService struct {
@@ -34,8 +35,22 @@ func NewSkillUserService(
 	}
 }
 
-func (s *skillUserService) AssignSkill(skillUser *skilldomain.SkillUserDomain) (*skilldomain.SkillUserDomain, *rest_err.RestErr) {
+func (s *skillUserService) requireSelfOrAdmin(requesterId, targetId string) *rest_err.RestErr {
+	requester, err := identity.AuthenticatedUser(s.userService, requesterId)
+	if err != nil {
+		return err
+	}
+	if requester.Id != targetId && requester.Role != userdomain.UserRoleAdmin {
+		return rest_err.NewForbiddenError("only the user themselves or an admin can manage this user's skills")
+	}
+	return nil
+}
+
+func (s *skillUserService) AssignSkill(skillUser *skilldomain.SkillUserDomain, requesterId string) (*skilldomain.SkillUserDomain, *rest_err.RestErr) {
 	if err := s.skillUserValidator.ValidateAssign(*skillUser); err != nil {
+		return nil, err
+	}
+	if err := s.requireSelfOrAdmin(requesterId, skillUser.UserId); err != nil {
 		return nil, err
 	}
 	if _, err := s.skillService.GetSkillById(skillUser.SkillId); err != nil {
@@ -64,6 +79,9 @@ func (s *skillUserService) GetUserSkills(userId string) ([]*skilldomain.SkillUse
 	return s.skillUserRepository.FindByUser(userId)
 }
 
-func (s *skillUserService) RemoveSkillFromUser(userId string, skillId string) *rest_err.RestErr {
+func (s *skillUserService) RemoveSkillFromUser(userId string, skillId string, requesterId string) *rest_err.RestErr {
+	if err := s.requireSelfOrAdmin(requesterId, userId); err != nil {
+		return err
+	}
 	return s.skillUserRepository.DeleteByUserAndSkill(userId, skillId)
 }

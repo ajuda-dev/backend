@@ -21,6 +21,41 @@ func newAssignSkillRequest(skillId string, body []byte) *http.Request {
 	return req
 }
 
+func assignSkillBody(t *testing.T, userId string, level string) []byte {
+	t.Helper()
+	payload, err := json.Marshal(skilldto.AssignSkillDto{UserId: userId, Level: level})
+	if err != nil {
+		t.Fatalf("erro ao montar body: %v", err)
+	}
+	return payload
+}
+
+func doAssignSkill(t *testing.T, app *fiber.App, skillId string, body []byte, token string) *http.Response {
+	t.Helper()
+	req := newAssignSkillRequest(skillId, body)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	return resp
+}
+
+func doRemoveSkill(t *testing.T, app *fiber.App, userId string, skillId string, token string) *http.Response {
+	t.Helper()
+	req := httptest.NewRequest("DELETE", "/v1/user/"+userId+"/skills/"+skillId, nil)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	return resp
+}
+
 func createSkillUserForTest(t *testing.T) *userdomain.UserDomain {
 	t.Helper()
 	user, createErr := userRepository.CreateUser(&userdomain.UserDomain{
@@ -218,9 +253,12 @@ func TestAssignSkillValidationFailures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != fiber.StatusBadRequest {
-		t.Errorf("esperava 400 com usuário inexistente, recebeu %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 com usuário inexistente e token de USER, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if respBody.Message != "only the user themselves or an admin can manage this user's skills" {
+		t.Errorf("esperava message 'only the user themselves or an admin can manage this user's skills', recebeu '%s'", respBody.Message)
 	}
 }
 
@@ -299,5 +337,299 @@ func TestRemoveSkillFromUser(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != fiber.StatusNotFound {
 		t.Errorf("esperava 404 ao remover associação inexistente, recebeu %d", resp.StatusCode)
+	}
+}
+
+func TestAssignSkillOtherUserForbidden(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	requester := createUserWithRole(t, "skill_own_req@ajuda.dev", userdomain.UserRoleUser)
+	target := createUserWithRole(t, "skill_own_target@ajuda.dev", userdomain.UserRoleUser)
+	skill := createSkillForTest(t, "JAVA")
+
+	resp := doAssignSkill(t, app, skill.Id, assignSkillBody(t, target.Id, skilldomain.LevelWantToLearn), validTokenFor(t, requester.Id))
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 no assign de outro usuário por USER, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if respBody.Message != "only the user themselves or an admin can manage this user's skills" {
+		t.Errorf("esperava message 'only the user themselves or an admin can manage this user's skills', recebeu '%s'", respBody.Message)
+	}
+
+	skills := getUserSkillsViaApi(t, app, target.Id)
+	if len(skills) != 0 {
+		t.Errorf("esperava alvo sem a skill após 403, recebeu %+v", skills)
+	}
+}
+
+func TestAssignSkillModeratorCannotAssignToOthers(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	moderator := createUserWithRole(t, "skill_own_mod@ajuda.dev", userdomain.UserRoleModerator)
+	target := createUserWithRole(t, "skill_own_mod_target@ajuda.dev", userdomain.UserRoleUser)
+	skill := createSkillForTest(t, "GO")
+
+	resp := doAssignSkill(t, app, skill.Id, assignSkillBody(t, target.Id, skilldomain.LevelTeach), validTokenFor(t, moderator.Id))
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 no assign de terceiro por MODERATOR, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if respBody.Message != "only the user themselves or an admin can manage this user's skills" {
+		t.Errorf("esperava message 'only the user themselves or an admin can manage this user's skills', recebeu '%s'", respBody.Message)
+	}
+
+	skills := getUserSkillsViaApi(t, app, target.Id)
+	if len(skills) != 0 {
+		t.Errorf("esperava alvo sem a skill após 403 do MODERATOR, recebeu %+v", skills)
+	}
+}
+
+func TestAssignSkillAdminCanAssignToOthers(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	admin := createUserWithRole(t, "skill_own_admin@ajuda.dev", userdomain.UserRoleAdmin)
+	target := createUserWithRole(t, "skill_own_admin_target@ajuda.dev", userdomain.UserRoleUser)
+	skill := createSkillForTest(t, "JAVA")
+
+	resp := doAssignSkill(t, app, skill.Id, assignSkillBody(t, target.Id, skilldomain.LevelWantToLearn), validTokenFor(t, admin.Id))
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Errorf("esperava 201 no assign de terceiro por ADMIN, recebeu %d", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+	var respDto skilldto.SkillUserDto
+	if err := json.NewDecoder(resp.Body).Decode(&respDto); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if respDto.UserId != target.Id {
+		t.Errorf("esperava user_id do alvo '%s', recebeu '%s'", target.Id, respDto.UserId)
+	}
+
+	skills := getUserSkillsViaApi(t, app, target.Id)
+	if len(skills) != 1 || skills[0].Skill.Name != "JAVA" {
+		t.Errorf("esperava skill JAVA no alvo após assign do ADMIN, recebeu %+v", skills)
+	}
+}
+
+func TestAssignSkillAdminAndModeratorCanAssignToSelf(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	admin := createUserWithRole(t, "skill_own_admin_self@ajuda.dev", userdomain.UserRoleAdmin)
+	moderator := createUserWithRole(t, "skill_own_mod_self@ajuda.dev", userdomain.UserRoleModerator)
+	java := createSkillForTest(t, "JAVA")
+	goSkill := createSkillForTest(t, "GO")
+
+	adminResp := doAssignSkill(t, app, java.Id, assignSkillBody(t, admin.Id, skilldomain.LevelTeach), validTokenFor(t, admin.Id))
+	adminResp.Body.Close()
+	if adminResp.StatusCode != fiber.StatusCreated {
+		t.Errorf("esperava 201 no assign do ADMIN em si, recebeu %d", adminResp.StatusCode)
+	}
+
+	modResp := doAssignSkill(t, app, goSkill.Id, assignSkillBody(t, moderator.Id, skilldomain.LevelLearnAndTeach), validTokenFor(t, moderator.Id))
+	modResp.Body.Close()
+	if modResp.StatusCode != fiber.StatusCreated {
+		t.Errorf("esperava 201 no assign do MODERATOR em si, recebeu %d", modResp.StatusCode)
+	}
+}
+
+func TestAssignSkillUnauthorized(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	user := createUserWithRole(t, "skill_own_unauth@ajuda.dev", userdomain.UserRoleUser)
+	skill := createSkillForTest(t, "JAVA")
+	body := assignSkillBody(t, user.Id, skilldomain.LevelWantToLearn)
+
+	resp := doAssignSkill(t, app, skill.Id, body, "")
+	resp.Body.Close()
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401 no assign sem token, recebeu %d", resp.StatusCode)
+	}
+
+	resp = doAssignSkill(t, app, skill.Id, body, validTokenFor(t, uuidv7.New().String()))
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401 no assign com token de usuário inexistente, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if respBody.Message != "invalid authenticated user" {
+		t.Errorf("esperava message 'invalid authenticated user', recebeu '%s'", respBody.Message)
+	}
+}
+
+func TestAssignSkillAdminTargetNotFound(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	admin := createUserWithRole(t, "skill_own_admin_404@ajuda.dev", userdomain.UserRoleAdmin)
+	skill := createSkillForTest(t, "JAVA")
+
+	resp := doAssignSkill(t, app, skill.Id, assignSkillBody(t, uuidv7.New().String(), skilldomain.LevelWantToLearn), validTokenFor(t, admin.Id))
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("esperava 400 no assign de usuário inexistente por ADMIN, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	causes := getCauseByField("user_id", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "user_id is not valid, not found this user" {
+		t.Errorf("esperava cause 'user_id is not valid, not found this user', recebeu %+v", respBody.Causes)
+	}
+}
+
+func TestRemoveSkillFromOtherUserForbidden(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	requester := createUserWithRole(t, "skill_rm_req@ajuda.dev", userdomain.UserRoleUser)
+	target := createUserWithRole(t, "skill_rm_target@ajuda.dev", userdomain.UserRoleUser)
+	skill := createSkillForTest(t, "JAVA")
+	assignSkillViaApi(t, app, skill.Id, target.Id, skilldomain.LevelWantToLearn)
+
+	resp := doRemoveSkill(t, app, target.Id, skill.Id, validTokenFor(t, requester.Id))
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 no remove de outro usuário por USER, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if respBody.Message != "only the user themselves or an admin can manage this user's skills" {
+		t.Errorf("esperava message 'only the user themselves or an admin can manage this user's skills', recebeu '%s'", respBody.Message)
+	}
+
+	skills := getUserSkillsViaApi(t, app, target.Id)
+	if len(skills) != 1 || skills[0].Skill.Name != "JAVA" {
+		t.Errorf("esperava associação JAVA preservada após 403, recebeu %+v", skills)
+	}
+}
+
+func TestRemoveSkillModeratorCannotRemoveFromOthers(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	moderator := createUserWithRole(t, "skill_rm_mod@ajuda.dev", userdomain.UserRoleModerator)
+	target := createUserWithRole(t, "skill_rm_mod_target@ajuda.dev", userdomain.UserRoleUser)
+	skill := createSkillForTest(t, "GO")
+	assignSkillViaApi(t, app, skill.Id, target.Id, skilldomain.LevelTeach)
+
+	resp := doRemoveSkill(t, app, target.Id, skill.Id, validTokenFor(t, moderator.Id))
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 no remove de terceiro por MODERATOR, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if respBody.Message != "only the user themselves or an admin can manage this user's skills" {
+		t.Errorf("esperava message 'only the user themselves or an admin can manage this user's skills', recebeu '%s'", respBody.Message)
+	}
+
+	skills := getUserSkillsViaApi(t, app, target.Id)
+	if len(skills) != 1 || skills[0].Skill.Name != "GO" {
+		t.Errorf("esperava associação GO preservada após 403 do MODERATOR, recebeu %+v", skills)
+	}
+}
+
+func TestRemoveSkillAdminCanRemoveFromOthers(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	admin := createUserWithRole(t, "skill_rm_admin@ajuda.dev", userdomain.UserRoleAdmin)
+	target := createUserWithRole(t, "skill_rm_admin_target@ajuda.dev", userdomain.UserRoleUser)
+	skill := createSkillForTest(t, "JAVA")
+	assignSkillViaApi(t, app, skill.Id, target.Id, skilldomain.LevelWantToLearn)
+
+	resp := doRemoveSkill(t, app, target.Id, skill.Id, validTokenFor(t, admin.Id))
+	resp.Body.Close()
+	if resp.StatusCode != fiber.StatusNoContent {
+		t.Errorf("esperava 204 no remove de terceiro por ADMIN, recebeu %d", resp.StatusCode)
+	}
+
+	skills := getUserSkillsViaApi(t, app, target.Id)
+	if len(skills) != 0 {
+		t.Errorf("esperava alvo sem skills após remove do ADMIN, recebeu %+v", skills)
+	}
+}
+
+func TestRemoveSkillUnauthorized(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	user := createUserWithRole(t, "skill_rm_unauth@ajuda.dev", userdomain.UserRoleUser)
+	skill := createSkillForTest(t, "JAVA")
+	assignSkillViaApi(t, app, skill.Id, user.Id, skilldomain.LevelWantToLearn)
+
+	resp := doRemoveSkill(t, app, user.Id, skill.Id, "")
+	resp.Body.Close()
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401 no remove sem token, recebeu %d", resp.StatusCode)
+	}
+
+	resp = doRemoveSkill(t, app, user.Id, skill.Id, validTokenFor(t, uuidv7.New().String()))
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401 no remove com token de usuário inexistente, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if respBody.Message != "invalid authenticated user" {
+		t.Errorf("esperava message 'invalid authenticated user', recebeu '%s'", respBody.Message)
+	}
+
+	skills := getUserSkillsViaApi(t, app, user.Id)
+	if len(skills) != 1 || skills[0].Skill.Name != "JAVA" {
+		t.Errorf("esperava associação JAVA preservada após 401, recebeu %+v", skills)
+	}
+}
+
+func TestRemoveSkillUserTargetNotFoundForbidden(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	user := createUserWithRole(t, "skill_rm_user_404@ajuda.dev", userdomain.UserRoleUser)
+	skill := createSkillForTest(t, "JAVA")
+
+	resp := doRemoveSkill(t, app, uuidv7.New().String(), skill.Id, validTokenFor(t, user.Id))
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 no remove de usuário inexistente por USER, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if respBody.Message != "only the user themselves or an admin can manage this user's skills" {
+		t.Errorf("esperava message 'only the user themselves or an admin can manage this user's skills', recebeu '%s'", respBody.Message)
+	}
+}
+
+func TestRemoveSkillAdminAssociationNotFound(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	admin := createUserWithRole(t, "skill_rm_admin_404@ajuda.dev", userdomain.UserRoleAdmin)
+	target := createUserWithRole(t, "skill_rm_admin_404_target@ajuda.dev", userdomain.UserRoleUser)
+	skill := createSkillForTest(t, "JAVA")
+
+	resp := doRemoveSkill(t, app, target.Id, skill.Id, validTokenFor(t, admin.Id))
+	if resp.StatusCode != fiber.StatusNotFound {
+		t.Errorf("esperava 404 no remove de associação inexistente por ADMIN, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if respBody.Message != "skill_user not found" {
+		t.Errorf("esperava message 'skill_user not found', recebeu '%s'", respBody.Message)
 	}
 }
