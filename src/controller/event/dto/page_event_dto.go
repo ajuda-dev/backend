@@ -26,6 +26,7 @@ type EventDto struct {
 	MeetingLink string                     `json:"meeting_link"`
 	MaxSlots    *int                       `json:"max_slots"`
 	Status      string                     `json:"status"`
+	Comment     string                     `json:"comment,omitempty"`
 	Owner       *userdto.UserDtoOut        `json:"owner"`
 	Community   *communitydto.CommunityDto `json:"community"`
 	Address     *addressdto.AddressDto     `json:"address"`
@@ -43,6 +44,7 @@ func (e EventDto) FromDomain(event *eventdomain.EventDomain) EventDto {
 		MeetingLink: event.MeetingLink,
 		MaxSlots:    event.MaxSlots,
 		Status:      event.Status,
+		Comment:     event.Comment,
 		Owner:       (&userdto.UserDtoOut{}).FromDomainUser(&event.Owner),
 	}
 	if event.Community != nil {

@@ -108,7 +108,7 @@ func (e *eventUserController) AddParticipant() fiber.Handler {
 
 // GetParticipants godoc
 // @Summary      Lista participantes do evento
-// @Description  Retorna os participantes do evento com usuário (preload), com filtro opcional de status
+// @Description  Retorna os participantes do evento com usuário (preload), com filtro opcional de status. Itens podem incluir comment após accept/reject.
 // @Tags         event_users
 // @Accept       json
 // @Produce      json
@@ -142,13 +142,13 @@ func (e *eventUserController) GetParticipants() fiber.Handler {
 
 // UpdateParticipantStatus godoc
 // @Summary      Atualiza status do participante
-// @Description  O convidado aceita (CONFIRMED) ou recusa (REJECTED) o convite de mentoria. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.
+// @Description  O convidado aceita (CONFIRMED, comment opcional) ou recusa (REJECTED, comment obrigatório após trim, máx. 500). O texto fica no evento (resposta e GET participants) e não entra na notificação. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.
 // @Tags         event_users
 // @Accept       json
 // @Produce      json
 // @Param        eventId  path  string  true  "ID do evento"
 // @Param        userId   path  string  true  "ID do usuário"
-// @Param        body  body  eventdto.UpdateParticipantStatusDto  true  "Novo status (CONFIRMED ou REJECTED)"
+// @Param        body  body  eventdto.UpdateParticipantStatusDto  true  "Status (CONFIRMED ou REJECTED) e comment (obrigatório em REJECTED)"
 // @Success      200   {object}  eventdto.EventUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
@@ -181,7 +181,7 @@ func (e *eventUserController) UpdateParticipantStatus() fiber.Handler {
 		if !ok || requesterId == "" {
 			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
 		}
-		eventUser, err := e.eventUserService.UpdateParticipantStatus(eventId, userId, requesterId, updateStatusDto.Status)
+		eventUser, err := e.eventUserService.UpdateParticipantStatus(eventId, userId, requesterId, updateStatusDto.Status, updateStatusDto.Comment)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)

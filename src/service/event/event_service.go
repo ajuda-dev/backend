@@ -1,6 +1,9 @@
 package event
 
 import (
+	"strings"
+	"time"
+
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
 	eventrepo "github.com/ajuda-dev/backend/src/data/event/repository"
@@ -15,7 +18,8 @@ type EventService interface {
 	GetEventById(id string) (*eventdomain.EventDomain, *rest_err.RestErr)
 	GetEventDetail(id string, requesterId string) (*eventdomain.EventDomain, *rest_err.RestErr)
 	GetAll(filter eventrepo.EventFilter, page int, limit int, requesterId string) (*eventdomain.PageableEvent, *rest_err.RestErr)
-	DeleteEventById(id string, requesterId string) *rest_err.RestErr
+	Reschedule(id string, requesterId string, startAt time.Time, comment string) (*eventdomain.EventDomain, *rest_err.RestErr)
+	DeleteEventById(id string, requesterId string, comment string) *rest_err.RestErr
 	UpdateApproval(id string, requesterId string, status string) (*eventdomain.EventDomain, *rest_err.RestErr)
 }
 
@@ -183,7 +187,27 @@ func (e *eventService) GetAll(filter eventrepo.EventFilter, page int, limit int,
 	return pageable, nil
 }
 
-func (e *eventService) DeleteEventById(id string, requesterId string) *rest_err.RestErr {
+func (e *eventService) Reschedule(id string, requesterId string, startAt time.Time, comment string) (*eventdomain.EventDomain, *rest_err.RestErr) {
+	comment = strings.TrimSpace(comment)
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	event, err := e.eventRepository.FindById(id)
+	if err != nil {
+		return nil, err
+	}
+	if !canManageEvent(requester, event) {
+		return nil, forbiddenManageEvent()
+	}
+	if err := e.eventValidator.ValidateReschedule(startAt, comment); err != nil {
+		return nil, err
+	}
+	return e.eventRepository.Reschedule(id, startAt, comment)
+}
+
+func (e *eventService) DeleteEventById(id string, requesterId string, comment string) *rest_err.RestErr {
+	comment = strings.TrimSpace(comment)
 	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return err
@@ -195,7 +219,10 @@ func (e *eventService) DeleteEventById(id string, requesterId string) *rest_err.
 	if !canManageEvent(requester, event) {
 		return forbiddenManageEvent()
 	}
-	return e.eventRepository.SoftDeleteById(id)
+	if err := e.eventValidator.ValidateCancelComment(comment); err != nil {
+		return err
+	}
+	return e.eventRepository.SoftDeleteById(id, comment)
 }
 
 func isValidEventStatusTransition(current string, target string) bool {

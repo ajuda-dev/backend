@@ -1,6 +1,8 @@
 package event
 
 import (
+	"strings"
+
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	eventrepo "github.com/ajuda-dev/backend/src/data/event/repository"
 	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
@@ -12,7 +14,7 @@ type EventUserService interface {
 	JoinEvent(eventId string, requesterId string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 	AddParticipant(eventId string, requesterId string, targetUserId string, role string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 	GetParticipants(eventId string, status string, requesterId string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr)
-	UpdateParticipantStatus(eventId string, userId string, requesterId string, status string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
+	UpdateParticipantStatus(eventId string, userId string, requesterId string, status string, comment string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 	CancelParticipation(eventId string, userId string, requesterId string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 }
 
@@ -120,7 +122,8 @@ func (e *eventUserService) GetParticipants(eventId string, status string, reques
 	return participants, nil
 }
 
-func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string, requesterId string, status string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string, requesterId string, status string, comment string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	comment = strings.TrimSpace(comment)
 	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
 	if err != nil {
 		return nil, err
@@ -135,10 +138,10 @@ func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string
 	if status == eventdomain.StatusConfirmed && !isEventApproved(event) {
 		return nil, eventNotApprovedError()
 	}
-	if err := e.eventUserValidator.ValidateUpdateParticipantStatus(status); err != nil {
+	if err := e.eventUserValidator.ValidateUpdateParticipantStatus(status, comment); err != nil {
 		return nil, err
 	}
-	return e.eventUserRepository.UpdateStatus(eventId, userId, status, event.MaxSlots)
+	return e.eventUserRepository.UpdateStatus(eventId, userId, status, comment, event.MaxSlots)
 }
 
 func (e *eventUserService) CancelParticipation(eventId string, userId string, requesterId string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
@@ -161,7 +164,7 @@ func (e *eventUserService) CancelParticipation(eventId string, userId string, re
 				Message: "the creator cannot leave the event; cancel the event instead",
 			}})
 	}
-	return e.eventUserRepository.UpdateStatus(eventId, userId, eventdomain.StatusCancelled, event.MaxSlots)
+	return e.eventUserRepository.UpdateStatus(eventId, userId, eventdomain.StatusCancelled, "", event.MaxSlots)
 }
 
 func (e *eventUserService) creatorRole(event *eventdomain.EventDomain) (string, *rest_err.RestErr) {

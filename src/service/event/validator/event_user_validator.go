@@ -9,7 +9,7 @@ import (
 type EventUserValidator interface {
 	ValidateJoin(eventUser eventdomain.EventUserDomain, category string) *rest_err.RestErr
 	ValidateAddParticipant(eventUser eventdomain.EventUserDomain, category string, creatorRole string) *rest_err.RestErr
-	ValidateUpdateParticipantStatus(status string) *rest_err.RestErr
+	ValidateUpdateParticipantStatus(status string, comment string) *rest_err.RestErr
 }
 
 type eventUserValidator struct{}
@@ -107,14 +107,30 @@ func complementaryRole(creatorRole string) string {
 	return eventdomain.RoleMentee
 }
 
-func (e *eventUserValidator) ValidateUpdateParticipantStatus(status string) *rest_err.RestErr {
+func (e *eventUserValidator) ValidateUpdateParticipantStatus(status string, comment string) *rest_err.RestErr {
+	causes := []rest_err.Causes{}
 	if status != eventdomain.StatusConfirmed && status != eventdomain.StatusRejected {
+		causes = append(causes, rest_err.Causes{
+			Field:   "status",
+			Message: "Status is not valid, use CONFIRMED or REJECTED",
+		})
+	}
+	if status == eventdomain.StatusRejected && comment == "" {
+		causes = append(causes, rest_err.Causes{
+			Field:   "comment",
+			Message: "comment is required when rejecting",
+		})
+	}
+	if len(comment) > 500 {
+		causes = append(causes, rest_err.Causes{
+			Field:   "comment",
+			Message: "comment must have at most 500 characters",
+		})
+	}
+	if len(causes) > 0 {
 		return rest_err.NewBadRequestValidationError(
 			"Invalid participation data",
-			[]rest_err.Causes{{
-				Field:   "status",
-				Message: "Status is not valid, use CONFIRMED or REJECTED",
-			}},
+			causes,
 		)
 	}
 	return nil

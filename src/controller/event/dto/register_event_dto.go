@@ -24,6 +24,7 @@ type RegisterEventDto struct {
 	MaxSlots    *int      `json:"max_slots"`
 	CreatorRole string    `json:"creator_role"`
 	Status      string    `json:"status"`
+	Comment     string    `json:"comment,omitempty"`
 }
 
 func (r *RegisterEventDto) ToDomain() *eventdomain.EventDomain {
@@ -65,6 +66,7 @@ func (r RegisterEventDto) FromDomain(event *eventdomain.EventDomain) interface{}
 		MaxSlots:    event.MaxSlots,
 		CreatorRole: event.CreatorRole,
 		Status:      event.Status,
+		Comment:     event.Comment,
 	}
 	if event.Community != nil {
 		dtoEvent.CommunityId = &event.Community.Id

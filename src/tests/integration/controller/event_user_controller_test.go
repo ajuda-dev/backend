@@ -52,10 +52,17 @@ func euGetParticipants(t *testing.T, app *fiber.App, eventId string, token strin
 	return euRequest(t, app, http.MethodGet, "/v1/event/"+eventId+"/participants", "", token)
 }
 
-func euUpdateStatus(t *testing.T, app *fiber.App, eventId string, userId string, status string, token string) *http.Response {
+func euUpdateStatus(t *testing.T, app *fiber.App, eventId string, userId string, status string, comment string, token string) *http.Response {
 	t.Helper()
-	body := `{"status":"` + status + `"}`
-	return euRequest(t, app, http.MethodPut, "/v1/event/"+eventId+"/participants/"+userId+"/status", body, token)
+	payload := map[string]string{"status": status}
+	if comment != "" {
+		payload["comment"] = comment
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("erro ao montar body de status: %v", err)
+	}
+	return euRequest(t, app, http.MethodPut, "/v1/event/"+eventId+"/participants/"+userId+"/status", string(body), token)
 }
 
 func euCancelParticipation(t *testing.T, app *fiber.App, eventId string, userId string, token string) *http.Response {
@@ -91,6 +98,26 @@ func euShareEmail(t *testing.T, app *fiber.App, user *userdomain.UserDomain) {
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 ao compartilhar o email, recebeu %d", resp.StatusCode)
 	}
+}
+
+func euInviteMentee(t *testing.T, app *fiber.App, eventId string, menteeId string, ownerId string) {
+	t.Helper()
+	resp := euAddParticipant(t, app, eventId, `{"user_id":"`+menteeId+`","role":"MENTEE"}`, validTokenFor(t, ownerId))
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no convite de MENTEE, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+}
+
+func euFindParticipant(t *testing.T, participants []eventdto.EventParticipantDto, userId string) eventdto.EventParticipantDto {
+	t.Helper()
+	for _, participant := range participants {
+		if participant.UserId == userId {
+			return participant
+		}
+	}
+	t.Fatalf("esperava participante %s na listagem", userId)
+	return eventdto.EventParticipantDto{}
 }
 
 func euFindRow(t *testing.T, eventId string, userId string) evententity.EventUserEntity {
@@ -359,19 +386,25 @@ func TestUpdateParticipantStatusOnlyInvited(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusConfirmed, validTokenFor(t, third.Id))
+	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, third.Id))
 	if resp.StatusCode != fiber.StatusForbidden {
 		t.Errorf("esperava 403 para terceiro, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
-	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusConfirmed, validTokenFor(t, owner.Id))
+	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusRejected, "", validTokenFor(t, third.Id))
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 para terceiro recusando sem comment, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, owner.Id))
 	if resp.StatusCode != fiber.StatusForbidden {
 		t.Errorf("esperava 403 para o criador aceitando pelo convidado, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
-	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusRejected, validTokenFor(t, mentee.Id))
+	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusRejected, "Agenda conflitou nesta semana", validTokenFor(t, mentee.Id))
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 para o convidado recusando, recebeu %d", resp.StatusCode)
 	}
@@ -379,8 +412,11 @@ func TestUpdateParticipantStatusOnlyInvited(t *testing.T) {
 	if row.Status != eventdomain.StatusRejected {
 		t.Errorf("esperava REJECTED, recebeu %s", row.Status)
 	}
+	if row.Comment != "Agenda conflitou nesta semana" {
+		t.Errorf("esperava comment na recusa, recebeu '%s'", row.Comment)
+	}
 
-	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusConfirmed, validTokenFor(t, mentee.Id))
+	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, mentee.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
 		t.Errorf("esperava 400 na transição REJECTED -> CONFIRMED, recebeu %d", resp.StatusCode)
 	}
@@ -393,7 +429,7 @@ func TestUpdateParticipantStatusOnlyInvited(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	resp = euUpdateStatus(t, app, secondEvent.Id, mentee.Id, eventdomain.StatusConfirmed, validTokenFor(t, mentee.Id))
+	resp = euUpdateStatus(t, app, secondEvent.Id, mentee.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, mentee.Id))
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 para o convidado aceitando, recebeu %d", resp.StatusCode)
 	}
@@ -402,7 +438,7 @@ func TestUpdateParticipantStatusOnlyInvited(t *testing.T) {
 		t.Errorf("esperava CONFIRMED, recebeu %s", row.Status)
 	}
 
-	resp = euUpdateStatus(t, app, secondEvent.Id, mentee.Id, eventdomain.StatusConfirmed, validTokenFor(t, mentee.Id))
+	resp = euUpdateStatus(t, app, secondEvent.Id, mentee.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, mentee.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
 		t.Errorf("esperava 400 na transição CONFIRMED -> CONFIRMED, recebeu %d", resp.StatusCode)
 	}
@@ -708,7 +744,7 @@ func TestMentoringCreatedByMenteeAcceptsMentorInvite(t *testing.T) {
 		t.Errorf("esperava MENTOR/REQUESTED no convite, recebeu %s/%s", row.Role, row.Status)
 	}
 
-	resp = euUpdateStatus(t, app, event.Id, mentor.Id, eventdomain.StatusConfirmed, validTokenFor(t, mentor.Id))
+	resp = euUpdateStatus(t, app, event.Id, mentor.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, mentor.Id))
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 para o mentor aceitando, recebeu %d", resp.StatusCode)
 	}
@@ -778,7 +814,7 @@ func TestMentoringMenteeMaxOneConfirmed(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	resp = euUpdateStatus(t, app, event.Id, firstMentee.Id, eventdomain.StatusConfirmed, validTokenFor(t, firstMentee.Id))
+	resp = euUpdateStatus(t, app, event.Id, firstMentee.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, firstMentee.Id))
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 no aceite do primeiro mentee, recebeu %d", resp.StatusCode)
 	}
@@ -790,12 +826,217 @@ func TestMentoringMenteeMaxOneConfirmed(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	resp = euUpdateStatus(t, app, event.Id, secondMentee.Id, eventdomain.StatusConfirmed, validTokenFor(t, secondMentee.Id))
+	resp = euUpdateStatus(t, app, event.Id, secondMentee.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, secondMentee.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
 		t.Fatalf("esperava 400 no segundo mentee confirmado, recebeu %d", resp.StatusCode)
 	}
 	respBody := decodeRestErr(t, resp)
 	if len(getCauseByField("user_id", respBody.Causes)) == 0 {
 		t.Errorf("esperava cause em user_id, recebeu %+v", respBody.Causes)
+	}
+}
+
+func TestUpdateParticipantStatusComment(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "comment_owner@ajuda.dev", userdomain.UserRoleUser)
+	mentee := createUserWithRole(t, "comment_mentee@ajuda.dev", userdomain.UserRoleUser)
+	menteeToken := validTokenFor(t, mentee.Id)
+	ownerToken := validTokenFor(t, owner.Id)
+	tooLong := strings.Repeat("a", 501)
+
+	validationEvent := euCreateMentoringEvent(t, app, owner)
+	euInviteMentee(t, app, validationEvent.Id, mentee.Id, owner.Id)
+
+	resp := euUpdateStatus(t, app, validationEvent.Id, mentee.Id, eventdomain.StatusRejected, "", menteeToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 ao recusar sem comment, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	causes := getCauseByField("comment", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "comment is required when rejecting" {
+		t.Errorf("esperava cause comment is required when rejecting, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+validationEvent.Id+"/participants/"+mentee.Id+"/status",
+		`{"status":"REJECTED","comment":""}`, menteeToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 ao recusar com comment vazio, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	causes = getCauseByField("comment", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "comment is required when rejecting" {
+		t.Errorf("esperava cause comment is required when rejecting, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euUpdateStatus(t, app, validationEvent.Id, mentee.Id, eventdomain.StatusRejected, "   ", menteeToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 ao recusar com comment só de espaços, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	causes = getCauseByField("comment", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "comment is required when rejecting" {
+		t.Errorf("esperava cause comment is required when rejecting, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euUpdateStatus(t, app, validationEvent.Id, mentee.Id, eventdomain.StatusRejected, tooLong, menteeToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 no comment > 500 em REJECTED, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	causes = getCauseByField("comment", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "comment must have at most 500 characters" {
+		t.Errorf("esperava cause comment must have at most 500 characters, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euUpdateStatus(t, app, validationEvent.Id, mentee.Id, eventdomain.StatusConfirmed, tooLong, menteeToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 no comment > 500 em CONFIRMED, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	causes = getCauseByField("comment", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "comment must have at most 500 characters" {
+		t.Errorf("esperava cause comment must have at most 500 characters, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euUpdateStatus(t, app, validationEvent.Id, mentee.Id, eventdomain.StatusConfirmed, "", menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no aceite sem comment, recebeu %d", resp.StatusCode)
+	}
+	acceptBody, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("erro ao ler body do aceite: %v", err)
+	}
+	var accepted eventdto.EventUserDto
+	if err := json.Unmarshal(acceptBody, &accepted); err != nil {
+		t.Fatalf("erro ao decodificar aceite: %v", err)
+	}
+	if accepted.Status != eventdomain.StatusConfirmed {
+		t.Errorf("esperava CONFIRMED, recebeu %s", accepted.Status)
+	}
+	if accepted.Comment != "" {
+		t.Errorf("não esperava comment no aceite sem texto, recebeu '%s'", accepted.Comment)
+	}
+	var acceptedRaw map[string]interface{}
+	if err := json.Unmarshal(acceptBody, &acceptedRaw); err != nil {
+		t.Fatalf("erro ao decodificar aceite raw: %v", err)
+	}
+	if _, ok := acceptedRaw["comment"]; ok {
+		t.Errorf("não esperava chave comment no aceite sem texto")
+	}
+	dbRow := euFindRow(t, validationEvent.Id, mentee.Id)
+	if dbRow.StatusComment != nil {
+		t.Errorf("esperava status_comment NULL no aceite sem texto, recebeu %q", *dbRow.StatusComment)
+	}
+	resp = euGetParticipants(t, app, validationEvent.Id, ownerToken)
+	listed := euDecodeParticipants(t, resp)
+	if euFindParticipant(t, listed, mentee.Id).Comment != "" {
+		t.Errorf("não esperava comment na listagem após aceite sem texto")
+	}
+
+	rejectEvent := euCreateMentoringEvent(t, app, owner)
+	euInviteMentee(t, app, rejectEvent.Id, mentee.Id, owner.Id)
+	resp = euUpdateStatus(t, app, rejectEvent.Id, mentee.Id, eventdomain.StatusRejected, "Agenda conflitou nesta semana", menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 na recusa com comment, recebeu %d", resp.StatusCode)
+	}
+	rejected := euDecodeEventUserDto(t, resp)
+	if rejected.Comment != "Agenda conflitou nesta semana" {
+		t.Errorf("esperava o comment da recusa, recebeu '%s'", rejected.Comment)
+	}
+	resp = euGetParticipants(t, app, rejectEvent.Id, ownerToken)
+	listed = euDecodeParticipants(t, resp)
+	if got := euFindParticipant(t, listed, mentee.Id).Comment; got != "Agenda conflitou nesta semana" {
+		t.Errorf("esperava o comment na listagem, recebeu '%s'", got)
+	}
+
+	acceptEvent := euCreateMentoringEvent(t, app, owner)
+	euInviteMentee(t, app, acceptEvent.Id, mentee.Id, owner.Id)
+	resp = euUpdateStatus(t, app, acceptEvent.Id, mentee.Id, eventdomain.StatusConfirmed, "Nos falamos pelo LinkedIn", menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no aceite com comment, recebeu %d", resp.StatusCode)
+	}
+	confirmed := euDecodeEventUserDto(t, resp)
+	if confirmed.Comment != "Nos falamos pelo LinkedIn" {
+		t.Errorf("esperava o comment do aceite, recebeu '%s'", confirmed.Comment)
+	}
+	resp = euGetParticipants(t, app, acceptEvent.Id, ownerToken)
+	listed = euDecodeParticipants(t, resp)
+	if got := euFindParticipant(t, listed, mentee.Id).Comment; got != "Nos falamos pelo LinkedIn" {
+		t.Errorf("esperava o comment na listagem do aceite, recebeu '%s'", got)
+	}
+
+	trimEvent := euCreateMentoringEvent(t, app, owner)
+	euInviteMentee(t, app, trimEvent.Id, mentee.Id, owner.Id)
+	resp = euUpdateStatus(t, app, trimEvent.Id, mentee.Id, eventdomain.StatusRejected, "  motivo  ", menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 na recusa com trim, recebeu %d", resp.StatusCode)
+	}
+	trimmed := euDecodeEventUserDto(t, resp)
+	if trimmed.Comment != "motivo" {
+		t.Errorf("esperava comment trimado 'motivo', recebeu '%s'", trimmed.Comment)
+	}
+	dbRow = euFindRow(t, trimEvent.Id, mentee.Id)
+	if dbRow.StatusComment == nil || *dbRow.StatusComment != "motivo" {
+		t.Errorf("esperava status_comment 'motivo', recebeu %+v", dbRow.StatusComment)
+	}
+
+	cancelEvent := euCreateMentoringEvent(t, app, owner)
+	euInviteMentee(t, app, cancelEvent.Id, mentee.Id, owner.Id)
+	resp = euUpdateStatus(t, app, cancelEvent.Id, mentee.Id, eventdomain.StatusConfirmed, "Nos falamos pelo LinkedIn", menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no aceite antes do cancel, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	resp = euCancelParticipation(t, app, cancelEvent.Id, mentee.Id, menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no cancel após aceite com comment, recebeu %d", resp.StatusCode)
+	}
+	cancelled := euDecodeEventUserDto(t, resp)
+	if cancelled.Comment != "" {
+		t.Errorf("não esperava comment após o cancel, recebeu '%s'", cancelled.Comment)
+	}
+	dbRow = euFindRow(t, cancelEvent.Id, mentee.Id)
+	if dbRow.StatusComment != nil {
+		t.Errorf("esperava status_comment NULL após o cancel, recebeu %q", *dbRow.StatusComment)
+	}
+	resp = euGetParticipants(t, app, cancelEvent.Id, ownerToken)
+	listed = euDecodeParticipants(t, resp)
+	if euFindParticipant(t, listed, mentee.Id).Comment != "" {
+		t.Errorf("não esperava comment na listagem após o cancel")
+	}
+
+	reinviteEvent := euCreateMentoringEvent(t, app, owner)
+	euInviteMentee(t, app, reinviteEvent.Id, mentee.Id, owner.Id)
+	resp = euUpdateStatus(t, app, reinviteEvent.Id, mentee.Id, eventdomain.StatusRejected, "Agenda conflitou nesta semana", menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 na recusa antes do reconvite, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	resp = euAddParticipant(t, app, reinviteEvent.Id, `{"user_id":"`+mentee.Id+`","role":"MENTEE"}`, ownerToken)
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no reconvite após reject, recebeu %d", resp.StatusCode)
+	}
+	reinvited := euDecodeEventUserDto(t, resp)
+	if reinvited.Status != eventdomain.StatusRequested {
+		t.Errorf("esperava REQUESTED no reconvite, recebeu %s", reinvited.Status)
+	}
+	if reinvited.Comment != "" {
+		t.Errorf("não esperava comment residual no reconvite, recebeu '%s'", reinvited.Comment)
+	}
+	dbRow = euFindRow(t, reinviteEvent.Id, mentee.Id)
+	if dbRow.StatusComment != nil {
+		t.Errorf("esperava status_comment NULL após o reconvite, recebeu %q", *dbRow.StatusComment)
+	}
+	resp = euGetParticipants(t, app, reinviteEvent.Id, ownerToken)
+	listed = euDecodeParticipants(t, resp)
+	participant := euFindParticipant(t, listed, mentee.Id)
+	if participant.Status != eventdomain.StatusRequested {
+		t.Errorf("esperava REQUESTED na listagem após reconvite, recebeu %s", participant.Status)
+	}
+	if participant.Comment != "" {
+		t.Errorf("não esperava comment na listagem após o reconvite")
 	}
 }

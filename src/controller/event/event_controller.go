@@ -19,6 +19,7 @@ type EventController interface {
 	RegisterEvent() fiber.Handler
 	GetEventById() fiber.Handler
 	GetAllEvents() fiber.Handler
+	RescheduleEvent() fiber.Handler
 	DeleteEventById() fiber.Handler
 	UpdateEventApproval() fiber.Handler
 }
@@ -179,12 +180,59 @@ func (e *eventController) GetAllEvents() fiber.Handler {
 	}
 }
 
+// RescheduleEvent godoc
+// @Summary      Reagenda um evento
+// @Description  Quem gerencia o evento altera start_at e grava um comment obrigatório (trim, máx. 500). Reagendar de novo sobrescreve o comment anterior. Não muda aprovação nem participantes.
+// @Tags         events
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string  true  "ID do evento"
+// @Param        body  body  eventdto.RescheduleEventDto  true  "Nova data (futuro) e comment obrigatório"
+// @Success      200   {object}  eventdto.EventDto
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/event/{id}/reschedule [put]
+func (e *eventController) RescheduleEvent() fiber.Handler {
+	return func(cf *fiber.Ctx) error {
+		id := cf.Params("id")
+		if !uuidv7.IsValidString(id) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
+		}
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		var rescheduleDto eventdto.RescheduleEventDto
+		if err := cf.BodyParser(&rescheduleDto); err != nil {
+			logger.Error("erro body request", err)
+			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		event, err := e.eventService.Reschedule(id, userId, rescheduleDto.StartAt, rescheduleDto.Comment)
+		if err != nil {
+			logger.Error("error: ", err)
+			return cf.Status(err.Code).JSON(err)
+		}
+		return cf.Status(fiber.StatusOK).JSON(eventdto.EventDto{}.FromDomain(event))
+	}
+}
+
 // DeleteEventById godoc
 // @Summary      Remove evento (soft delete)
-// @Description  Arquiva o evento marcando deleted_at
+// @Description  Arquiva o evento marcando deleted_at. Body exige comment (trim, máx. 500); o texto sobrescreve events.comment na mesma transação do delete.
 // @Tags         events
+// @Accept       json
 // @Param        id  path  string  true  "ID do evento"
+// @Param        body  body  eventdto.CancelEventDto  true  "comment obrigatório do cancelamento"
 // @Success      204
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Failure      404   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
 // @Security     BearerAuth
@@ -201,7 +249,14 @@ func (e *eventController) DeleteEventById() fiber.Handler {
 		if !ok || userId == "" {
 			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
 		}
-		err := e.eventService.DeleteEventById(id, userId)
+		var cancelDto eventdto.CancelEventDto
+		if err := cf.BodyParser(&cancelDto); err != nil {
+			logger.Error("erro body request", err)
+			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		err := e.eventService.DeleteEventById(id, userId, cancelDto.Comment)
 		if err != nil {
 			logger.Error("error: ", err)
 			return cf.Status(err.Code).JSON(err)

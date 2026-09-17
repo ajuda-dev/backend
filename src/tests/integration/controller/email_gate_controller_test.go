@@ -119,7 +119,7 @@ func TestUnverifiedEmailCanJoinEventAndAcceptInvitation(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	resp = euUpdateStatus(t, app, mentoring.Id, unverified.Id, eventdomain.StatusConfirmed, unverifiedToken)
+	resp = euUpdateStatus(t, app, mentoring.Id, unverified.Id, eventdomain.StatusConfirmed, "", unverifiedToken)
 	if resp.StatusCode != fiber.StatusOK {
 		body := decodeRestErr(t, resp)
 		t.Fatalf("esperava 200 ao aceitar convite (fora do gate), recebeu %d (body: %+v)", resp.StatusCode, body)

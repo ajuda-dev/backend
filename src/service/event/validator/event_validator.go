@@ -11,6 +11,8 @@ import (
 
 type EventValidator interface {
 	ValidatorRegisterEvent(event eventdomain.EventDomain) *rest_err.RestErr
+	ValidateReschedule(startAt time.Time, comment string) *rest_err.RestErr
+	ValidateCancelComment(comment string) *rest_err.RestErr
 }
 
 type eventValidator struct{}
@@ -107,6 +109,45 @@ func (e *eventValidator) ValidatorRegisterEvent(event eventdomain.EventDomain) *
 			"Invalid event data",
 			causes,
 		)
+	}
+	return nil
+}
+
+func (e *eventValidator) ValidateReschedule(startAt time.Time, comment string) *rest_err.RestErr {
+	causes := []rest_err.Causes{}
+	if startAt.IsZero() || !startAt.After(time.Now()) {
+		causes = append(causes, rest_err.Causes{
+			Field:   "start_at",
+			Message: "StartAt must be in the future",
+		})
+	}
+	causes = append(causes, commentCauses(comment, "comment is required when rescheduling")...)
+	if len(causes) > 0 {
+		return rest_err.NewBadRequestValidationError("Invalid event data", causes)
+	}
+	return nil
+}
+
+func (e *eventValidator) ValidateCancelComment(comment string) *rest_err.RestErr {
+	causes := commentCauses(comment, "comment is required when cancelling")
+	if len(causes) > 0 {
+		return rest_err.NewBadRequestValidationError("Invalid event data", causes)
+	}
+	return nil
+}
+
+func commentCauses(comment string, requiredMessage string) []rest_err.Causes {
+	if comment == "" {
+		return []rest_err.Causes{{
+			Field:   "comment",
+			Message: requiredMessage,
+		}}
+	}
+	if len(comment) > 500 {
+		return []rest_err.Causes{{
+			Field:   "comment",
+			Message: "comment must have at most 500 characters",
+		}}
 	}
 	return nil
 }

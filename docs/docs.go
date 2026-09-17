@@ -69,7 +69,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PageableAddressDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_address_dto.PageableAddressDto"
                         }
                     },
                     "400": {
@@ -114,7 +114,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.AddressDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_address_dto.AddressDto"
                         }
                     }
                 ],
@@ -122,7 +122,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.AddressDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_address_dto.AddressDto"
                         }
                     },
                     "400": {
@@ -282,7 +282,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PageableCommunityDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.PageableCommunityDto"
                         }
                     },
                     "400": {
@@ -327,7 +327,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterCommunityDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.RegisterCommunityDto"
                         }
                     }
                 ],
@@ -335,7 +335,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.CommunityDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityDto"
                         }
                     },
                     "400": {
@@ -393,7 +393,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.CommunityDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityDto"
                         }
                     },
                     "400": {
@@ -450,7 +450,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateCommunityDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.UpdateCommunityDto"
                         }
                     }
                 ],
@@ -458,7 +458,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.CommunityDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityDto"
                         }
                     },
                     "400": {
@@ -577,7 +577,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.CommunityUserDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityUserDto"
                         }
                     },
                     "400": {
@@ -709,7 +709,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PageableCommunityMemberDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.PageableCommunityMemberDto"
                         }
                     },
                     "400": {
@@ -832,7 +832,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PageableEventDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.PageableEventDto"
                         }
                     },
                     "400": {
@@ -884,7 +884,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterEventDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.RegisterEventDto"
                         }
                     }
                 ],
@@ -892,7 +892,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterEventDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.RegisterEventDto"
                         }
                     },
                     "400": {
@@ -950,7 +950,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.EventUserDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventUserDto"
                         }
                     },
                     "400": {
@@ -991,7 +991,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna os participantes do evento com usuário (preload), com filtro opcional de status",
+                "description": "Retorna os participantes do evento com usuário (preload), com filtro opcional de status. Itens podem incluir comment após accept/reject.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1023,7 +1023,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/dto.EventParticipantDto"
+                                "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventParticipantDto"
                             }
                         }
                     },
@@ -1074,7 +1074,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.AddParticipantDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.AddParticipantDto"
                         }
                     }
                 ],
@@ -1082,7 +1082,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.EventUserDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventUserDto"
                         }
                     },
                     "400": {
@@ -1154,7 +1154,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.EventUserDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventUserDto"
                         }
                     },
                     "400": {
@@ -1195,7 +1195,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "O convidado aceita (CONFIRMED) ou recusa (REJECTED) o convite de mentoria. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.",
+                "description": "O convidado aceita (CONFIRMED, comment opcional) ou recusa (REJECTED, comment obrigatório após trim, máx. 500). O texto fica no evento (resposta e GET participants) e não entra na notificação. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1222,12 +1222,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Novo status (CONFIRMED ou REJECTED)",
+                        "description": "Status (CONFIRMED ou REJECTED) e comment (obrigatório em REJECTED)",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateParticipantStatusDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.UpdateParticipantStatusDto"
                         }
                     }
                 ],
@@ -1235,7 +1235,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.EventUserDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventUserDto"
                         }
                     },
                     "400": {
@@ -1300,7 +1300,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.EventDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventDto"
                         }
                     },
                     "401": {
@@ -1332,7 +1332,10 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Arquiva o evento marcando deleted_at",
+                "description": "Arquiva o evento marcando deleted_at. Body exige comment (trim, máx. 500); o texto sobrescreve events.comment na mesma transação do delete.",
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "events"
                 ],
@@ -1344,14 +1347,37 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "comment obrigatório do cancelamento",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.CancelEventDto"
+                        }
                     }
                 ],
                 "responses": {
                     "204": {
                         "description": "No Content"
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1399,7 +1425,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateEventApprovalDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventApprovalDto"
                         }
                     }
                 ],
@@ -1407,7 +1433,81 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.EventDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/event/{id}/reschedule": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Quem gerencia o evento altera start_at e grava um comment obrigatório (trim, máx. 500). Reagendar de novo sobrescreve o comment anterior. Não muda aprovação nem participantes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Reagenda um evento",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Nova data (futuro) e comment obrigatório",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.RescheduleEventDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventDto"
                         }
                     },
                     "400": {
@@ -1481,7 +1581,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PageableNotificationDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_notification_dto.PageableNotificationDto"
                         }
                     },
                     "400": {
@@ -1561,7 +1661,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.NotificationDtoOut"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_notification_dto.NotificationDtoOut"
                         }
                     },
                     "400": {
@@ -1630,7 +1730,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PageableSkillDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.PageableSkillDto"
                         }
                     },
                     "400": {
@@ -1675,7 +1775,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterSkillDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.RegisterSkillDto"
                         }
                     }
                 ],
@@ -1683,7 +1783,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterSkillDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.RegisterSkillDto"
                         }
                     },
                     "400": {
@@ -1734,7 +1834,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.SkillDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.SkillDto"
                         }
                     },
                     "400": {
@@ -1791,7 +1891,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateSkillDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.UpdateSkillDto"
                         }
                     }
                 ],
@@ -1799,7 +1899,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterSkillDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.RegisterSkillDto"
                         }
                     },
                     "400": {
@@ -1919,7 +2019,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.AssignSkillDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.AssignSkillDto"
                         }
                     }
                 ],
@@ -1927,7 +2027,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.SkillUserDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.SkillUserDto"
                         }
                     },
                     "400": {
@@ -2015,7 +2115,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PageableUserDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.PageableUserDto"
                         }
                     },
                     "400": {
@@ -2060,7 +2160,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.ChangePasswordDtoIn"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.ChangePasswordDtoIn"
                         }
                     }
                 ],
@@ -2105,7 +2205,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.ForgotPasswordDtoIn"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.ForgotPasswordDtoIn"
                         }
                     }
                 ],
@@ -2150,7 +2250,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.LoginUserDtoIn"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.LoginUserDtoIn"
                         }
                     },
                     {
@@ -2164,7 +2264,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.LoginUserDtoOut"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.LoginUserDtoOut"
                         }
                     },
                     "400": {
@@ -2217,7 +2317,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.UserDtoOut"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut"
                         }
                     },
                     "401": {
@@ -2250,7 +2350,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.RegisterUserDtoIn"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.RegisterUserDtoIn"
                         }
                     },
                     {
@@ -2264,7 +2364,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dto.UserDtoOut"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut"
                         }
                     },
                     "400": {
@@ -2330,7 +2430,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.ResetPasswordDtoIn"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.ResetPasswordDtoIn"
                         }
                     }
                 ],
@@ -2387,7 +2487,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.VerifyEmailDtoIn"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.VerifyEmailDtoIn"
                         }
                     }
                 ],
@@ -2395,7 +2495,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.UserDtoOut"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut"
                         }
                     },
                     "400": {
@@ -2450,7 +2550,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.UserProfileDtoOut"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserProfileDtoOut"
                         }
                     },
                     "400": {
@@ -2507,7 +2607,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.UpdateUserDtoIn"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UpdateUserDtoIn"
                         }
                     }
                 ],
@@ -2515,7 +2615,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.UserDtoOut"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut"
                         }
                     },
                     "400": {
@@ -2646,7 +2746,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PageableCommunityDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.PageableCommunityDto"
                         }
                     },
                     "400": {
@@ -2699,7 +2799,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/dto.SkillUserDto"
+                                "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.SkillUserDto"
                             }
                         }
                     },
@@ -2791,18 +2891,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "dto.AddParticipantDto": {
-            "type": "object",
-            "properties": {
-                "role": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.AddressDto": {
+        "github_com_ajuda-dev_backend_src_controller_address_dto.AddressDto": {
             "type": "object",
             "properties": {
                 "city": {
@@ -2828,33 +2917,25 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.AssignSkillDto": {
+        "github_com_ajuda-dev_backend_src_controller_address_dto.PageableAddressDto": {
             "type": "object",
             "properties": {
-                "level": {
-                    "type": "string"
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_address_dto.AddressDto"
+                    }
                 },
-                "user_id": {
-                    "type": "string"
+                "has_next": {
+                    "type": "boolean"
                 }
             }
         },
-        "dto.ChangePasswordDtoIn": {
-            "type": "object",
-            "properties": {
-                "currentPassword": {
-                    "type": "string"
-                },
-                "newPassword": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.CommunityDto": {
+        "github_com_ajuda-dev_backend_src_controller_community_dto.CommunityDto": {
             "type": "object",
             "properties": {
                 "address": {
-                    "$ref": "#/definitions/dto.AddressDto"
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_address_dto.AddressDto"
                 },
                 "description": {
                     "type": "string"
@@ -2866,11 +2947,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "owner": {
-                    "$ref": "#/definitions/dto.UserDtoOut"
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut"
                 }
             }
         },
-        "dto.CommunityMemberDto": {
+        "github_com_ajuda-dev_backend_src_controller_community_dto.CommunityMemberDto": {
             "type": "object",
             "properties": {
                 "community_id": {
@@ -2880,14 +2961,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/dto.CommunityMemberUserDto"
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityMemberUserDto"
                 },
                 "user_id": {
                     "type": "string"
                 }
             }
         },
-        "dto.CommunityMemberUserDto": {
+        "github_com_ajuda-dev_backend_src_controller_community_dto.CommunityMemberUserDto": {
             "type": "object",
             "properties": {
                 "email": {
@@ -2901,7 +2982,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.CommunityUserDto": {
+        "github_com_ajuda-dev_backend_src_controller_community_dto.CommunityUserDto": {
             "type": "object",
             "properties": {
                 "community_id": {
@@ -2915,171 +2996,13 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.ConfigVisibilityDto": {
-            "type": "object",
-            "additionalProperties": {
-                "$ref": "#/definitions/dto.VisibilityConfigDto"
-            }
-        },
-        "dto.EventDto": {
-            "type": "object",
-            "properties": {
-                "address": {
-                    "$ref": "#/definitions/dto.AddressDto"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "community": {
-                    "$ref": "#/definitions/dto.CommunityDto"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "duration_min": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "max_slots": {
-                    "type": "integer"
-                },
-                "meeting_link": {
-                    "type": "string"
-                },
-                "owner": {
-                    "$ref": "#/definitions/dto.UserDtoOut"
-                },
-                "start_at": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.EventParticipantDto": {
-            "type": "object",
-            "properties": {
-                "event_id": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/dto.ParticipantUserDto"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.EventUserDto": {
-            "type": "object",
-            "properties": {
-                "event_id": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/dto.UserDtoOut"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.ForgotPasswordDtoIn": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.LoginUserDtoIn": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.LoginUserDtoOut": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "emailVerified": {
-                    "type": "boolean"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.NotificationDtoOut": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "payload": {
-                    "type": "object"
-                },
-                "read_at": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.PageableAddressDto": {
+        "github_com_ajuda-dev_backend_src_controller_community_dto.PageableCommunityDto": {
             "type": "object",
             "properties": {
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.AddressDto"
+                        "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityDto"
                     }
                 },
                 "has_next": {
@@ -3087,13 +3010,13 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PageableCommunityDto": {
+        "github_com_ajuda-dev_backend_src_controller_community_dto.PageableCommunityMemberDto": {
             "type": "object",
             "properties": {
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.CommunityDto"
+                        "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityMemberDto"
                     }
                 },
                 "has_next": {
@@ -3101,91 +3024,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PageableCommunityMemberDto": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.CommunityMemberDto"
-                    }
-                },
-                "has_next": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "dto.PageableEventDto": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.EventDto"
-                    }
-                },
-                "has_next": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "dto.PageableNotificationDto": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.NotificationDtoOut"
-                    }
-                },
-                "has_next": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "dto.PageableSkillDto": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.SkillDto"
-                    }
-                },
-                "has_next": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "dto.PageableUserDto": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.UserSkillDto"
-                    }
-                },
-                "has_next": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "dto.ParticipantUserDto": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.RegisterCommunityDto": {
+        "github_com_ajuda-dev_backend_src_controller_community_dto.RegisterCommunityDto": {
             "type": "object",
             "properties": {
                 "address_id": {
@@ -3205,13 +3044,176 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.RegisterEventDto": {
+        "github_com_ajuda-dev_backend_src_controller_community_dto.UpdateCommunityDto": {
+            "type": "object",
+            "properties": {
+                "address_id": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.AddParticipantDto": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.CancelEventDto": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.EventDto": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_address_dto.AddressDto"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "community": {
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityDto"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "duration_min": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "max_slots": {
+                    "type": "integer"
+                },
+                "meeting_link": {
+                    "type": "string"
+                },
+                "owner": {
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut"
+                },
+                "start_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.EventParticipantDto": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.ParticipantUserDto"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.EventUserDto": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.PageableEventDto": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventDto"
+                    }
+                },
+                "has_next": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.ParticipantUserDto": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.RegisterEventDto": {
             "type": "object",
             "properties": {
                 "address_id": {
                     "type": "string"
                 },
                 "category": {
+                    "type": "string"
+                },
+                "comment": {
                     "type": "string"
                 },
                 "community_id": {
@@ -3252,18 +3254,110 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.RegisterSkillDto": {
+        "github_com_ajuda-dev_backend_src_controller_event_dto.RescheduleEventDto": {
             "type": "object",
             "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "start_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventApprovalDto": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.UpdateParticipantStatusDto": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.ChangePasswordDtoIn": {
+            "type": "object",
+            "properties": {
+                "currentPassword": {
+                    "type": "string"
+                },
+                "newPassword": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.ConfigVisibilityDto": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.VisibilityConfigDto"
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.ForgotPasswordDtoIn": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.LoginUserDtoIn": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.LoginUserDtoOut": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "emailVerified": {
+                    "type": "boolean"
+                },
                 "id": {
                     "type": "string"
                 },
                 "name": {
                     "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
                 }
             }
         },
-        "dto.RegisterUserDtoIn": {
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.PageableUserDto": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserSkillDto"
+                    }
+                },
+                "has_next": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.RegisterUserDtoIn": {
             "type": "object",
             "properties": {
                 "email": {
@@ -3277,7 +3371,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.ResetPasswordDtoIn": {
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.ResetPasswordDtoIn": {
             "type": "object",
             "properties": {
                 "code": {
@@ -3291,80 +3385,11 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.SkillDto": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.SkillUserDto": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "level": {
-                    "type": "string"
-                },
-                "skill": {
-                    "$ref": "#/definitions/dto.SkillDto"
-                },
-                "skill_id": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.UpdateCommunityDto": {
-            "type": "object",
-            "properties": {
-                "address_id": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.UpdateEventApprovalDto": {
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.UpdateParticipantStatusDto": {
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.UpdateSkillDto": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.UpdateUserDtoIn": {
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.UpdateUserDtoIn": {
             "type": "object",
             "properties": {
                 "configVisibility": {
-                    "$ref": "#/definitions/dto.ConfigVisibilityDto"
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.ConfigVisibilityDto"
                 },
                 "description": {
                     "type": "string"
@@ -3380,11 +3405,11 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UserDtoOut": {
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut": {
             "type": "object",
             "properties": {
                 "configVisibility": {
-                    "$ref": "#/definitions/dto.ConfigVisibilityDto"
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.ConfigVisibilityDto"
                 },
                 "description": {
                     "type": "string"
@@ -3409,11 +3434,11 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UserProfileDtoOut": {
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.UserProfileDtoOut": {
             "type": "object",
             "properties": {
                 "configVisibility": {
-                    "$ref": "#/definitions/dto.ConfigVisibilityDto"
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.ConfigVisibilityDto"
                 },
                 "description": {
                     "type": "string"
@@ -3429,7 +3454,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.UserSkillDto": {
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.UserSkillDto": {
             "type": "object",
             "properties": {
                 "id": {
@@ -3441,12 +3466,12 @@ const docTemplate = `{
                 "skills": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.SkillDto"
+                        "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.SkillDto"
                     }
                 }
             }
         },
-        "dto.VerifyEmailDtoIn": {
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.VerifyEmailDtoIn": {
             "type": "object",
             "properties": {
                 "code": {
@@ -3454,13 +3479,122 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.VisibilityConfigDto": {
+        "github_com_ajuda-dev_backend_src_controller_identity_dto.VisibilityConfigDto": {
             "type": "object",
             "properties": {
                 "shareWithCommunity": {
                     "type": "boolean"
                 },
                 "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_notification_dto.NotificationDtoOut": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "payload": {
+                    "type": "object"
+                },
+                "read_at": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_notification_dto.PageableNotificationDto": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_notification_dto.NotificationDtoOut"
+                    }
+                },
+                "has_next": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_skill_dto.AssignSkillDto": {
+            "type": "object",
+            "properties": {
+                "level": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_skill_dto.PageableSkillDto": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.SkillDto"
+                    }
+                },
+                "has_next": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_skill_dto.RegisterSkillDto": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_skill_dto.SkillDto": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_skill_dto.SkillUserDto": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "skill": {
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_skill_dto.SkillDto"
+                },
+                "skill_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_skill_dto.UpdateSkillDto": {
+            "type": "object",
+            "properties": {
+                "name": {
                     "type": "string"
                 }
             }

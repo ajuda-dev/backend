@@ -72,14 +72,15 @@ func TestDeleteEventAuthorization(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+uuidv7.New().String(), "", validTokenFor(t, eventOwner.Id))
+	cancelBody := `{"comment":"Agenda do mentor mudou"}`
+	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+uuidv7.New().String(), cancelBody, validTokenFor(t, eventOwner.Id))
 	if resp.StatusCode != fiber.StatusNotFound {
 		t.Errorf("esperava 404 para evento inexistente, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
 	eventForThird := createEvent("Evento negado ao terceiro")
-	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+eventForThird.Id, "", validTokenFor(t, third.Id))
+	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+eventForThird.Id, cancelBody, validTokenFor(t, third.Id))
 	if resp.StatusCode != fiber.StatusForbidden {
 		t.Errorf("esperava 403 para terceiro, recebeu %d", resp.StatusCode)
 	}
@@ -89,14 +90,14 @@ func TestDeleteEventAuthorization(t *testing.T) {
 	}
 
 	eventForCommunityOwner := createEvent("Evento do dono da comunidade")
-	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+eventForCommunityOwner.Id, "", validTokenFor(t, communityOwner.Id))
+	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+eventForCommunityOwner.Id, cancelBody, validTokenFor(t, communityOwner.Id))
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Errorf("esperava 204 para o dono da comunidade, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
 	eventForModerator := createEvent("Evento do moderador")
-	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+eventForModerator.Id, "", validTokenFor(t, moderator.Id))
+	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+eventForModerator.Id, cancelBody, validTokenFor(t, moderator.Id))
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Errorf("esperava 204 para o moderador, recebeu %d", resp.StatusCode)
 	}
@@ -104,7 +105,7 @@ func TestDeleteEventAuthorization(t *testing.T) {
 
 	eventForOwner := createEvent("Evento do criador")
 	ownerToken := validTokenFor(t, eventOwner.Id)
-	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+eventForOwner.Id, "", ownerToken)
+	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+eventForOwner.Id, cancelBody, ownerToken)
 	if resp.StatusCode != fiber.StatusNoContent {
 		t.Fatalf("esperava 204 para o criador, recebeu %d", resp.StatusCode)
 	}

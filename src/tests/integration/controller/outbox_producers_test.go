@@ -197,7 +197,7 @@ func TestMentoringInvite_Accept_NotifiesOtherParticipants(t *testing.T) {
 	}, slots)
 	require.Nil(t, joinErr)
 
-	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusConfirmed, slots)
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusConfirmed, "", slots)
 	require.Nil(t, updateErr)
 
 	accepted := pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInviteAccepted)
@@ -209,6 +209,7 @@ func TestMentoringInvite_Accept_NotifiesOtherParticipants(t *testing.T) {
 		"status":   eventdomain.StatusConfirmed,
 		"actor_id": guest.Id,
 	})
+	assert.NotContains(t, string(accepted[0].Payload), `"comment"`)
 	assert.Empty(t, pendingOutboxByUserAndType(t, guest.Id, notificationdomain.OutboxTypeMentoringInviteAccepted))
 	assert.Len(t, pendingOutboxByUserAndType(t, guest.Id, notificationdomain.OutboxTypeMentoringInvitePending), 1)
 }
@@ -228,7 +229,7 @@ func TestMentoringInvite_Reject_NotifiesOtherParticipants(t *testing.T) {
 	}, slots)
 	require.Nil(t, joinErr)
 
-	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusRejected, slots)
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusRejected, "Agenda conflitou nesta semana", slots)
 	require.Nil(t, updateErr)
 
 	rejected := pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInviteRejected)
@@ -240,6 +241,7 @@ func TestMentoringInvite_Reject_NotifiesOtherParticipants(t *testing.T) {
 		"status":   eventdomain.StatusRejected,
 		"actor_id": guest.Id,
 	})
+	assert.NotContains(t, string(rejected[0].Payload), `"comment"`)
 	assert.Empty(t, pendingOutboxByUserAndType(t, guest.Id, notificationdomain.OutboxTypeMentoringInviteRejected))
 }
 
@@ -258,7 +260,7 @@ func TestMentoringInvite_Cancel_NoResponseOutbox(t *testing.T) {
 	}, slots)
 	require.Nil(t, joinErr)
 
-	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusCancelled, slots)
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusCancelled, "", slots)
 	require.Nil(t, updateErr)
 
 	assert.Empty(t, pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInviteAccepted))
@@ -366,7 +368,7 @@ func TestMentoringInvite_Accept_OutboxFailureRollsBackStatus(t *testing.T) {
 		}
 	}))
 
-	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusConfirmed, slots)
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusConfirmed, "", slots)
 	require.NotNil(t, updateErr)
 
 	participants, findErr := eventUserRepository.FindByEvent(event.Id, "")

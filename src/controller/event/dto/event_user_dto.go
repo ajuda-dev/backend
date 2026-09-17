@@ -11,6 +11,7 @@ type EventUserDto struct {
 	UserId  string              `json:"user_id"`
 	Role    string              `json:"role"`
 	Status  string              `json:"status"`
+	Comment string              `json:"comment,omitempty"`
 	User    *userdto.UserDtoOut `json:"user,omitempty"`
 }
 
@@ -21,6 +22,7 @@ func (e EventUserDto) FromDomain(eventUser *eventdomain.EventUserDomain) EventUs
 		UserId:  eventUser.UserId,
 		Role:    eventUser.Role,
 		Status:  eventUser.Status,
+		Comment: eventUser.StatusComment,
 	}
 	if eventUser.User != nil {
 		dtoUser.User = (&userdto.UserDtoOut{}).FromDomainUser(eventUser.User)
@@ -34,5 +36,6 @@ type AddParticipantDto struct {
 }
 
 type UpdateParticipantStatusDto struct {
-	Status string `json:"status"`
+	Status  string `json:"status"`
+	Comment string `json:"comment"`
 }

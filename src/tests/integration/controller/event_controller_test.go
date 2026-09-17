@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -451,7 +452,8 @@ func TestDeleteEventSoftDelete(t *testing.T) {
 		DurationMin: 60,
 	})
 
-	req := httptest.NewRequest("DELETE", "/v1/event/"+created.Id, nil)
+	req := httptest.NewRequest("DELETE", "/v1/event/"+created.Id, bytes.NewBufferString(`{"comment":"Agenda do mentor mudou"}`))
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := doAuthedRequest(app, req, token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
@@ -476,5 +478,209 @@ func TestDeleteEventSoftDelete(t *testing.T) {
 	}
 	if deletedEvent.Id != created.Id || !deletedEvent.DeletedAt.Valid {
 		t.Errorf("esperava evento com deleted_at preenchido, recebeu %+v", deletedEvent)
+	}
+	if deletedEvent.Comment == nil || *deletedEvent.Comment != "Agenda do mentor mudou" {
+		t.Errorf("esperava comment no cancelamento, recebeu %+v", deletedEvent.Comment)
+	}
+}
+
+func eventRescheduleBody(t *testing.T, startAt time.Time, comment string) string {
+	t.Helper()
+	payload, err := json.Marshal(eventdto.RescheduleEventDto{StartAt: startAt, Comment: comment})
+	if err != nil {
+		t.Fatalf("erro ao montar body de reagendamento: %v", err)
+	}
+	return string(payload)
+}
+
+func TestRescheduleAndCancelEventComment(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "reschedule_owner@ajuda.dev", userdomain.UserRoleUser)
+	third := createUserWithRole(t, "reschedule_third@ajuda.dev", userdomain.UserRoleUser)
+	communityOwner := createUserWithRole(t, "reschedule_community_owner@ajuda.dev", userdomain.UserRoleUser)
+	moderator := createUserWithRole(t, "reschedule_moderator@ajuda.dev", userdomain.UserRoleModerator)
+	address := createEventAddress(t, "reschedule_city")
+	community := createEventCommunity(t, "Comunidade reagendar", communityOwner, address)
+	eaAddCommunityMember(t, community.Id, owner.Id)
+
+	ownerToken := validTokenFor(t, owner.Id)
+	firstStart := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Second)
+	secondStart := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Second)
+
+	event := registerEventViaApi(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		CommunityId: strPtr(community.Id),
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
+		Title:       "Evento para reagendar",
+		Description: "reagendar com comment",
+		StartAt:     firstStart,
+		DurationMin: 60,
+	})
+	if event.Status != eventdomain.EventStatusPending {
+		t.Fatalf("esperava PENDING no evento do membro, recebeu %s", event.Status)
+	}
+
+	resp := euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
+		eventRescheduleBody(t,secondStart, "Sexta 15h encaixa melhor"), ownerToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no reagendamento, recebeu %d", resp.StatusCode)
+	}
+	rescheduled := eaDecodeEventDto(t, resp)
+	if rescheduled.Comment != "Sexta 15h encaixa melhor" {
+		t.Errorf("esperava o comment do reagendamento, recebeu '%s'", rescheduled.Comment)
+	}
+	if !rescheduled.StartAt.UTC().Truncate(time.Second).Equal(secondStart) {
+		t.Errorf("esperava start_at %s, recebeu %s", secondStart, rescheduled.StartAt)
+	}
+	if rescheduled.Status != eventdomain.EventStatusPending {
+		t.Errorf("não esperava mudar a aprovação no reagendamento, recebeu %s", rescheduled.Status)
+	}
+
+	resp = euRequest(t, app, http.MethodGet, "/v1/event/"+event.Id, "", ownerToken)
+	got := eaDecodeEventDto(t, resp)
+	if got.Comment != "Sexta 15h encaixa melhor" {
+		t.Errorf("esperava o comment no GET, recebeu '%s'", got.Comment)
+	}
+
+	thirdStart := time.Now().Add(96 * time.Hour).UTC().Truncate(time.Second)
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
+		eventRescheduleBody(t,thirdStart, "Na verdade sábado"), ownerToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no segundo reagendamento, recebeu %d", resp.StatusCode)
+	}
+	overwritten := eaDecodeEventDto(t, resp)
+	if overwritten.Comment != "Na verdade sábado" {
+		t.Errorf("esperava o comment sobrescrito, recebeu '%s'", overwritten.Comment)
+	}
+	if !overwritten.StartAt.UTC().Truncate(time.Second).Equal(thirdStart) {
+		t.Errorf("esperava start_at %s no overwrite, recebeu %s", thirdStart, overwritten.StartAt)
+	}
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
+		eventRescheduleBody(t,time.Now().Add(120*time.Hour), ""), ownerToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 sem comment, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if len(getCauseByField("comment", respBody.Causes)) == 0 {
+		t.Errorf("esperava cause em comment, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
+		eventRescheduleBody(t,time.Now().Add(120*time.Hour), "   "), ownerToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 com comment só de espaços, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
+		eventRescheduleBody(t,time.Now().Add(120*time.Hour), strings.Repeat("a", 501)), ownerToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 no comment > 500, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	causes := getCauseByField("comment", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "comment must have at most 500 characters" {
+		t.Errorf("esperava cause de tamanho, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
+		eventRescheduleBody(t,time.Now().Add(-24*time.Hour), "data passada"), ownerToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 no start_at passado, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	if len(getCauseByField("start_at", respBody.Causes)) == 0 {
+		t.Errorf("esperava cause em start_at, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
+		eventRescheduleBody(t,time.Now().Add(120*time.Hour), "Sexta 15h encaixa melhor"), validTokenFor(t, third.Id))
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 para terceiro, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	communityEvent := registerEventViaApi(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		CommunityId: strPtr(community.Id),
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
+		Title:       "Evento do dono da comunidade",
+		Description: "reagendar pelo dono da comunidade",
+		StartAt:     time.Now().Add(48 * time.Hour),
+		DurationMin: 60,
+	})
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+communityEvent.Id+"/reschedule",
+		eventRescheduleBody(t,time.Now().Add(80*time.Hour), "Dono da comunidade reagendou"), validTokenFor(t, communityOwner.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 para o dono da comunidade, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	moderatorEvent := registerEventViaApi(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		CommunityId: strPtr(community.Id),
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
+		Title:       "Evento do moderador",
+		Description: "reagendar pelo moderador",
+		StartAt:     time.Now().Add(48 * time.Hour),
+		DurationMin: 60,
+	})
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+moderatorEvent.Id+"/reschedule",
+		eventRescheduleBody(t,time.Now().Add(80*time.Hour), "Moderador reagendou"), validTokenFor(t, moderator.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 para o moderador, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	cancelEvent := registerEventViaApi(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
+		Title:       "Evento para cancelar sem comment",
+		Description: "deve permanecer",
+		StartAt:     time.Now().Add(48 * time.Hour),
+		DurationMin: 60,
+	})
+	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+cancelEvent.Id, `{"comment":""}`, ownerToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 no cancel sem comment, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	causes = getCauseByField("comment", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "comment is required when cancelling" {
+		t.Errorf("esperava cause comment is required when cancelling, recebeu %+v", respBody.Causes)
+	}
+	resp = euRequest(t, app, http.MethodGet, "/v1/event/"+cancelEvent.Id, "", ownerToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Errorf("esperava o evento permanecer após cancel 400, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
+		eventRescheduleBody(t,time.Now().Add(110*time.Hour), "Antes do cancel"), ownerToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no reagendamento antes do cancel, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	resp = euRequest(t, app, http.MethodDelete, "/v1/event/"+event.Id, `{"comment":"Agenda do mentor mudou"}`, ownerToken)
+	if resp.StatusCode != fiber.StatusNoContent {
+		t.Fatalf("esperava 204 no cancel após reagendar, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	var deletedEvent evententity.EventEntity
+	if err := db.Unscoped().Where("id = ?", event.Id).First(&deletedEvent).Error; err != nil {
+		t.Fatalf("esperava achar o evento arquivado via Unscoped, recebeu %v", err)
+	}
+	if !deletedEvent.DeletedAt.Valid {
+		t.Errorf("esperava deleted_at preenchido após o cancel")
+	}
+	if deletedEvent.Comment == nil || *deletedEvent.Comment != "Agenda do mentor mudou" {
+		t.Errorf("esperava o comment do cancel na linha deletada, recebeu %+v", deletedEvent.Comment)
 	}
 }

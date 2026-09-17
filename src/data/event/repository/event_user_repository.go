@@ -19,7 +19,7 @@ type EventUserRepository interface {
 	FindByEvent(eventId string, status string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr)
 	FindByUser(userId string, role string, status string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr)
 	FindById(id string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
-	UpdateStatus(eventId string, userId string, status string, maxSlots *int) (*eventdomain.EventUserDomain, *rest_err.RestErr)
+	UpdateStatus(eventId string, userId string, status string, comment string, maxSlots *int) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 	CountConfirmedByEvent(eventId string) (int64, *rest_err.RestErr)
 	CountActiveByUserId(userId string) (int64, *rest_err.RestErr)
 }
@@ -140,11 +140,12 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *eventdomain.EventUserDom
 		switch existing.Status {
 		case eventdomain.StatusCancelled, eventdomain.StatusRejected:
 			if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", existing.Id).
-				Updates(map[string]interface{}{"role": eventUser.Role, "status": eventUser.Status}).Error; err != nil {
+				Updates(map[string]interface{}{"role": eventUser.Role, "status": eventUser.Status, "status_comment": nil}).Error; err != nil {
 				return rest_err.NewInternalServerError("Error updating participant: " + err.Error())
 			}
 			existing.Role = eventUser.Role
 			existing.Status = eventUser.Status
+			existing.StatusComment = nil
 			result = existing.ToDomain()
 			if err := e.insertMentoringInviteOutbox(tx, eventUser); err != nil {
 				return err
@@ -170,7 +171,7 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *eventdomain.EventUserDom
 	return result, nil
 }
 
-func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status string, maxSlots *int) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status string, comment string, maxSlots *int) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
 	var result *eventdomain.EventUserDomain
 	txErr := e.database.Transaction(func(tx *gorm.DB) error {
 		eventRow, lockErr := lockEventRow(tx, eventId)
@@ -201,11 +202,22 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 				return err
 			}
 		}
+		fields := map[string]interface{}{"status": status}
+		if status == eventdomain.StatusCancelled || comment == "" {
+			fields["status_comment"] = nil
+		} else {
+			fields["status_comment"] = comment
+		}
 		if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", existing.Id).
-			Update("status", status).Error; err != nil {
+			Updates(fields).Error; err != nil {
 			return rest_err.NewInternalServerError("Error updating participant status: " + err.Error())
 		}
 		existing.Status = status
+		if status == eventdomain.StatusCancelled || comment == "" {
+			existing.StatusComment = nil
+		} else {
+			existing.StatusComment = &comment
+		}
 		result = existing.ToDomain()
 		if err := e.insertMentoringInviteResponseOutbox(tx, eventRow, userId, status); err != nil {
 			return err

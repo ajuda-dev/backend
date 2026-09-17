@@ -37,6 +37,7 @@ type EventDomain struct {
 	MaxSlots    *int
 	CreatorRole string
 	Status      string
+	Comment     string
 }
 
 type PageableEvent struct {

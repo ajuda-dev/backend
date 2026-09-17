@@ -18,10 +18,11 @@ const (
 )
 
 type EventUserDomain struct {
-	Id      string
-	EventId string
-	UserId  string
-	Role    string
-	Status  string
-	User    *userdomain.UserDomain
+	Id            string
+	EventId       string
+	UserId        string
+	Role          string
+	Status        string
+	StatusComment string
+	User          *userdomain.UserDomain
 }
