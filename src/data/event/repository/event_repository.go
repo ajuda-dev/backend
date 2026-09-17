@@ -36,6 +36,7 @@ type EventRepository interface {
 	Reschedule(id string, startAt time.Time, comment string, requesterId string) (*eventdomain.EventDomain, *rest_err.RestErr)
 	SoftDeleteById(id string, comment string) *rest_err.RestErr
 	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
+	CountByOwnerIdAndStatuses(ownerId string, statuses []string) (int64, *rest_err.RestErr)
 	UpdateApprovalStatus(id string, current string, status string, actorId string) (*eventdomain.EventDomain, *rest_err.RestErr)
 }
 
@@ -152,6 +153,19 @@ func (e *eventRepository) CountByOwnerId(userId string) (int64, *rest_err.RestEr
 	var count int64
 	if err := e.database.Model(&evententity.EventEntity{}).
 		Where("owner_id = ?", userId).
+		Count(&count).Error; err != nil {
+		return 0, rest_err.NewInternalServerError("Error counting events: " + err.Error())
+	}
+	return count, nil
+}
+
+func (e *eventRepository) CountByOwnerIdAndStatuses(ownerId string, statuses []string) (int64, *rest_err.RestErr) {
+	var count int64
+	if len(statuses) == 0 {
+		return 0, nil
+	}
+	if err := e.database.Model(&evententity.EventEntity{}).
+		Where("owner_id = ? AND status IN ?", ownerId, statuses).
 		Count(&count).Error; err != nil {
 		return 0, rest_err.NewInternalServerError("Error counting events: " + err.Error())
 	}

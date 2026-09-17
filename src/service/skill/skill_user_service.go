@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"github.com/ajuda-dev/backend/src/config/quota"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	skillrepo "github.com/ajuda-dev/backend/src/data/skill/repository"
 	"github.com/ajuda-dev/backend/src/service/identity"
@@ -20,18 +21,21 @@ type skillUserService struct {
 	skillService        SkillService
 	skillUserRepository skillrepo.SkillUserRepository
 	skillUserValidator  skillvalidator.SkillUserValidator
+	quotaCfg            quota.Config
 }
 
 func NewSkillUserService(
 	userService identity.UserService,
 	skillService SkillService,
 	skillUserRepository skillrepo.SkillUserRepository,
-	skillUserValidator skillvalidator.SkillUserValidator) SkillUserService {
+	skillUserValidator skillvalidator.SkillUserValidator,
+	quotaCfg quota.Config) SkillUserService {
 	return &skillUserService{
 		userService:         userService,
 		skillService:        skillService,
 		skillUserRepository: skillUserRepository,
 		skillUserValidator:  skillUserValidator,
+		quotaCfg:            quotaCfg,
 	}
 }
 
@@ -64,13 +68,24 @@ func (s *skillUserService) AssignSkill(skillUser *skilldomain.SkillUserDomain, r
 		}
 		return nil, err
 	}
-	if _, err := s.userService.FindById(skillUser.UserId); err != nil {
+	target, err := s.userService.FindById(skillUser.UserId)
+	if err != nil {
 		return nil, rest_err.NewBadRequestValidationError(
 			"Invalid skill user data",
 			[]rest_err.Causes{{
 				Field:   "user_id",
 				Message: "user_id is not valid, not found this user",
 			}})
+	}
+	limit, enforce, bypass := quota.OptionalLimitForRole(target.Role, s.quotaCfg.MaxSkillsPerUser, s.quotaCfg.MaxSkillsPerUserModerator)
+	if !bypass && enforce {
+		count, countErr := s.skillUserRepository.CountByUserId(target.Id)
+		if countErr != nil {
+			return nil, countErr
+		}
+		if count >= int64(limit) {
+			return nil, rest_err.NewTooManyRequestsError("skills limit reached")
+		}
 	}
 	return s.skillUserRepository.Create(skillUser)
 }

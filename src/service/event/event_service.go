@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ajuda-dev/backend/src/config/quota"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
 	eventrepo "github.com/ajuda-dev/backend/src/data/event/repository"
@@ -31,6 +32,8 @@ type eventService struct {
 	addressService          address.AddressService
 	communityRepository     communityrepo.CommunityRepository
 	communityUserRepository communityrepo.CommunityUserRepository
+	quotaCfg                quota.Config
+	rateLimiter             *quota.HourlyLimiter
 }
 
 func NewEventService(
@@ -40,7 +43,9 @@ func NewEventService(
 	eventRepository eventrepo.EventRepository,
 	eventUserRepository eventrepo.EventUserRepository,
 	communityUserRepository communityrepo.CommunityUserRepository,
-	eventValidator eventvalidator.EventValidator) EventService {
+	eventValidator eventvalidator.EventValidator,
+	quotaCfg quota.Config,
+	rateLimiter *quota.HourlyLimiter) EventService {
 	return &eventService{
 		userService:             userService,
 		addressService:          addressService,
@@ -49,6 +54,8 @@ func NewEventService(
 		eventUserRepository:     eventUserRepository,
 		communityUserRepository: communityUserRepository,
 		eventValidator:          eventValidator,
+		quotaCfg:                quotaCfg,
+		rateLimiter:             rateLimiter,
 	}
 }
 
@@ -118,9 +125,48 @@ func (e *eventService) CreateEvent(event *eventdomain.EventDomain) (*eventdomain
 		}
 	}
 
+	rateLimit, rateBypass := quota.LimitForRole(requester.Role, e.quotaCfg.RateEventCreatePerHour, e.quotaCfg.RateEventCreatePerHourModerator)
+	if !rateBypass {
+		if err := e.rateLimiter.Check(quota.BucketEventCreate, requester.Id, rateLimit, time.Now(), "too many event creations"); err != nil {
+			return &eventdomain.EventDomain{}, err
+		}
+	}
+
+	activeLimit, activeBypass := quota.LimitForRole(requester.Role, e.quotaCfg.MaxActiveEvents, e.quotaCfg.MaxActiveEventsModerator)
+	if !activeBypass {
+		activeCount, countErr := e.eventRepository.CountByOwnerIdAndStatuses(requester.Id, []string{
+			eventdomain.EventStatusPending,
+			eventdomain.EventStatusApproved,
+		})
+		if countErr != nil {
+			return &eventdomain.EventDomain{}, countErr
+		}
+		if activeCount >= int64(activeLimit) {
+			return &eventdomain.EventDomain{}, rest_err.NewTooManyRequestsError("active events limit reached")
+		}
+	}
+
+	if event.Status == eventdomain.EventStatusPending {
+		pendingLimit, pendingBypass := quota.LimitForRole(requester.Role, e.quotaCfg.MaxPendingEvents, e.quotaCfg.MaxPendingEventsModerator)
+		if !pendingBypass {
+			pendingCount, countErr := e.eventRepository.CountByOwnerIdAndStatuses(requester.Id, []string{
+				eventdomain.EventStatusPending,
+			})
+			if countErr != nil {
+				return &eventdomain.EventDomain{}, countErr
+			}
+			if pendingCount >= int64(pendingLimit) {
+				return &eventdomain.EventDomain{}, rest_err.NewTooManyRequestsError("pending events limit reached")
+			}
+		}
+	}
+
 	createdEvent, createErr := e.eventRepository.CreateEvent(event)
 	if createErr != nil {
 		return &eventdomain.EventDomain{}, createErr
+	}
+	if !rateBypass {
+		e.rateLimiter.Record(quota.BucketEventCreate, requester.Id, time.Now())
 	}
 
 	if event.Category == eventdomain.CategoryMentoring {

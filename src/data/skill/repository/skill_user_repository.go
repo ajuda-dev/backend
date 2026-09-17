@@ -13,6 +13,7 @@ import (
 type SkillUserRepository interface {
 	Create(skillUser *skilldomain.SkillUserDomain) (*skilldomain.SkillUserDomain, *rest_err.RestErr)
 	FindByUser(userId string) ([]*skilldomain.SkillUserDomain, *rest_err.RestErr)
+	CountByUserId(userId string) (int64, *rest_err.RestErr)
 	DeleteByUserAndSkill(userId string, skillId string) *rest_err.RestErr
 }
 
@@ -59,6 +60,16 @@ func (s *skillUserRepository) FindByUser(userId string) ([]*skilldomain.SkillUse
 		return nil, rest_err.NewInternalServerError("Error getting user skills: " + err.Error())
 	}
 	return skillentity.ToSkillUserDomainList(entities), nil
+}
+
+func (s *skillUserRepository) CountByUserId(userId string) (int64, *rest_err.RestErr) {
+	var count int64
+	if err := s.database.Model(&skillentity.SkillUserEntity{}).
+		Where("user_id = ?", userId).
+		Count(&count).Error; err != nil {
+		return 0, rest_err.NewInternalServerError("Error counting skill users: " + err.Error())
+	}
+	return count, nil
 }
 
 func (s *skillUserRepository) DeleteByUserAndSkill(userId string, skillId string) *rest_err.RestErr {

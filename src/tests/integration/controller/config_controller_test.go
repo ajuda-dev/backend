@@ -11,6 +11,7 @@ import (
 	"github.com/ajuda-dev/backend/src/client/email"
 	"github.com/ajuda-dev/backend/src/client/oauth"
 	client "github.com/ajuda-dev/backend/src/client/viacep"
+	"github.com/ajuda-dev/backend/src/config/quota"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	addressctrl "github.com/ajuda-dev/backend/src/controller/address"
 	communityctrl "github.com/ajuda-dev/backend/src/controller/community"
@@ -134,6 +135,23 @@ func TestMain(m *testing.M) {
 	os.Setenv("JWT_SECRET", "test-secret")
 	os.Setenv("JWT_EXPIRATION_TIME", "24")
 	os.Setenv("OUTBOX_ENABLED", "false")
+	// Generous defaults so existing suites are not blocked by production quotas/rates.
+	os.Setenv("MAX_OWNED_COMMUNITIES", "1000")
+	os.Setenv("MAX_OWNED_COMMUNITIES_MODERATOR", "1000")
+	os.Setenv("MAX_PENDING_EVENTS", "1000")
+	os.Setenv("MAX_PENDING_EVENTS_MODERATOR", "1000")
+	os.Setenv("MAX_ACTIVE_EVENTS", "1000")
+	os.Setenv("MAX_ACTIVE_EVENTS_MODERATOR", "1000")
+	os.Setenv("MAX_COMMUNITY_MEMBERSHIPS", "1000")
+	os.Setenv("MAX_COMMUNITY_MEMBERSHIPS_MODERATOR", "1000")
+	os.Setenv("RATE_LIMIT_EVENT_CREATE_PER_HOUR", "1000")
+	os.Setenv("RATE_LIMIT_EVENT_CREATE_PER_HOUR_MODERATOR", "1000")
+	os.Setenv("RATE_LIMIT_COMMUNITY_CREATE_PER_HOUR", "1000")
+	os.Setenv("RATE_LIMIT_COMMUNITY_CREATE_PER_HOUR_MODERATOR", "1000")
+	os.Setenv("RATE_LIMIT_COMMUNITY_JOIN_PER_HOUR", "1000")
+	os.Setenv("RATE_LIMIT_COMMUNITY_JOIN_PER_HOUR_MODERATOR", "1000")
+	os.Unsetenv("MAX_SKILLS_PER_USER")
+	os.Unsetenv("MAX_SKILLS_PER_USER_MODERATOR")
 
 	db, cleanupDB, err = setupTestDB(context.Background())
 	if err != nil {
@@ -172,15 +190,17 @@ func setupAppWithEmail(sender email.EmailSender) *fiber.App {
 	routes.SetupRoutesUser(app, identityctrl.NewUserController(userService), identityctrl.NewAuthController(authService), authMiddleware)
 	routes.SetupRoutesAuth(app, identityctrl.NewOAuthController(oauthService))
 	routes.SetupRoutesAddress(app, addressctrl.NewAddressController(addressService), authMiddleware)
-	communityService := community.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, communityvalidator.NewCommunityValidator())
+	quotaCfg := quota.LoadFromEnv()
+	rateLimiter := quota.NewHourlyLimiter()
+	communityService := community.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, communityvalidator.NewCommunityValidator(), quotaCfg, rateLimiter)
 	routes.SetupRoutesCommunities(app, communityctrl.NewCommunityController(communityService), authMiddleware)
-	routes.SetupRoutesCommunityUsers(app, communityctrl.NewCommunityUserController(community.NewCommunityUserService(userService, communityService, communityUserRepository)), authMiddleware)
-	eventService := event.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, communityUserRepository, eventvalidator.NewEventValidator())
+	routes.SetupRoutesCommunityUsers(app, communityctrl.NewCommunityUserController(community.NewCommunityUserService(userService, communityService, communityUserRepository, quotaCfg, rateLimiter)), authMiddleware)
+	eventService := event.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, communityUserRepository, eventvalidator.NewEventValidator(), quotaCfg, rateLimiter)
 	routes.SetupRoutesEvents(app, eventctrl.NewEventController(eventService), authMiddleware)
 	routes.SetupRoutesEventUsers(app, eventctrl.NewEventUserController(event.NewEventUserService(userService, eventService, eventUserRepository, eventvalidator.NewEventUserValidator())), authMiddleware)
 	skillService := skill.NewSkillService(userService, skillRepository, skillvalidator.NewSkillValidator())
 	routes.SetupRoutesSkills(app, skillctrl.NewSkillController(skillService), authMiddleware)
-	routes.SetupRoutesSkillUsers(app, skillctrl.NewSkillUserController(skill.NewSkillUserService(userService, skillService, skillUserRepository, skillvalidator.NewSkillUserValidator())), authMiddleware)
+	routes.SetupRoutesSkillUsers(app, skillctrl.NewSkillUserController(skill.NewSkillUserService(userService, skillService, skillUserRepository, skillvalidator.NewSkillUserValidator(), quotaCfg)), authMiddleware)
 	routes.SetupRoutesNotifications(app, notificationctrl.NewNotificationController(notification.NewNotificationHub(), notification.NewNotificationService(outboxEventRepository)), authMiddleware)
 	routes.SetupSwaggerRoute(app)
 

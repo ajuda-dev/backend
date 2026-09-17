@@ -9,6 +9,7 @@ import (
 	"github.com/ajuda-dev/backend/src/config/database"
 	"github.com/ajuda-dev/backend/src/config/job"
 	"github.com/ajuda-dev/backend/src/config/logger"
+	"github.com/ajuda-dev/backend/src/config/quota"
 	addressctrl "github.com/ajuda-dev/backend/src/controller/address"
 	communityctrl "github.com/ajuda-dev/backend/src/controller/community"
 	eventctrl "github.com/ajuda-dev/backend/src/controller/event"
@@ -62,6 +63,8 @@ func InitApp() {
 	oauthService := identity.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), userrepo.NewOAuthAccountRepository(db), userRepository, authService)
 	userService := initUserService(userRepository, authService, communityRepository, eventRepository, eventUserRepository, communityUserRepository, outboxEventRepository, emailCodeRepository)
 	addressService := initAddressService(addressRepository)
+	quotaCfg := quota.LoadFromEnv()
+	rateLimiter := quota.NewHourlyLimiter()
 	eventService := event.NewEventService(
 		userService,
 		addressService,
@@ -69,11 +72,13 @@ func InitApp() {
 		eventRepository,
 		eventUserRepository,
 		communityUserRepository,
-		eventvalidator.NewEventValidator())
+		eventvalidator.NewEventValidator(),
+		quotaCfg,
+		rateLimiter)
 	skillService := skill.NewSkillService(userService, skillRepository, skillvalidator.NewSkillValidator())
 	authMiddleware := middleware.VerifyJWT(authService)
-	communityService := community.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, communityvalidator.NewCommunityValidator())
-	communityUserService := community.NewCommunityUserService(userService, communityService, communityUserRepository)
+	communityService := community.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, communityvalidator.NewCommunityValidator(), quotaCfg, rateLimiter)
+	communityUserService := community.NewCommunityUserService(userService, communityService, communityUserRepository, quotaCfg, rateLimiter)
 	routes.SetupRoutesUser(app, initUserController(userService), initAuthController(authService), authMiddleware)
 	routes.SetupRoutesAuth(app, identityctrl.NewOAuthController(oauthService))
 	routes.SetupRoutesAddress(app, initAddressController(addressService), authMiddleware)
@@ -82,7 +87,7 @@ func InitApp() {
 	routes.SetupRoutesEvents(app, eventctrl.NewEventController(eventService), authMiddleware)
 	routes.SetupRoutesEventUsers(app, initEventUserController(userService, eventService, eventUserRepository), authMiddleware)
 	routes.SetupRoutesSkills(app, skillctrl.NewSkillController(skillService), authMiddleware)
-	routes.SetupRoutesSkillUsers(app, initSkillUserController(userService, skillService, skillUserRepository), authMiddleware)
+	routes.SetupRoutesSkillUsers(app, initSkillUserController(userService, skillService, skillUserRepository, quotaCfg), authMiddleware)
 	hub := notification.NewNotificationHub()
 	routes.SetupRoutesNotifications(app, notificationctrl.NewNotificationController(hub, notification.NewNotificationService(outboxEventRepository)), authMiddleware)
 	routes.SetupSwaggerRoute(app)
@@ -115,8 +120,9 @@ func initEventUserController(
 func initSkillUserController(
 	userService identity.UserService,
 	skillService skill.SkillService,
-	skillUserRepository skillrepo.SkillUserRepository) skillctrl.SkillUserController {
-	return skillctrl.NewSkillUserController(skill.NewSkillUserService(userService, skillService, skillUserRepository, skillvalidator.NewSkillUserValidator()))
+	skillUserRepository skillrepo.SkillUserRepository,
+	quotaCfg quota.Config) skillctrl.SkillUserController {
+	return skillctrl.NewSkillUserController(skill.NewSkillUserService(userService, skillService, skillUserRepository, skillvalidator.NewSkillUserValidator(), quotaCfg))
 }
 
 func initUserService(userRepository userrepo.UserRepository,

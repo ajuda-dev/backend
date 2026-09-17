@@ -1,6 +1,9 @@
 package community
 
 import (
+	"time"
+
+	"github.com/ajuda-dev/backend/src/config/quota"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
 	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
@@ -18,16 +21,22 @@ type communityUserService struct {
 	userService             identity.UserService
 	communityService        CommunityService
 	communityUserRepository communityrepo.CommunityUserRepository
+	quotaCfg                quota.Config
+	rateLimiter             *quota.HourlyLimiter
 }
 
 func NewCommunityUserService(
 	userService identity.UserService,
 	communityService CommunityService,
-	communityUserRepository communityrepo.CommunityUserRepository) CommunityUserService {
+	communityUserRepository communityrepo.CommunityUserRepository,
+	quotaCfg quota.Config,
+	rateLimiter *quota.HourlyLimiter) CommunityUserService {
 	return &communityUserService{
 		userService:             userService,
 		communityService:        communityService,
 		communityUserRepository: communityUserRepository,
+		quotaCfg:                quotaCfg,
+		rateLimiter:             rateLimiter,
 	}
 }
 
@@ -42,10 +51,36 @@ func (c *communityUserService) JoinCommunity(communityId string, userId string) 
 	if err := identity.RequireVerifiedEmail(user); err != nil {
 		return nil, err
 	}
-	return c.communityUserRepository.Create(&communitydomain.CommunityUserDomain{
+
+	rateLimit, rateBypass := quota.LimitForRole(user.Role, c.quotaCfg.RateCommunityJoinPerHour, c.quotaCfg.RateCommunityJoinPerHourModerator)
+	if !rateBypass {
+		if err := c.rateLimiter.Check(quota.BucketCommunityJoin, user.Id, rateLimit, time.Now(), "too many community joins"); err != nil {
+			return nil, err
+		}
+	}
+
+	memberLimit, memberBypass := quota.LimitForRole(user.Role, c.quotaCfg.MaxCommunityMemberships, c.quotaCfg.MaxCommunityMembershipsModerator)
+	if !memberBypass {
+		count, countErr := c.communityUserRepository.CountByUserId(user.Id)
+		if countErr != nil {
+			return nil, countErr
+		}
+		if count >= int64(memberLimit) {
+			return nil, rest_err.NewTooManyRequestsError("community memberships limit reached")
+		}
+	}
+
+	created, createErr := c.communityUserRepository.Create(&communitydomain.CommunityUserDomain{
 		CommunityId: communityId,
 		UserId:      user.Id,
 	})
+	if createErr != nil {
+		return nil, createErr
+	}
+	if !rateBypass {
+		c.rateLimiter.Record(quota.BucketCommunityJoin, user.Id, time.Now())
+	}
+	return created, nil
 }
 
 func (c *communityUserService) LeaveCommunity(communityId string, userId string) *rest_err.RestErr {

@@ -1,6 +1,9 @@
 package community
 
 import (
+	"time"
+
+	"github.com/ajuda-dev/backend/src/config/quota"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	communityrepo "github.com/ajuda-dev/backend/src/data/community/repository"
 	"github.com/ajuda-dev/backend/src/service/address"
@@ -24,19 +27,25 @@ type communityService struct {
 	communityRepository     communityrepo.CommunityRepository
 	communityUserRepository communityrepo.CommunityUserRepository
 	communityValidator      communityvalidator.CommunityValidator
+	quotaCfg                quota.Config
+	rateLimiter             *quota.HourlyLimiter
 }
 
 func NewCommunityService(userService identity.UserService,
 	addressService address.AddressService,
 	communityRepository communityrepo.CommunityRepository,
 	communityUserRepository communityrepo.CommunityUserRepository,
-	communityValidator communityvalidator.CommunityValidator) CommunityService {
+	communityValidator communityvalidator.CommunityValidator,
+	quotaCfg quota.Config,
+	rateLimiter *quota.HourlyLimiter) CommunityService {
 	return &communityService{
 		userService:             userService,
 		addressService:          addressService,
 		communityRepository:     communityRepository,
 		communityUserRepository: communityUserRepository,
 		communityValidator:      communityValidator,
+		quotaCfg:                quotaCfg,
+		rateLimiter:             rateLimiter,
 	}
 }
 
@@ -71,6 +80,25 @@ func (c *communityService) CreateCommunity(community *communitydomain.CommunityD
 		return &communitydomain.CommunityDomain{}, err
 	}
 	community.Owner = *user
+
+	rateLimit, rateBypass := quota.LimitForRole(user.Role, c.quotaCfg.RateCommunityCreatePerHour, c.quotaCfg.RateCommunityCreatePerHourModerator)
+	if !rateBypass {
+		if err := c.rateLimiter.Check(quota.BucketCommunityCreate, user.Id, rateLimit, time.Now(), "too many community creations"); err != nil {
+			return &communitydomain.CommunityDomain{}, err
+		}
+	}
+
+	ownedLimit, ownedBypass := quota.LimitForRole(user.Role, c.quotaCfg.MaxOwnedCommunities, c.quotaCfg.MaxOwnedCommunitiesModerator)
+	if !ownedBypass {
+		count, countErr := c.communityRepository.CountByOwnerId(user.Id)
+		if countErr != nil {
+			return &communitydomain.CommunityDomain{}, countErr
+		}
+		if count >= int64(ownedLimit) {
+			return &communitydomain.CommunityDomain{}, rest_err.NewTooManyRequestsError("owned communities limit reached")
+		}
+	}
+
 	address, err_a := c.addressService.GetAddressById(community.Address.Id)
 	if err_a != nil {
 		if err_a.Code == 404 {
@@ -85,7 +113,14 @@ func (c *communityService) CreateCommunity(community *communitydomain.CommunityD
 		return &communitydomain.CommunityDomain{}, err_a
 	}
 	community.Address = *address
-	return c.communityRepository.CreateCommunity(community)
+	created, createErr := c.communityRepository.CreateCommunity(community)
+	if createErr != nil {
+		return &communitydomain.CommunityDomain{}, createErr
+	}
+	if !rateBypass {
+		c.rateLimiter.Record(quota.BucketCommunityCreate, user.Id, time.Now())
+	}
+	return created, nil
 }
 
 func (c *communityService) GetCommunityById(id string) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
