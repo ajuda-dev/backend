@@ -230,6 +230,70 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 	return result, nil
 }
 
+func applyMentoringRescheduleStatuses(tx *gorm.DB, outbox notificationrepo.OutboxEventRepository, event *evententity.EventEntity, requesterId string) error {
+	if event == nil || event.Category != eventdomain.CategoryMentoring {
+		return nil
+	}
+	var participants []evententity.EventUserEntity
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("event_id = ?", event.Id).
+		Order("id").
+		Find(&participants).Error; err != nil {
+		return rest_err.NewInternalServerError("Error getting participants: " + err.Error())
+	}
+
+	confirmedUserId := event.OwnerId
+	for _, participant := range participants {
+		if participant.UserId == requesterId && participant.Status != eventdomain.StatusCancelled {
+			confirmedUserId = requesterId
+			break
+		}
+	}
+
+	var pendingUserIds []string
+	for _, participant := range participants {
+		if participant.Status == eventdomain.StatusCancelled || participant.UserId == confirmedUserId {
+			continue
+		}
+		if participant.Status != eventdomain.StatusConfirmed {
+			continue
+		}
+		if err := updateEventUserStatus(tx, participant.Id, eventdomain.StatusRequested); err != nil {
+			return err
+		}
+		pendingUserIds = append(pendingUserIds, participant.UserId)
+	}
+
+	for _, participant := range participants {
+		if participant.UserId != confirmedUserId || participant.Status == eventdomain.StatusCancelled {
+			continue
+		}
+		if participant.Status == eventdomain.StatusConfirmed && participant.StatusComment == nil {
+			continue
+		}
+		if err := updateEventUserStatus(tx, participant.Id, eventdomain.StatusConfirmed); err != nil {
+			return err
+		}
+	}
+
+	if outbox == nil || len(pendingUserIds) == 0 {
+		return nil
+	}
+	payload, _ := json.Marshal(map[string]string{
+		"event_id": event.Id,
+		"category": eventdomain.CategoryMentoring,
+	})
+	return insertOutboxForUsers(outbox, tx, notificationdomain.OutboxTypeMentoringInvitePending, pendingUserIds, payload)
+}
+
+func updateEventUserStatus(tx *gorm.DB, id string, status string) error {
+	if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", id).
+		Updates(map[string]interface{}{"status": status, "status_comment": nil}).Error; err != nil {
+		return rest_err.NewInternalServerError("Error updating participant status: " + err.Error())
+	}
+	return nil
+}
+
 func (e *eventUserRepository) insertMentoringInviteOutbox(tx *gorm.DB, eventUser *eventdomain.EventUserDomain) error {
 	if e.outbox == nil || eventUser.Status != eventdomain.StatusRequested {
 		return nil

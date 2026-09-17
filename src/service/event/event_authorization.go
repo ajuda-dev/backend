@@ -19,8 +19,28 @@ func canManageEvent(requester *userdomain.UserDomain, event *eventdomain.EventDo
 	return event.Community != nil && event.Community.Owner.Id == requester.Id
 }
 
+func canRescheduleEvent(requester *userdomain.UserDomain, event *eventdomain.EventDomain, isMentoringParticipant bool) bool {
+	if canManageEvent(requester, event) {
+		return true
+	}
+	return event.Category == eventdomain.CategoryMentoring && isMentoringParticipant
+}
+
+func isActiveMentoringParticipant(participants []*eventdomain.EventUserDomain, userId string) bool {
+	for _, participant := range participants {
+		if participant != nil && participant.UserId == userId && participant.Status != eventdomain.StatusCancelled {
+			return true
+		}
+	}
+	return false
+}
+
 func forbiddenManageEvent() *rest_err.RestErr {
 	return rest_err.NewForbiddenError("only the event owner, the community owner or moderators can manage this event")
+}
+
+func forbiddenRescheduleEvent() *rest_err.RestErr {
+	return rest_err.NewForbiddenError("only the event owner, the invited participant, the community owner or moderators can reschedule this event")
 }
 
 func isCommunityOwner(requester *userdomain.UserDomain, communityId string, communityRepository communityrepo.CommunityRepository) bool {

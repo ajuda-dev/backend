@@ -197,13 +197,24 @@ func (e *eventService) Reschedule(id string, requesterId string, startAt time.Ti
 	if err != nil {
 		return nil, err
 	}
-	if !canManageEvent(requester, event) {
+	isMentoringParticipant := false
+	if event.Category == eventdomain.CategoryMentoring && !canManageEvent(requester, event) {
+		participants, partErr := e.eventUserRepository.FindByEvent(id, "")
+		if partErr != nil {
+			return nil, partErr
+		}
+		isMentoringParticipant = isActiveMentoringParticipant(participants, requester.Id)
+	}
+	if !canRescheduleEvent(requester, event, isMentoringParticipant) {
+		if event.Category == eventdomain.CategoryMentoring {
+			return nil, forbiddenRescheduleEvent()
+		}
 		return nil, forbiddenManageEvent()
 	}
 	if err := e.eventValidator.ValidateReschedule(startAt, comment); err != nil {
 		return nil, err
 	}
-	return e.eventRepository.Reschedule(id, startAt, comment)
+	return e.eventRepository.Reschedule(id, startAt, comment, requester.Id)
 }
 
 func (e *eventService) DeleteEventById(id string, requesterId string, comment string) *rest_err.RestErr {

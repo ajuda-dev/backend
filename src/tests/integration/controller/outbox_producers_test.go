@@ -382,6 +382,84 @@ func TestMentoringInvite_Accept_OutboxFailureRollsBackStatus(t *testing.T) {
 	assert.Equal(t, eventdomain.StatusRequested, guestStatus)
 }
 
+func TestMentoringReschedule_InsertsInvitePendingForCounterpart(t *testing.T) {
+	t.Cleanup(func() {
+		db.Exec("DELETE FROM outbox_events")
+		cleanEventUsersTable()
+		cleanEventsTable()
+		cleanAddressesTable()
+		cleanUsersTable()
+	})
+	mentor, guest, event, slots := setupMentoringInvite(t)
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: guest.Id, Role: eventdomain.RoleMentee, Status: eventdomain.StatusRequested,
+	}, slots)
+	require.Nil(t, joinErr)
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusConfirmed, "aceito", slots)
+	require.Nil(t, updateErr)
+
+	db.Exec("DELETE FROM outbox_events")
+	newStart := time.Now().Add(72 * time.Hour)
+	_, rescheduleErr := eventRepository.Reschedule(event.Id, newStart, "Sexta 15h encaixa melhor", guest.Id)
+	require.Nil(t, rescheduleErr)
+
+	pending := pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInvitePending)
+	require.Len(t, pending, 1)
+	assert.Empty(t, pendingOutboxByUserAndType(t, guest.Id, notificationdomain.OutboxTypeMentoringInvitePending))
+
+	participants, findErr := eventUserRepository.FindByEvent(event.Id, "")
+	require.Nil(t, findErr)
+	statusByUser := map[string]string{}
+	for _, participant := range participants {
+		statusByUser[participant.UserId] = participant.Status
+	}
+	assert.Equal(t, eventdomain.StatusRequested, statusByUser[mentor.Id])
+	assert.Equal(t, eventdomain.StatusConfirmed, statusByUser[guest.Id])
+}
+
+func TestMentoringReschedule_OutboxFailureRollsBackEventAndStatuses(t *testing.T) {
+	t.Cleanup(func() {
+		_ = db.Callback().Create().Remove("fail_reschedule_outbox_payload")
+		db.Exec("DELETE FROM outbox_events")
+		cleanEventUsersTable()
+		cleanEventsTable()
+		cleanAddressesTable()
+		cleanUsersTable()
+	})
+	mentor, guest, event, slots := setupMentoringInvite(t)
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: guest.Id, Role: eventdomain.RoleMentee, Status: eventdomain.StatusRequested,
+	}, slots)
+	require.Nil(t, joinErr)
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, guest.Id, eventdomain.StatusConfirmed, "", slots)
+	require.Nil(t, updateErr)
+
+	before, findBeforeErr := eventRepository.FindById(event.Id)
+	require.Nil(t, findBeforeErr)
+	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("fail_reschedule_outbox_payload", func(tx *gorm.DB) {
+		if _, ok := tx.Statement.Dest.(*notificationentity.OutboxEventEntity); ok {
+			tx.Error = gorm.ErrInvalidData
+		}
+	}))
+
+	_, rescheduleErr := eventRepository.Reschedule(event.Id, time.Now().Add(72*time.Hour), "Sexta 15h encaixa melhor", guest.Id)
+	require.NotNil(t, rescheduleErr)
+
+	stored, findErr := eventRepository.FindById(event.Id)
+	require.Nil(t, findErr)
+	assert.WithinDuration(t, before.StartAt, stored.StartAt, time.Second)
+	assert.Equal(t, before.Comment, stored.Comment)
+
+	participants, partErr := eventUserRepository.FindByEvent(event.Id, "")
+	require.Nil(t, partErr)
+	statusByUser := map[string]string{}
+	for _, participant := range participants {
+		statusByUser[participant.UserId] = participant.Status
+	}
+	assert.Equal(t, eventdomain.StatusConfirmed, statusByUser[mentor.Id])
+	assert.Equal(t, eventdomain.StatusConfirmed, statusByUser[guest.Id])
+}
+
 func setupMentoringInvite(t *testing.T) (*userdomain.UserDomain, *userdomain.UserDomain, *eventdomain.EventDomain, *int) {
 	t.Helper()
 	mentor, err := userRepository.CreateUser(&userdomain.UserDomain{

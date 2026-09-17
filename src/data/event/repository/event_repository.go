@@ -33,7 +33,7 @@ type EventRepository interface {
 	CreateEvent(event *eventdomain.EventDomain) (*eventdomain.EventDomain, *rest_err.RestErr)
 	FindById(id string) (*eventdomain.EventDomain, *rest_err.RestErr)
 	FindAll(filter EventFilter, page int, limit int) (*eventdomain.PageableEvent, *rest_err.RestErr)
-	Reschedule(id string, startAt time.Time, comment string) (*eventdomain.EventDomain, *rest_err.RestErr)
+	Reschedule(id string, startAt time.Time, comment string, requesterId string) (*eventdomain.EventDomain, *rest_err.RestErr)
 	SoftDeleteById(id string, comment string) *rest_err.RestErr
 	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
 	UpdateApprovalStatus(id string, current string, status string, actorId string) (*eventdomain.EventDomain, *rest_err.RestErr)
@@ -103,15 +103,21 @@ func (e *eventRepository) FindById(id string) (*eventdomain.EventDomain, *rest_e
 	return eventEntity.ToDomain(), nil
 }
 
-func (e *eventRepository) Reschedule(id string, startAt time.Time, comment string) (*eventdomain.EventDomain, *rest_err.RestErr) {
-	result := e.database.Model(&evententity.EventEntity{}).
-		Where("id = ? AND deleted_at IS NULL", id).
-		Updates(map[string]interface{}{"start_at": startAt, "comment": comment})
-	if result.Error != nil {
-		return nil, rest_err.NewInternalServerError("Error rescheduling event: " + result.Error.Error())
-	}
-	if result.RowsAffected == 0 {
-		return nil, rest_err.NewNotFoundError("event not found")
+func (e *eventRepository) Reschedule(id string, startAt time.Time, comment string, requesterId string) (*eventdomain.EventDomain, *rest_err.RestErr) {
+	txErr := e.database.Transaction(func(tx *gorm.DB) error {
+		eventRow, lockErr := lockEventRow(tx, id)
+		if lockErr != nil {
+			return lockErr
+		}
+		if err := tx.Model(&evententity.EventEntity{}).
+			Where("id = ?", id).
+			Updates(map[string]interface{}{"start_at": startAt, "comment": comment}).Error; err != nil {
+			return rest_err.NewInternalServerError("Error rescheduling event: " + err.Error())
+		}
+		return applyMentoringRescheduleStatuses(tx, e.outbox, eventRow, requesterId)
+	})
+	if txErr != nil {
+		return nil, toRestErr(txErr)
 	}
 	return e.FindById(id)
 }
