@@ -2,8 +2,6 @@ package identity
 
 import (
 	"crypto/subtle"
-	"encoding/json"
-	"html"
 	"net/url"
 	"os"
 	"strconv"
@@ -46,12 +44,11 @@ type oauthController struct {
 
 // StartLogin godoc
 // @Summary      Inicia o login via OAuth
-// @Description  Grava o state em cookie HttpOnly no mesmo host do callback e envia o navegador ao provedor OAuth. Se o login começar em outro host (ex.: localhost vs 127.0.0.1), redireciona antes para o host do callback. Endpoint público.
+// @Description  Redireciona o navegador para o provedor OAuth informado no path (ex.: github). Endpoint público: é o início do fluxo de login. O state é gravado em cookie HttpOnly de curta duração e conferido no callback. Se o login começar em outro host (ex.: localhost vs 127.0.0.1), redireciona antes para o host do callback.
 // @Tags         auth
-// @Produce      html
+// @Produce      json
 // @Param        provider  path  string  true  "Provedor OAuth (ex.: github)"
-// @Success      200  {string}  string  "HTML que redireciona para a página de autorização do provedor"
-// @Success      302  {string}  string  "Redireciona para o host do callback quando o login começou em outro host"
+// @Success      302  {string}  string  "Redireciona para a página de autorização do provedor"
 // @Failure      400  {object}  map[string]interface{}
 // @Router       /v1/auth/{provider}/login [get]
 func (o *oauthController) StartLogin() fiber.Handler {
@@ -66,8 +63,7 @@ func (o *oauthController) StartLogin() fiber.Handler {
 			return c.Redirect(dest, fiber.StatusFound)
 		}
 		c.Cookie(oauthStateCookie(provider, state, oauthStateCookieMaxAge))
-		c.Type("html", "utf-8")
-		return c.Status(fiber.StatusOK).SendString(oauthProviderRedirectHTML(authorizationURL))
+		return c.Redirect(authorizationURL, fiber.StatusFound)
 	}
 }
 
@@ -143,15 +139,6 @@ func oauthCanonicalLoginURL(requestHost, requestPath, requestQuery, callbackURL 
 		RawQuery: requestQuery,
 	}
 	return next.String(), true
-}
-
-func oauthProviderRedirectHTML(authorizationURL string) string {
-	href := html.EscapeString(authorizationURL)
-	jsURL, err := json.Marshal(authorizationURL)
-	if err != nil {
-		jsURL = []byte(`""`)
-	}
-	return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=` + href + `"></head><body><a href="` + href + `">Continue</a><script>window.location.replace(` + string(jsURL) + `)</script></body></html>`
 }
 
 func isValidOAuthState(state string, expectedState string) bool {

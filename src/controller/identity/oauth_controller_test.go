@@ -1,10 +1,6 @@
 package identity
 
-import (
-	"html"
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestOAuthCanonicalLoginURL(t *testing.T) {
 	t.Parallel()
@@ -62,18 +58,5 @@ func TestOAuthCanonicalLoginURL(t *testing.T) {
 				t.Fatalf("esperava URL %q, recebeu %q", tt.wantURL, got)
 			}
 		})
-	}
-}
-
-func TestOAuthProviderRedirectHTMLContainsAuthorizationURL(t *testing.T) {
-	t.Parallel()
-	authorizationURL := "https://github.com/login/oauth/authorize?client_id=abc&state=xyz&redirect_uri=http://127.0.0.1:8080/v1/auth/github/callback"
-	page := oauthProviderRedirectHTML(authorizationURL)
-	escaped := html.EscapeString(authorizationURL)
-	if !strings.Contains(page, `href="`+escaped+`"`) {
-		t.Fatalf("esperava href com a URL de autorização no HTML, recebeu %s", page)
-	}
-	if !strings.Contains(page, "window.location.replace(") {
-		t.Fatal("esperava redirect em JavaScript no HTML")
 	}
 }
