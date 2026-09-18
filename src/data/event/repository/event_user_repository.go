@@ -281,9 +281,10 @@ func applyMentoringRescheduleStatuses(tx *gorm.DB, outbox notificationrepo.Outbo
 	}
 	payload, _ := json.Marshal(map[string]string{
 		"event_id": event.Id,
+		"title":    event.Title,
 		"category": eventdomain.CategoryMentoring,
 	})
-	return insertOutboxForUsers(outbox, tx, notificationdomain.OutboxTypeMentoringInvitePending, pendingUserIds, payload)
+	return insertOutboxForUsers(outbox, tx, notificationdomain.OutboxTypeMentoringInviteRescheduled, pendingUserIds, payload)
 }
 
 func updateEventUserStatus(tx *gorm.DB, id string, status string) error {

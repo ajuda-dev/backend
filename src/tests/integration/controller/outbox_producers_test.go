@@ -382,7 +382,7 @@ func TestMentoringInvite_Accept_OutboxFailureRollsBackStatus(t *testing.T) {
 	assert.Equal(t, eventdomain.StatusRequested, guestStatus)
 }
 
-func TestMentoringReschedule_InsertsInvitePendingForCounterpart(t *testing.T) {
+func TestMentoringReschedule_InsertsRescheduledForCounterpart(t *testing.T) {
 	t.Cleanup(func() {
 		db.Exec("DELETE FROM outbox_events")
 		cleanEventUsersTable()
@@ -403,9 +403,15 @@ func TestMentoringReschedule_InsertsInvitePendingForCounterpart(t *testing.T) {
 	_, rescheduleErr := eventRepository.Reschedule(event.Id, newStart, "Sexta 15h encaixa melhor", guest.Id)
 	require.Nil(t, rescheduleErr)
 
-	pending := pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInvitePending)
+	pending := pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInviteRescheduled)
 	require.Len(t, pending, 1)
-	assert.Empty(t, pendingOutboxByUserAndType(t, guest.Id, notificationdomain.OutboxTypeMentoringInvitePending))
+	assertOutboxPayload(t, pending[0].Payload, map[string]string{
+		"event_id": event.Id,
+		"title":    event.Title,
+		"category": eventdomain.CategoryMentoring,
+	})
+	assert.Empty(t, pendingOutboxByUserAndType(t, guest.Id, notificationdomain.OutboxTypeMentoringInviteRescheduled))
+	assert.Empty(t, pendingOutboxByUserAndType(t, mentor.Id, notificationdomain.OutboxTypeMentoringInvitePending))
 
 	participants, findErr := eventUserRepository.FindByEvent(event.Id, "")
 	require.Nil(t, findErr)

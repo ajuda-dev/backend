@@ -55,4 +55,5 @@ func TestDispatchingOutboxHandler_CreatedAccountHandlerError(t *testing.T) {
 func TestInboxNotificationTypes_ExcludesCreatedAccount(t *testing.T) {
 	assert.False(t, notificationdomain.IsInboxNotificationType(notificationdomain.OutboxTypeCreatedAccount))
 	assert.True(t, notificationdomain.IsInboxNotificationType(notificationdomain.OutboxTypeCommunityEventPendingApproval))
+	assert.True(t, notificationdomain.IsInboxNotificationType(notificationdomain.OutboxTypeMentoringInviteRescheduled))
 }

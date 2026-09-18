@@ -18,6 +18,7 @@ const (
 	OutboxTypeMentoringInvitePending        = "MENTORING_INVITE_PENDING"
 	OutboxTypeMentoringInviteAccepted       = "MENTORING_INVITE_ACCEPTED"
 	OutboxTypeMentoringInviteRejected       = "MENTORING_INVITE_REJECTED"
+	OutboxTypeMentoringInviteRescheduled    = "MENTORING_INVITE_RESCHEDULED"
 	OutboxTypeCreatedAccount                = "CREATED_ACCOUNT"
 )
 
@@ -35,6 +36,7 @@ func InboxNotificationTypes() []string {
 		OutboxTypeMentoringInvitePending,
 		OutboxTypeMentoringInviteAccepted,
 		OutboxTypeMentoringInviteRejected,
+		OutboxTypeMentoringInviteRescheduled,
 	}
 }
 
