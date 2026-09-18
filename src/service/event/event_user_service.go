@@ -15,6 +15,7 @@ type EventUserService interface {
 	AddParticipant(eventId string, requesterId string, targetUserId string, role string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 	GetParticipants(eventId string, status string, requesterId string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr)
 	UpdateParticipantStatus(eventId string, userId string, requesterId string, status string, comment string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
+	UpdateParticipantComment(eventId string, userId string, requesterId string, comment string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 	CancelParticipation(eventId string, userId string, requesterId string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 }
 
@@ -142,6 +143,24 @@ func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string
 		return nil, err
 	}
 	return e.eventUserRepository.UpdateStatus(eventId, userId, status, comment, event.MaxSlots)
+}
+
+func (e *eventUserService) UpdateParticipantComment(eventId string, userId string, requesterId string, comment string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	comment = strings.TrimSpace(comment)
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := e.eventService.GetEventById(eventId); err != nil {
+		return nil, err
+	}
+	if userId != requester.Id {
+		return nil, rest_err.NewForbiddenError("only the participant themselves can update this comment")
+	}
+	if err := e.eventUserValidator.ValidateParticipantComment(comment); err != nil {
+		return nil, err
+	}
+	return e.eventUserRepository.UpdateComment(eventId, userId, comment)
 }
 
 func (e *eventUserService) CancelParticipation(eventId string, userId string, requesterId string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {

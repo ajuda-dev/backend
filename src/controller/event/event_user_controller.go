@@ -15,6 +15,7 @@ type EventUserController interface {
 	AddParticipant() fiber.Handler
 	GetParticipants() fiber.Handler
 	UpdateParticipantStatus() fiber.Handler
+	UpdateParticipantComment() fiber.Handler
 	CancelParticipation() fiber.Handler
 }
 
@@ -182,6 +183,56 @@ func (e *eventUserController) UpdateParticipantStatus() fiber.Handler {
 			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
 		}
 		eventUser, err := e.eventUserService.UpdateParticipantStatus(eventId, userId, requesterId, updateStatusDto.Status, updateStatusDto.Comment)
+		if err != nil {
+			logger.Error("erro", err)
+			return cf.Status(err.Code).JSON(err)
+		}
+		return cf.Status(fiber.StatusOK).JSON(eventdto.EventUserDto{}.FromDomain(eventUser))
+	}
+}
+
+// UpdateParticipantComment godoc
+// @Summary      Atualiza só o comentário do participante
+// @Description  O próprio usuário grava ou limpa status_comment (comment_kind=NOTE quando não vazio). Não altera status/role e não emite notificação. Participação CANCELLED não pode atualizar.
+// @Tags         event_users
+// @Accept       json
+// @Produce      json
+// @Param        eventId  path  string  true  "ID do evento"
+// @Param        userId   path  string  true  "ID do usuário"
+// @Param        body  body  eventdto.UpdateParticipantCommentDto  true  "comment (trim, máx. 500; vazio limpa)"
+// @Success      200   {object}  eventdto.EventUserDto
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/event/{eventId}/participants/{userId}/comment [put]
+func (e *eventUserController) UpdateParticipantComment() fiber.Handler {
+	return func(cf *fiber.Ctx) error {
+		eventId := cf.Params("eventId")
+		userId := cf.Params("userId")
+		if !uuidv7.IsValidString(eventId) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "eventId", Message: "eventId must be a valid UUID v7"}}))
+		}
+		if !uuidv7.IsValidString(userId) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "userId", Message: "userId must be a valid UUID v7"}}))
+		}
+		var body eventdto.UpdateParticipantCommentDto
+		if err := cf.BodyParser(&body); err != nil {
+			logger.Error("erro body request", err)
+			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		requesterId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || requesterId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		eventUser, err := e.eventUserService.UpdateParticipantComment(eventId, userId, requesterId, body.Comment)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)

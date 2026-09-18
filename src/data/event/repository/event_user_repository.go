@@ -20,6 +20,7 @@ type EventUserRepository interface {
 	FindByUser(userId string, role string, status string) ([]*eventdomain.EventUserDomain, *rest_err.RestErr)
 	FindById(id string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 	UpdateStatus(eventId string, userId string, status string, comment string, maxSlots *int) (*eventdomain.EventUserDomain, *rest_err.RestErr)
+	UpdateComment(eventId string, userId string, comment string) (*eventdomain.EventUserDomain, *rest_err.RestErr)
 	CountConfirmedByEvent(eventId string) (int64, *rest_err.RestErr)
 	CountActiveByUserId(userId string) (int64, *rest_err.RestErr)
 }
@@ -240,6 +241,59 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 		if err := e.insertMentoringInviteResponseOutbox(tx, eventRow, userId, status); err != nil {
 			return err
 		}
+		return nil
+	})
+	if txErr != nil {
+		return nil, toRestErr(txErr)
+	}
+	return result, nil
+}
+
+func (e *eventUserRepository) UpdateComment(eventId string, userId string, comment string) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
+	var result *eventdomain.EventUserDomain
+	txErr := e.database.Transaction(func(tx *gorm.DB) error {
+		if _, lockErr := lockEventRow(tx, eventId); lockErr != nil {
+			return lockErr
+		}
+		var existing evententity.EventUserEntity
+		queryErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("event_id = ? AND user_id = ?", eventId, userId).
+			First(&existing).Error
+		if queryErr != nil {
+			if errors.Is(queryErr, gorm.ErrRecordNotFound) {
+				return rest_err.NewNotFoundError("participant not found")
+			}
+			return rest_err.NewInternalServerError("Error getting participant: " + queryErr.Error())
+		}
+		if existing.Status == eventdomain.StatusCancelled {
+			return rest_err.NewBadRequestValidationError(
+				"Invalid participation data",
+				[]rest_err.Causes{{
+					Field:   "status",
+					Message: "cancelled participants cannot update comment",
+				}})
+		}
+		fields := map[string]interface{}{}
+		if comment == "" {
+			fields["status_comment"] = nil
+			fields["status_comment_kind"] = nil
+		} else {
+			fields["status_comment"] = comment
+			fields["status_comment_kind"] = eventdomain.CommentKindNote
+		}
+		if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", existing.Id).
+			Updates(fields).Error; err != nil {
+			return rest_err.NewInternalServerError("Error updating participant comment: " + err.Error())
+		}
+		if comment == "" {
+			existing.StatusComment = nil
+			existing.StatusCommentKind = nil
+		} else {
+			existing.StatusComment = &comment
+			kind := eventdomain.CommentKindNote
+			existing.StatusCommentKind = &kind
+		}
+		result = existing.ToDomain()
 		return nil
 	})
 	if txErr != nil {

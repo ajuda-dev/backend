@@ -78,6 +78,7 @@ func SetupRoutesEventUsers(app *fiber.App, eventUserController eventctrl.EventUs
 	events.Post("/:eventId/participants", eventUserController.AddParticipant())
 	events.Get("/:eventId/participants", eventUserController.GetParticipants())
 	events.Put("/:eventId/participants/:userId/status", eventUserController.UpdateParticipantStatus())
+	events.Put("/:eventId/participants/:userId/comment", eventUserController.UpdateParticipantComment())
 	events.Delete("/:eventId/participants/:userId", eventUserController.CancelParticipation())
 }
 

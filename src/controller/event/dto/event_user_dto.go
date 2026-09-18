@@ -41,3 +41,7 @@ type UpdateParticipantStatusDto struct {
 	Status  string `json:"status"`
 	Comment string `json:"comment"`
 }
+
+type UpdateParticipantCommentDto struct {
+	Comment string `json:"comment"`
+}

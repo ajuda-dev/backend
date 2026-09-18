@@ -254,6 +254,11 @@ definitions:
       status:
         type: string
     type: object
+  github_com_ajuda-dev_backend_src_controller_event_dto.UpdateParticipantCommentDto:
+    properties:
+      comment:
+        type: string
+    type: object
   github_com_ajuda-dev_backend_src_controller_identity_dto.ChangePasswordDtoIn:
     properties:
       currentPassword:
@@ -1284,6 +1289,62 @@ paths:
       security:
       - BearerAuth: []
       summary: Atualiza status do participante
+      tags:
+      - event_users
+  /v1/event/{eventId}/participants/{userId}/comment:
+    put:
+      consumes:
+      - application/json
+      description: O próprio usuário grava ou limpa status_comment (comment_kind=NOTE
+        quando não vazio). Não altera status/role e não emite notificação. Participação
+        CANCELLED não pode atualizar.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: eventId
+        required: true
+        type: string
+      - description: ID do usuário
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: comment (trim, máx. 500; vazio limpa)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.UpdateParticipantCommentDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventUserDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Atualiza só o comentário do participante
       tags:
       - event_users
   /v1/event/{id}:

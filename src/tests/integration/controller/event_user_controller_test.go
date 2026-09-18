@@ -1049,3 +1049,92 @@ func TestUpdateParticipantStatusComment(t *testing.T) {
 		t.Errorf("não esperava comment na listagem após o reconvite")
 	}
 }
+
+func TestUpdateParticipantComment(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "solo_comment_owner@ajuda.dev", userdomain.UserRoleUser)
+	mentee := createUserWithRole(t, "solo_comment_mentee@ajuda.dev", userdomain.UserRoleUser)
+	third := createUserWithRole(t, "solo_comment_third@ajuda.dev", userdomain.UserRoleUser)
+	menteeToken := validTokenFor(t, mentee.Id)
+	ownerToken := validTokenFor(t, owner.Id)
+
+	event := euCreateMentoringEvent(t, app, owner)
+	euInviteMentee(t, app, event.Id, mentee.Id, owner.Id)
+	resp := euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusConfirmed, "", menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no aceite, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/participants/"+mentee.Id+"/comment",
+		`{"comment":"  Nos falamos pelo LinkedIn  "}`, menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 ao gravar comment, recebeu %d", resp.StatusCode)
+	}
+	row := euDecodeEventUserDto(t, resp)
+	if row.Comment != "Nos falamos pelo LinkedIn" {
+		t.Errorf("esperava comment trimado, recebeu '%s'", row.Comment)
+	}
+	if row.CommentKind != eventdomain.CommentKindNote {
+		t.Errorf("esperava comment_kind NOTE, recebeu '%s'", row.CommentKind)
+	}
+	if row.Status != eventdomain.StatusConfirmed {
+		t.Errorf("não esperava mudar status, recebeu %s", row.Status)
+	}
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/participants/"+mentee.Id+"/comment",
+		`{"comment":"Nos falamos pelo LinkedIn"}`, validTokenFor(t, third.Id))
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 para terceiro, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/participants/"+mentee.Id+"/comment",
+		`{"comment":"Nos falamos pelo LinkedIn"}`, ownerToken)
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 para o criador editando o mentee, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/participants/"+mentee.Id+"/comment",
+		`{"comment":"`+strings.Repeat("a", 501)+`"}`, menteeToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 no comment > 500, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	causes := getCauseByField("comment", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "comment must have at most 500 characters" {
+		t.Errorf("esperava cause de tamanho, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/participants/"+mentee.Id+"/comment",
+		`{"comment":""}`, menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 ao limpar comment, recebeu %d", resp.StatusCode)
+	}
+	cleared := euDecodeEventUserDto(t, resp)
+	if cleared.Comment != "" || cleared.CommentKind != "" {
+		t.Errorf("esperava comment limpo, recebeu comment=%q kind=%q", cleared.Comment, cleared.CommentKind)
+	}
+	dbRow := euFindRow(t, event.Id, mentee.Id)
+	if dbRow.StatusComment != nil || dbRow.StatusCommentKind != nil {
+		t.Errorf("esperava NULL no banco após limpar, recebeu comment=%+v kind=%+v", dbRow.StatusComment, dbRow.StatusCommentKind)
+	}
+
+	resp = euCancelParticipation(t, app, event.Id, mentee.Id, menteeToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no cancel, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/participants/"+mentee.Id+"/comment",
+		`{"comment":"depois do cancel"}`, menteeToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 para CANCELLED, recebeu %d", resp.StatusCode)
+	}
+	respBody = decodeRestErr(t, resp)
+	if len(getCauseByField("status", respBody.Causes)) == 0 {
+		t.Errorf("esperava cause em status, recebeu %+v", respBody.Causes)
+	}
+}

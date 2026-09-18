@@ -10,6 +10,7 @@ type EventUserValidator interface {
 	ValidateJoin(eventUser eventdomain.EventUserDomain, category string) *rest_err.RestErr
 	ValidateAddParticipant(eventUser eventdomain.EventUserDomain, category string, creatorRole string) *rest_err.RestErr
 	ValidateUpdateParticipantStatus(status string, comment string) *rest_err.RestErr
+	ValidateParticipantComment(comment string) *rest_err.RestErr
 }
 
 type eventUserValidator struct{}
@@ -131,6 +132,19 @@ func (e *eventUserValidator) ValidateUpdateParticipantStatus(status string, comm
 		return rest_err.NewBadRequestValidationError(
 			"Invalid participation data",
 			causes,
+		)
+	}
+	return nil
+}
+
+func (e *eventUserValidator) ValidateParticipantComment(comment string) *rest_err.RestErr {
+	if len(comment) > 500 {
+		return rest_err.NewBadRequestValidationError(
+			"Invalid participation data",
+			[]rest_err.Causes{{
+				Field:   "comment",
+				Message: "comment must have at most 500 characters",
+			}},
 		)
 	}
 	return nil
