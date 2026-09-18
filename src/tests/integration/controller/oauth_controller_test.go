@@ -3,10 +3,12 @@ package controller_test
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -77,18 +79,28 @@ func configureGithubProvider(t *testing.T, fake *fakeGithubServer) {
 	t.Setenv("OAUTH_FRONTEND_URL", oauthTestFrontendURL)
 }
 
+var oauthAuthorizeHRef = regexp.MustCompile(`href="([^"]+)"`)
+
 func startOAuthLogin(t *testing.T, app *fiber.App, provider string) (string, string, *http.Cookie) {
 	t.Helper()
-	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/v1/auth/"+provider+"/login", nil))
+	request := httptest.NewRequest(http.MethodGet, "/v1/auth/"+provider+"/login", nil)
+	if parsed, err := url.Parse(oauthTestCallbackURL); err == nil && parsed.Host != "" {
+		request.Host = parsed.Host
+	}
+	response, err := app.Test(request)
 	if err != nil {
 		t.Fatalf("erro ao iniciar o login oauth: %v", err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != fiber.StatusFound {
-		t.Fatalf("esperava 302 no login oauth, recebeu %d", response.StatusCode)
+	if response.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no login oauth, recebeu %d", response.StatusCode)
 	}
 
-	location := response.Header.Get("Location")
+	body, readErr := io.ReadAll(response.Body)
+	if readErr != nil {
+		t.Fatalf("erro ao ler o HTML de login oauth: %v", readErr)
+	}
+	location := oauthAuthorizeURLFromHTML(t, string(body))
 	parsedLocation, parseErr := url.Parse(location)
 	if parseErr != nil {
 		t.Fatalf("erro ao interpretar a URL de autorização: %v", parseErr)
@@ -109,6 +121,15 @@ func startOAuthLogin(t *testing.T, app *fiber.App, provider string) (string, str
 		t.Fatalf("esperava o cookie oauth_state_%s na resposta de login", provider)
 	}
 	return location, state, stateCookie
+}
+
+func oauthAuthorizeURLFromHTML(t *testing.T, page string) string {
+	t.Helper()
+	match := oauthAuthorizeHRef.FindStringSubmatch(page)
+	if len(match) < 2 {
+		t.Fatalf("esperava href no HTML de login oauth, recebeu %s", page)
+	}
+	return html.UnescapeString(match[1])
 }
 
 func completeOAuthCallback(t *testing.T, app *fiber.App, provider string, code string, state string, cookie *http.Cookie) *http.Response {
@@ -183,6 +204,32 @@ func countUsersByEmail(t *testing.T, email string) int64 {
 		t.Fatalf("erro ao contar usuários: %v", err)
 	}
 	return count
+}
+
+func TestOAuthGithubLoginRedirectsToCallbackHost(t *testing.T) {
+	fake := newFakeGithubServer(t)
+	configureGithubProvider(t, fake)
+	t.Setenv("GITHUB_CALLBACK_URL", "http://127.0.0.1:8080/v1/auth/github/callback")
+	app := setupApp()
+
+	request := httptest.NewRequest(http.MethodGet, "/v1/auth/github/login", nil)
+	request.Host = "localhost:8080"
+	response, err := app.Test(request)
+	if err != nil {
+		t.Fatalf("erro ao iniciar o login oauth: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != fiber.StatusFound {
+		t.Fatalf("esperava 302 para o host do callback, recebeu %d", response.StatusCode)
+	}
+	if location := response.Header.Get("Location"); location != "http://127.0.0.1:8080/v1/auth/github/login" {
+		t.Fatalf("esperava redirect para o host do callback, recebeu %s", location)
+	}
+	for _, cookie := range response.Cookies() {
+		if cookie.Name == "oauth_state_github" && cookie.Value != "" {
+			t.Error("não esperava cookie de state antes de chegar no host do callback")
+		}
+	}
 }
 
 func TestOAuthGithubLoginRedirectsToProvider(t *testing.T) {

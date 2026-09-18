@@ -31,6 +31,15 @@ func ProvidersFromEnv() []Provider {
 	return providers
 }
 
+func CallbackURL(provider string) string {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case userdomain.OAuthProviderGithub:
+		return stringOrDefault(os.Getenv(GitHubCallbackURLEnv), githubCallbackURLDefault)
+	default:
+		return ""
+	}
+}
+
 func githubProviderFromEnv() (Provider, bool) {
 	clientId := strings.TrimSpace(os.Getenv(GitHubClientIdEnv))
 	clientSecret := strings.TrimSpace(os.Getenv(GitHubClientSecretEnv))

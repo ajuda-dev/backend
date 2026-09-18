@@ -2,15 +2,21 @@ package identity
 
 import (
 	"crypto/subtle"
+	"encoding/json"
+	"html"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/ajuda-dev/backend/src/client/oauth"
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	"github.com/ajuda-dev/backend/src/controller/middleware"
 	"github.com/ajuda-dev/backend/src/service/identity"
 	"github.com/gofiber/fiber/v2"
+	"go.uber.org/zap"
 )
 
 const (
@@ -40,11 +46,12 @@ type oauthController struct {
 
 // StartLogin godoc
 // @Summary      Inicia o login via OAuth
-// @Description  Redireciona o navegador para o provedor OAuth informado no path (ex.: github). Endpoint público: é o início do fluxo de login. O state é gravado em cookie HttpOnly de curta duração e conferido no callback.
+// @Description  Grava o state em cookie HttpOnly no mesmo host do callback e envia o navegador ao provedor OAuth. Se o login começar em outro host (ex.: localhost vs 127.0.0.1), redireciona antes para o host do callback. Endpoint público.
 // @Tags         auth
-// @Produce      json
+// @Produce      html
 // @Param        provider  path  string  true  "Provedor OAuth (ex.: github)"
-// @Success      302  {string}  string  "Redireciona para a página de autorização do provedor"
+// @Success      200  {string}  string  "HTML que redireciona para a página de autorização do provedor"
+// @Success      302  {string}  string  "Redireciona para o host do callback quando o login começou em outro host"
 // @Failure      400  {object}  map[string]interface{}
 // @Router       /v1/auth/{provider}/login [get]
 func (o *oauthController) StartLogin() fiber.Handler {
@@ -55,8 +62,12 @@ func (o *oauthController) StartLogin() fiber.Handler {
 			logger.Error("error: ", err)
 			return c.Status(err.Code).JSON(err)
 		}
+		if dest, ok := oauthCanonicalLoginURL(c.Hostname(), c.Path(), string(c.Request().URI().QueryString()), oauth.CallbackURL(provider)); ok {
+			return c.Redirect(dest, fiber.StatusFound)
+		}
 		c.Cookie(oauthStateCookie(provider, state, oauthStateCookieMaxAge))
-		return c.Redirect(authorizationURL, fiber.StatusFound)
+		c.Type("html", "utf-8")
+		return c.Status(fiber.StatusOK).SendString(oauthProviderRedirectHTML(authorizationURL))
 	}
 }
 
@@ -78,6 +89,11 @@ func (o *oauthController) Callback() fiber.Handler {
 		c.Cookie(oauthStateCookie(provider, "", -1))
 
 		if !isValidOAuthState(c.Query("state"), expectedState) {
+			logger.Info("invalid oauth state",
+				zap.String("provider", provider),
+				zap.Bool("cookie_present", expectedState != ""),
+				zap.Bool("state_present", c.Query("state") != ""),
+				zap.String("host", c.Hostname()))
 			return c.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestError("invalid oauth state"))
 		}
 
@@ -92,7 +108,7 @@ func (o *oauthController) Callback() fiber.Handler {
 }
 
 func oauthStateCookie(provider string, value string, maxAge int) *fiber.Cookie {
-	return &fiber.Cookie{
+	cookie := &fiber.Cookie{
 		Name:     oauthStateCookiePrefix + provider,
 		Value:    value,
 		Path:     "/",
@@ -101,6 +117,41 @@ func oauthStateCookie(provider string, value string, maxAge int) *fiber.Cookie {
 		Secure:   oauthCookieSecure(),
 		SameSite: fiber.CookieSameSiteLaxMode,
 	}
+	if maxAge > 0 {
+		cookie.Expires = time.Now().Add(time.Duration(maxAge) * time.Second)
+	}
+	return cookie
+}
+
+func oauthCanonicalLoginURL(requestHost, requestPath, requestQuery, callbackURL string) (string, bool) {
+	requestHost = strings.TrimSpace(requestHost)
+	callbackURL = strings.TrimSpace(callbackURL)
+	if requestHost == "" || callbackURL == "" {
+		return "", false
+	}
+	parsed, err := url.Parse(callbackURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", false
+	}
+	if strings.EqualFold(requestHost, parsed.Host) {
+		return "", false
+	}
+	next := url.URL{
+		Scheme:   parsed.Scheme,
+		Host:     parsed.Host,
+		Path:     requestPath,
+		RawQuery: requestQuery,
+	}
+	return next.String(), true
+}
+
+func oauthProviderRedirectHTML(authorizationURL string) string {
+	href := html.EscapeString(authorizationURL)
+	jsURL, err := json.Marshal(authorizationURL)
+	if err != nil {
+		jsURL = []byte(`""`)
+	}
+	return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=` + href + `"></head><body><a href="` + href + `">Continue</a><script>window.location.replace(` + string(jsURL) + `)</script></body></html>`
 }
 
 func isValidOAuthState(state string, expectedState string) bool {
