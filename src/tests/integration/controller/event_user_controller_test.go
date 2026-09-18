@@ -415,6 +415,9 @@ func TestUpdateParticipantStatusOnlyInvited(t *testing.T) {
 	if row.Comment != "Agenda conflitou nesta semana" {
 		t.Errorf("esperava comment na recusa, recebeu '%s'", row.Comment)
 	}
+	if row.CommentKind != eventdomain.CommentKindReject {
+		t.Errorf("esperava comment_kind REJECT, recebeu '%s'", row.CommentKind)
+	}
 
 	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, mentee.Id))
 	if resp.StatusCode != fiber.StatusBadRequest {
@@ -946,10 +949,13 @@ func TestUpdateParticipantStatusComment(t *testing.T) {
 	if rejected.Comment != "Agenda conflitou nesta semana" {
 		t.Errorf("esperava o comment da recusa, recebeu '%s'", rejected.Comment)
 	}
+	if rejected.CommentKind != eventdomain.CommentKindReject {
+		t.Errorf("esperava comment_kind REJECT, recebeu '%s'", rejected.CommentKind)
+	}
 	resp = euGetParticipants(t, app, rejectEvent.Id, ownerToken)
 	listed = euDecodeParticipants(t, resp)
-	if got := euFindParticipant(t, listed, mentee.Id).Comment; got != "Agenda conflitou nesta semana" {
-		t.Errorf("esperava o comment na listagem, recebeu '%s'", got)
+	if got := euFindParticipant(t, listed, mentee.Id); got.Comment != "Agenda conflitou nesta semana" || got.CommentKind != eventdomain.CommentKindReject {
+		t.Errorf("esperava comment/REJECT na listagem, recebeu comment=%q kind=%q", got.Comment, got.CommentKind)
 	}
 
 	acceptEvent := euCreateMentoringEvent(t, app, owner)
@@ -962,10 +968,13 @@ func TestUpdateParticipantStatusComment(t *testing.T) {
 	if confirmed.Comment != "Nos falamos pelo LinkedIn" {
 		t.Errorf("esperava o comment do aceite, recebeu '%s'", confirmed.Comment)
 	}
+	if confirmed.CommentKind != eventdomain.CommentKindNote {
+		t.Errorf("esperava comment_kind NOTE, recebeu '%s'", confirmed.CommentKind)
+	}
 	resp = euGetParticipants(t, app, acceptEvent.Id, ownerToken)
 	listed = euDecodeParticipants(t, resp)
-	if got := euFindParticipant(t, listed, mentee.Id).Comment; got != "Nos falamos pelo LinkedIn" {
-		t.Errorf("esperava o comment na listagem do aceite, recebeu '%s'", got)
+	if got := euFindParticipant(t, listed, mentee.Id); got.Comment != "Nos falamos pelo LinkedIn" || got.CommentKind != eventdomain.CommentKindNote {
+		t.Errorf("esperava comment/NOTE na listagem do aceite, recebeu comment=%q kind=%q", got.Comment, got.CommentKind)
 	}
 
 	trimEvent := euCreateMentoringEvent(t, app, owner)

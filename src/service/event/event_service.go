@@ -279,7 +279,7 @@ func (e *eventService) DeleteEventById(id string, requesterId string, comment st
 	if err := e.eventValidator.ValidateCancelComment(comment); err != nil {
 		return err
 	}
-	return e.eventRepository.SoftDeleteById(id, comment)
+	return e.eventRepository.SoftDeleteById(id, comment, requester.Id)
 }
 
 func isValidEventStatusTransition(current string, target string) bool {

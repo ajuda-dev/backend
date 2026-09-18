@@ -140,12 +140,18 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *eventdomain.EventUserDom
 		switch existing.Status {
 		case eventdomain.StatusCancelled, eventdomain.StatusRejected:
 			if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", existing.Id).
-				Updates(map[string]interface{}{"role": eventUser.Role, "status": eventUser.Status, "status_comment": nil}).Error; err != nil {
+				Updates(map[string]interface{}{
+					"role":                eventUser.Role,
+					"status":              eventUser.Status,
+					"status_comment":      nil,
+					"status_comment_kind": nil,
+				}).Error; err != nil {
 				return rest_err.NewInternalServerError("Error updating participant: " + err.Error())
 			}
 			existing.Role = eventUser.Role
 			existing.Status = eventUser.Status
 			existing.StatusComment = nil
+			existing.StatusCommentKind = nil
 			result = existing.ToDomain()
 			if err := e.insertMentoringInviteOutbox(tx, eventUser); err != nil {
 				return err
@@ -205,8 +211,14 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 		fields := map[string]interface{}{"status": status}
 		if status == eventdomain.StatusCancelled || comment == "" {
 			fields["status_comment"] = nil
+			fields["status_comment_kind"] = nil
 		} else {
 			fields["status_comment"] = comment
+			if status == eventdomain.StatusRejected {
+				fields["status_comment_kind"] = eventdomain.CommentKindReject
+			} else {
+				fields["status_comment_kind"] = eventdomain.CommentKindNote
+			}
 		}
 		if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", existing.Id).
 			Updates(fields).Error; err != nil {
@@ -215,8 +227,14 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 		existing.Status = status
 		if status == eventdomain.StatusCancelled || comment == "" {
 			existing.StatusComment = nil
+			existing.StatusCommentKind = nil
 		} else {
 			existing.StatusComment = &comment
+			kind := eventdomain.CommentKindNote
+			if status == eventdomain.StatusRejected {
+				kind = eventdomain.CommentKindReject
+			}
+			existing.StatusCommentKind = &kind
 		}
 		result = existing.ToDomain()
 		if err := e.insertMentoringInviteResponseOutbox(tx, eventRow, userId, status); err != nil {
@@ -228,6 +246,39 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 		return nil, toRestErr(txErr)
 	}
 	return result, nil
+}
+
+func upsertActorStatusComment(tx *gorm.DB, eventId, userId, comment, kind string) error {
+	var existing evententity.EventUserEntity
+	queryErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("event_id = ? AND user_id = ?", eventId, userId).
+		First(&existing).Error
+	if queryErr != nil && !errors.Is(queryErr, gorm.ErrRecordNotFound) {
+		return rest_err.NewInternalServerError("Error getting participant: " + queryErr.Error())
+	}
+	if errors.Is(queryErr, gorm.ErrRecordNotFound) {
+		entity := &evententity.EventUserEntity{
+			Id:                uuidv7.New().String(),
+			EventId:           eventId,
+			UserId:            userId,
+			Role:              eventdomain.RoleAttendee,
+			Status:            eventdomain.StatusConfirmed,
+			StatusComment:     &comment,
+			StatusCommentKind: &kind,
+		}
+		if err := tx.Create(entity).Error; err != nil {
+			return rest_err.NewInternalServerError("Error creating participant: " + err.Error())
+		}
+		return nil
+	}
+	if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", existing.Id).
+		Updates(map[string]interface{}{
+			"status_comment":      comment,
+			"status_comment_kind": kind,
+		}).Error; err != nil {
+		return rest_err.NewInternalServerError("Error updating participant comment: " + err.Error())
+	}
+	return nil
 }
 
 func applyMentoringRescheduleStatuses(tx *gorm.DB, outbox notificationrepo.OutboxEventRepository, event *evententity.EventEntity, requesterId string) error {
@@ -289,7 +340,11 @@ func applyMentoringRescheduleStatuses(tx *gorm.DB, outbox notificationrepo.Outbo
 
 func updateEventUserStatus(tx *gorm.DB, id string, status string) error {
 	if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", id).
-		Updates(map[string]interface{}{"status": status, "status_comment": nil}).Error; err != nil {
+		Updates(map[string]interface{}{
+			"status":              status,
+			"status_comment":      nil,
+			"status_comment_kind": nil,
+		}).Error; err != nil {
 		return rest_err.NewInternalServerError("Error updating participant status: " + err.Error())
 	}
 	return nil

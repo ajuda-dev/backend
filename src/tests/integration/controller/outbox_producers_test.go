@@ -454,16 +454,18 @@ func TestMentoringReschedule_OutboxFailureRollsBackEventAndStatuses(t *testing.T
 	stored, findErr := eventRepository.FindById(event.Id)
 	require.Nil(t, findErr)
 	assert.WithinDuration(t, before.StartAt, stored.StartAt, time.Second)
-	assert.Equal(t, before.Comment, stored.Comment)
 
 	participants, partErr := eventUserRepository.FindByEvent(event.Id, "")
 	require.Nil(t, partErr)
 	statusByUser := map[string]string{}
+	commentByUser := map[string]string{}
 	for _, participant := range participants {
 		statusByUser[participant.UserId] = participant.Status
+		commentByUser[participant.UserId] = participant.StatusComment
 	}
 	assert.Equal(t, eventdomain.StatusConfirmed, statusByUser[mentor.Id])
 	assert.Equal(t, eventdomain.StatusConfirmed, statusByUser[guest.Id])
+	assert.Equal(t, "", commentByUser[guest.Id])
 }
 
 func setupMentoringInvite(t *testing.T) (*userdomain.UserDomain, *userdomain.UserDomain, *eventdomain.EventDomain, *int) {

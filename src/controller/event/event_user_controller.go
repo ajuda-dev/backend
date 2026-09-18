@@ -108,7 +108,7 @@ func (e *eventUserController) AddParticipant() fiber.Handler {
 
 // GetParticipants godoc
 // @Summary      Lista participantes do evento
-// @Description  Retorna os participantes do evento com usuário (preload), com filtro opcional de status. Itens podem incluir comment após accept/reject.
+// @Description  Retorna os participantes do evento com usuário (preload), com filtro opcional de status. Itens podem incluir comment e comment_kind após accept/reject/reagendamento.
 // @Tags         event_users
 // @Accept       json
 // @Produce      json
@@ -142,7 +142,7 @@ func (e *eventUserController) GetParticipants() fiber.Handler {
 
 // UpdateParticipantStatus godoc
 // @Summary      Atualiza status do participante
-// @Description  O convidado aceita (CONFIRMED, comment opcional) ou recusa (REJECTED, comment obrigatório após trim, máx. 500). O texto fica no evento (resposta e GET participants) e não entra na notificação. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.
+// @Description  O convidado aceita (CONFIRMED, comment opcional, comment_kind=NOTE) ou recusa (REJECTED, comment obrigatório após trim, máx. 500, comment_kind=REJECT). O texto fica em event_users (resposta e GET participants) e não entra na notificação. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.
 // @Tags         event_users
 // @Accept       json
 // @Produce      json

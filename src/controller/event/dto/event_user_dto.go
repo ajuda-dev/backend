@@ -6,23 +6,25 @@ import (
 )
 
 type EventUserDto struct {
-	Id      string              `json:"id"`
-	EventId string              `json:"event_id"`
-	UserId  string              `json:"user_id"`
-	Role    string              `json:"role"`
-	Status  string              `json:"status"`
-	Comment string              `json:"comment,omitempty"`
-	User    *userdto.UserDtoOut `json:"user,omitempty"`
+	Id          string              `json:"id"`
+	EventId     string              `json:"event_id"`
+	UserId      string              `json:"user_id"`
+	Role        string              `json:"role"`
+	Status      string              `json:"status"`
+	Comment     string              `json:"comment,omitempty"`
+	CommentKind string              `json:"comment_kind,omitempty"`
+	User        *userdto.UserDtoOut `json:"user,omitempty"`
 }
 
 func (e EventUserDto) FromDomain(eventUser *eventdomain.EventUserDomain) EventUserDto {
 	dtoUser := EventUserDto{
-		Id:      eventUser.Id,
-		EventId: eventUser.EventId,
-		UserId:  eventUser.UserId,
-		Role:    eventUser.Role,
-		Status:  eventUser.Status,
-		Comment: eventUser.StatusComment,
+		Id:          eventUser.Id,
+		EventId:     eventUser.EventId,
+		UserId:      eventUser.UserId,
+		Role:        eventUser.Role,
+		Status:      eventUser.Status,
+		Comment:     eventUser.StatusComment,
+		CommentKind: eventUser.StatusCommentKind,
 	}
 	if eventUser.User != nil {
 		dtoUser.User = (&userdto.UserDtoOut{}).FromDomainUser(eventUser.User)

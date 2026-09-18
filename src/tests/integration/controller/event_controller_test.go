@@ -479,8 +479,12 @@ func TestDeleteEventSoftDelete(t *testing.T) {
 	if deletedEvent.Id != created.Id || !deletedEvent.DeletedAt.Valid {
 		t.Errorf("esperava evento com deleted_at preenchido, recebeu %+v", deletedEvent)
 	}
-	if deletedEvent.Comment == nil || *deletedEvent.Comment != "Agenda do mentor mudou" {
-		t.Errorf("esperava comment no cancelamento, recebeu %+v", deletedEvent.Comment)
+	cancelRow := euFindRow(t, created.Id, user.Id)
+	if cancelRow.StatusComment == nil || *cancelRow.StatusComment != "Agenda do mentor mudou" {
+		t.Errorf("esperava comment no event_users do ator, recebeu %+v", cancelRow.StatusComment)
+	}
+	if cancelRow.StatusCommentKind == nil || *cancelRow.StatusCommentKind != eventdomain.CommentKindCancel {
+		t.Errorf("esperava comment_kind CANCEL, recebeu %+v", cancelRow.StatusCommentKind)
 	}
 }
 
@@ -529,20 +533,18 @@ func TestRescheduleAndCancelEventComment(t *testing.T) {
 		t.Fatalf("esperava 200 no reagendamento, recebeu %d", resp.StatusCode)
 	}
 	rescheduled := eaDecodeEventDto(t, resp)
-	if rescheduled.Comment != "Sexta 15h encaixa melhor" {
-		t.Errorf("esperava o comment do reagendamento, recebeu '%s'", rescheduled.Comment)
-	}
 	if !rescheduled.StartAt.UTC().Truncate(time.Second).Equal(secondStart) {
 		t.Errorf("esperava start_at %s, recebeu %s", secondStart, rescheduled.StartAt)
 	}
 	if rescheduled.Status != eventdomain.EventStatusPending {
 		t.Errorf("não esperava mudar a aprovação no reagendamento, recebeu %s", rescheduled.Status)
 	}
+	assertEventUserComment(t, event.Id, owner.Id, "Sexta 15h encaixa melhor", eventdomain.CommentKindReschedule)
 
 	resp = euRequest(t, app, http.MethodGet, "/v1/event/"+event.Id, "", ownerToken)
 	got := eaDecodeEventDto(t, resp)
-	if got.Comment != "Sexta 15h encaixa melhor" {
-		t.Errorf("esperava o comment no GET, recebeu '%s'", got.Comment)
+	if !got.StartAt.UTC().Truncate(time.Second).Equal(secondStart) {
+		t.Errorf("esperava start_at no GET %s, recebeu %s", secondStart, got.StartAt)
 	}
 
 	thirdStart := time.Now().Add(96 * time.Hour).UTC().Truncate(time.Second)
@@ -552,12 +554,10 @@ func TestRescheduleAndCancelEventComment(t *testing.T) {
 		t.Fatalf("esperava 200 no segundo reagendamento, recebeu %d", resp.StatusCode)
 	}
 	overwritten := eaDecodeEventDto(t, resp)
-	if overwritten.Comment != "Na verdade sábado" {
-		t.Errorf("esperava o comment sobrescrito, recebeu '%s'", overwritten.Comment)
-	}
 	if !overwritten.StartAt.UTC().Truncate(time.Second).Equal(thirdStart) {
 		t.Errorf("esperava start_at %s no overwrite, recebeu %s", thirdStart, overwritten.StartAt)
 	}
+	assertEventUserComment(t, event.Id, owner.Id, "Na verdade sábado", eventdomain.CommentKindReschedule)
 
 	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
 		eventRescheduleBody(t, time.Now().Add(120*time.Hour), ""), ownerToken)
@@ -620,6 +620,7 @@ func TestRescheduleAndCancelEventComment(t *testing.T) {
 		t.Fatalf("esperava 200 para o dono da comunidade, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
+	assertEventUserComment(t, communityEvent.Id, communityOwner.Id, "Dono da comunidade reagendou", eventdomain.CommentKindReschedule)
 
 	moderatorEvent := registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     owner.Id,
@@ -637,6 +638,7 @@ func TestRescheduleAndCancelEventComment(t *testing.T) {
 		t.Fatalf("esperava 200 para o moderador, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
+	assertEventUserComment(t, moderatorEvent.Id, moderator.Id, "Moderador reagendou", eventdomain.CommentKindReschedule)
 
 	cancelEvent := registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     owner.Id,
@@ -680,8 +682,12 @@ func TestRescheduleAndCancelEventComment(t *testing.T) {
 	if !deletedEvent.DeletedAt.Valid {
 		t.Errorf("esperava deleted_at preenchido após o cancel")
 	}
-	if deletedEvent.Comment == nil || *deletedEvent.Comment != "Agenda do mentor mudou" {
-		t.Errorf("esperava o comment do cancel na linha deletada, recebeu %+v", deletedEvent.Comment)
+	cancelRow := euFindRow(t, event.Id, owner.Id)
+	if cancelRow.StatusComment == nil || *cancelRow.StatusComment != "Agenda do mentor mudou" {
+		t.Errorf("esperava o comment do cancel no event_users do ator, recebeu %+v", cancelRow.StatusComment)
+	}
+	if cancelRow.StatusCommentKind == nil || *cancelRow.StatusCommentKind != eventdomain.CommentKindCancel {
+		t.Errorf("esperava comment_kind CANCEL, recebeu %+v", cancelRow.StatusCommentKind)
 	}
 }
 
@@ -710,6 +716,7 @@ func TestMentoringRescheduleSwapsParticipantStatus(t *testing.T) {
 	}
 	assertEventUserStatus(t, event.Id, owner.Id, eventdomain.StatusRequested)
 	assertEventUserStatus(t, event.Id, mentee.Id, eventdomain.StatusConfirmed)
+	assertEventUserComment(t, event.Id, mentee.Id, "Sexta 15h encaixa melhor", eventdomain.CommentKindReschedule)
 
 	ownerStart := time.Now().Add(80 * time.Hour).UTC().Truncate(time.Second)
 	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
@@ -720,6 +727,11 @@ func TestMentoringRescheduleSwapsParticipantStatus(t *testing.T) {
 	resp.Body.Close()
 	assertEventUserStatus(t, event.Id, owner.Id, eventdomain.StatusConfirmed)
 	assertEventUserStatus(t, event.Id, mentee.Id, eventdomain.StatusRequested)
+	assertEventUserComment(t, event.Id, owner.Id, "Volto para o horário original", eventdomain.CommentKindReschedule)
+	menteeAfterOwner := euFindRow(t, event.Id, mentee.Id)
+	if menteeAfterOwner.StatusComment != nil {
+		t.Errorf("esperava status_comment limpo no mentee, recebeu %+v", menteeAfterOwner.StatusComment)
+	}
 
 	resp = euUpdateStatus(t, app, event.Id, mentee.Id, eventdomain.StatusConfirmed, "Nos falamos pelo LinkedIn", menteeToken)
 	if resp.StatusCode != fiber.StatusOK {
@@ -742,6 +754,7 @@ func TestMentoringRescheduleSwapsParticipantStatus(t *testing.T) {
 	if ownerRow.StatusComment != nil {
 		t.Errorf("esperava status_comment limpo no criador, recebeu %+v", ownerRow.StatusComment)
 	}
+	assertEventUserComment(t, event.Id, mentee.Id, "Preciso de outro horário", eventdomain.CommentKindReschedule)
 
 	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
 		eventRescheduleBody(t, time.Now().Add(110*time.Hour), "Terceiro não pode"), validTokenFor(t, third.Id))
@@ -803,5 +816,16 @@ func assertEventUserStatus(t *testing.T, eventId string, userId string, want str
 	row := euFindRow(t, eventId, userId)
 	if row.Status != want {
 		t.Errorf("esperava status %s para %s, recebeu %s", want, userId, row.Status)
+	}
+}
+
+func assertEventUserComment(t *testing.T, eventId string, userId string, wantComment string, wantKind string) {
+	t.Helper()
+	row := euFindRow(t, eventId, userId)
+	if row.StatusComment == nil || *row.StatusComment != wantComment {
+		t.Errorf("esperava comment %q para %s, recebeu %+v", wantComment, userId, row.StatusComment)
+	}
+	if row.StatusCommentKind == nil || *row.StatusCommentKind != wantKind {
+		t.Errorf("esperava comment_kind %q para %s, recebeu %+v", wantKind, userId, row.StatusCommentKind)
 	}
 }

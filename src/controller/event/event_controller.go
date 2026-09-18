@@ -182,7 +182,7 @@ func (e *eventController) GetAllEvents() fiber.Handler {
 
 // RescheduleEvent godoc
 // @Summary      Reagenda um evento
-// @Description  Quem gerencia o evento (ou, em MENTORING, o convidado) altera start_at e grava um comment obrigatório (trim, máx. 500). Reagendar de novo sobrescreve o comment anterior. Não muda a aprovação. Em MENTORING, quem reagenda fica CONFIRMED e o outro participante CONFIRMED (em geral o criador) volta para REQUESTED.
+// @Description  Quem gerencia o evento (ou, em MENTORING, o convidado) altera start_at e grava um comment obrigatório (trim, máx. 500) na linha event_users de quem reagenda (comment_kind=RESCHEDULE). Reagendar de novo sobrescreve o comment anterior do ator. Não muda a aprovação. Em MENTORING, quem reagenda fica CONFIRMED e o outro participante CONFIRMED (em geral o criador) volta para REQUESTED.
 // @Tags         events
 // @Accept       json
 // @Produce      json
@@ -225,7 +225,7 @@ func (e *eventController) RescheduleEvent() fiber.Handler {
 
 // DeleteEventById godoc
 // @Summary      Remove evento (soft delete)
-// @Description  Arquiva o evento marcando deleted_at. Body exige comment (trim, máx. 500); o texto sobrescreve events.comment na mesma transação do delete.
+// @Description  Arquiva o evento marcando deleted_at. Body exige comment (trim, máx. 500); o texto fica em event_users.status_comment do ator (comment_kind=CANCEL) na mesma transação do delete.
 // @Tags         events
 // @Accept       json
 // @Param        id  path  string  true  "ID do evento"

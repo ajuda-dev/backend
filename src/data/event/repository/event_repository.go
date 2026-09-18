@@ -34,7 +34,7 @@ type EventRepository interface {
 	FindById(id string) (*eventdomain.EventDomain, *rest_err.RestErr)
 	FindAll(filter EventFilter, page int, limit int) (*eventdomain.PageableEvent, *rest_err.RestErr)
 	Reschedule(id string, startAt time.Time, comment string, requesterId string) (*eventdomain.EventDomain, *rest_err.RestErr)
-	SoftDeleteById(id string, comment string) *rest_err.RestErr
+	SoftDeleteById(id string, comment string, requesterId string) *rest_err.RestErr
 	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
 	CountByOwnerIdAndStatuses(ownerId string, statuses []string) (int64, *rest_err.RestErr)
 	UpdateApprovalStatus(id string, current string, status string, actorId string) (*eventdomain.EventDomain, *rest_err.RestErr)
@@ -112,10 +112,13 @@ func (e *eventRepository) Reschedule(id string, startAt time.Time, comment strin
 		}
 		if err := tx.Model(&evententity.EventEntity{}).
 			Where("id = ?", id).
-			Updates(map[string]interface{}{"start_at": startAt, "comment": comment}).Error; err != nil {
+			Updates(map[string]interface{}{"start_at": startAt}).Error; err != nil {
 			return rest_err.NewInternalServerError("Error rescheduling event: " + err.Error())
 		}
-		return applyMentoringRescheduleStatuses(tx, e.outbox, eventRow, requesterId)
+		if err := applyMentoringRescheduleStatuses(tx, e.outbox, eventRow, requesterId); err != nil {
+			return err
+		}
+		return upsertActorStatusComment(tx, id, requesterId, comment, eventdomain.CommentKindReschedule)
 	})
 	if txErr != nil {
 		return nil, toRestErr(txErr)
@@ -123,16 +126,17 @@ func (e *eventRepository) Reschedule(id string, startAt time.Time, comment strin
 	return e.FindById(id)
 }
 
-func (e *eventRepository) SoftDeleteById(id string, comment string) *rest_err.RestErr {
+func (e *eventRepository) SoftDeleteById(id string, comment string, requesterId string) *rest_err.RestErr {
 	txErr := e.database.Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&evententity.EventEntity{}).
-			Where("id = ? AND deleted_at IS NULL", id).
-			Updates(map[string]interface{}{"comment": comment})
-		if result.Error != nil {
-			return rest_err.NewInternalServerError("Error updating event comment: " + result.Error.Error())
+		var existing evententity.EventEntity
+		if err := tx.Where("id = ? AND deleted_at IS NULL", id).First(&existing).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return rest_err.NewNotFoundError("event not found")
+			}
+			return rest_err.NewInternalServerError("Error getting event: " + err.Error())
 		}
-		if result.RowsAffected == 0 {
-			return rest_err.NewNotFoundError("event not found")
+		if err := upsertActorStatusComment(tx, id, requesterId, comment, eventdomain.CommentKindCancel); err != nil {
+			return err
 		}
 		del := tx.Where("id = ?", id).Delete(&evententity.EventEntity{})
 		if del.Error != nil {

@@ -991,7 +991,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna os participantes do evento com usuário (preload), com filtro opcional de status. Itens podem incluir comment após accept/reject.",
+                "description": "Retorna os participantes do evento com usuário (preload), com filtro opcional de status. Itens podem incluir comment e comment_kind após accept/reject/reagendamento.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1195,7 +1195,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "O convidado aceita (CONFIRMED, comment opcional) ou recusa (REJECTED, comment obrigatório após trim, máx. 500). O texto fica no evento (resposta e GET participants) e não entra na notificação. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.",
+                "description": "O convidado aceita (CONFIRMED, comment opcional, comment_kind=NOTE) ou recusa (REJECTED, comment obrigatório após trim, máx. 500, comment_kind=REJECT). O texto fica em event_users (resposta e GET participants) e não entra na notificação. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1332,7 +1332,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Arquiva o evento marcando deleted_at. Body exige comment (trim, máx. 500); o texto sobrescreve events.comment na mesma transação do delete.",
+                "description": "Arquiva o evento marcando deleted_at. Body exige comment (trim, máx. 500); o texto fica em event_users.status_comment do ator (comment_kind=CANCEL) na mesma transação do delete.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1474,7 +1474,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Quem gerencia o evento (ou, em MENTORING, o convidado) altera start_at e grava um comment obrigatório (trim, máx. 500). Reagendar de novo sobrescreve o comment anterior. Não muda a aprovação. Em MENTORING, quem reagenda fica CONFIRMED e o outro participante CONFIRMED (em geral o criador) volta para REQUESTED.",
+                "description": "Quem gerencia o evento (ou, em MENTORING, o convidado) altera start_at e grava um comment obrigatório (trim, máx. 500) na linha event_users de quem reagenda (comment_kind=RESCHEDULE). Reagendar de novo sobrescreve o comment anterior do ator. Não muda a aprovação. Em MENTORING, quem reagenda fica CONFIRMED e o outro participante CONFIRMED (em geral o criador) volta para REQUESTED.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3086,9 +3086,6 @@ const docTemplate = `{
                 "category": {
                     "type": "string"
                 },
-                "comment": {
-                    "type": "string"
-                },
                 "community": {
                     "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityDto"
                 },
@@ -3130,6 +3127,9 @@ const docTemplate = `{
                 "comment": {
                     "type": "string"
                 },
+                "comment_kind": {
+                    "type": "string"
+                },
                 "event_id": {
                     "type": "string"
                 },
@@ -3154,6 +3154,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "comment": {
+                    "type": "string"
+                },
+                "comment_kind": {
                     "type": "string"
                 },
                 "event_id": {
@@ -3211,9 +3214,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "category": {
-                    "type": "string"
-                },
-                "comment": {
                     "type": "string"
                 },
                 "community_id": {

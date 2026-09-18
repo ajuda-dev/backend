@@ -11,23 +11,25 @@ type ParticipantUserDto struct {
 }
 
 type EventParticipantDto struct {
-	Id      string              `json:"id"`
-	EventId string              `json:"event_id"`
-	UserId  string              `json:"user_id"`
-	Role    string              `json:"role"`
-	Status  string              `json:"status"`
-	Comment string              `json:"comment,omitempty"`
-	User    *ParticipantUserDto `json:"user,omitempty"`
+	Id          string              `json:"id"`
+	EventId     string              `json:"event_id"`
+	UserId      string              `json:"user_id"`
+	Role        string              `json:"role"`
+	Status      string              `json:"status"`
+	Comment     string              `json:"comment,omitempty"`
+	CommentKind string              `json:"comment_kind,omitempty"`
+	User        *ParticipantUserDto `json:"user,omitempty"`
 }
 
 func (e EventParticipantDto) FromDomain(eventUser *eventdomain.EventUserDomain) EventParticipantDto {
 	dtoParticipant := EventParticipantDto{
-		Id:      eventUser.Id,
-		EventId: eventUser.EventId,
-		UserId:  eventUser.UserId,
-		Role:    eventUser.Role,
-		Status:  eventUser.Status,
-		Comment: eventUser.StatusComment,
+		Id:          eventUser.Id,
+		EventId:     eventUser.EventId,
+		UserId:      eventUser.UserId,
+		Role:        eventUser.Role,
+		Status:      eventUser.Status,
+		Comment:     eventUser.StatusComment,
+		CommentKind: eventUser.StatusCommentKind,
 	}
 	if eventUser.User != nil {
 		dtoParticipant.User = &ParticipantUserDto{

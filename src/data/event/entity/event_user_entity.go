@@ -8,14 +8,15 @@ import (
 )
 
 type EventUserEntity struct {
-	Id            string  `gorm:"primaryKey;type:uuid"`
-	EventId       string  `gorm:"type:uuid;not null;uniqueIndex:idx_event_users_event_user,priority:1;index"`
-	UserId        string  `gorm:"type:uuid;not null;uniqueIndex:idx_event_users_event_user,priority:2;index:idx_event_users_user_status,priority:1"`
-	Role          string  `gorm:"type:varchar(20);not null"`                                              // HOST | MENTOR | MENTEE | SPEAKER | ATTENDEE
-	Status        string  `gorm:"type:varchar(20);not null;index:idx_event_users_user_status,priority:2"` // REQUESTED | CONFIRMED | REJECTED | CANCELLED
-	StatusComment *string `gorm:"column:status_comment;type:varchar(500)"`
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	Id                string  `gorm:"primaryKey;type:uuid"`
+	EventId           string  `gorm:"type:uuid;not null;uniqueIndex:idx_event_users_event_user,priority:1;index"`
+	UserId            string  `gorm:"type:uuid;not null;uniqueIndex:idx_event_users_event_user,priority:2;index:idx_event_users_user_status,priority:1"`
+	Role              string  `gorm:"type:varchar(20);not null"`                                              // HOST | MENTOR | MENTEE | SPEAKER | ATTENDEE
+	Status            string  `gorm:"type:varchar(20);not null;index:idx_event_users_user_status,priority:2"` // REQUESTED | CONFIRMED | REJECTED | CANCELLED
+	StatusComment     *string `gorm:"column:status_comment;type:varchar(500)"`
+	StatusCommentKind *string `gorm:"column:status_comment_kind;type:varchar(20)"`
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 
 	Event EventEntity           `gorm:"foreignKey:EventId;references:Id;constraint:OnDelete:CASCADE"`
 	User  userentity.UserEntity `gorm:"foreignKey:UserId;references:Id;constraint:OnDelete:RESTRICT"`
@@ -37,6 +38,10 @@ func (e *EventUserEntity) FromDomain(eventUser eventdomain.EventUserDomain) *Eve
 		comment := eventUser.StatusComment
 		entity.StatusComment = &comment
 	}
+	if eventUser.StatusCommentKind != "" {
+		kind := eventUser.StatusCommentKind
+		entity.StatusCommentKind = &kind
+	}
 	return entity
 }
 
@@ -50,6 +55,9 @@ func (e EventUserEntity) ToDomain() *eventdomain.EventUserDomain {
 	}
 	if e.StatusComment != nil {
 		eventUser.StatusComment = *e.StatusComment
+	}
+	if e.StatusCommentKind != nil {
+		eventUser.StatusCommentKind = *e.StatusCommentKind
 	}
 	if e.User.Id != "" {
 		eventUser.User = e.User.ToDomainUser()
