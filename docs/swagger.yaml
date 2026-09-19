@@ -1017,8 +1017,10 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retorna todos os eventos, com paginação e filtros por comunidade,
-        categoria, tipo, endereço, cidade e apenas futuros
+      description: Catálogo paginado: só eventos APPROVED com visibility PUBLIC (ou
+        vazia), mais os do requester (owner, dono da comunidade ou participante ativo).
+        MENTORING CLOSED não aparece para terceiro; use ?user_id= self para a agenda.
+        meeting_link omitido para quem não participa. Staff lista também não aprovados/fechados.
       parameters:
       - description: Página
         in: query
@@ -1147,6 +1149,8 @@ paths:
       - application/json
       description: Retorna os participantes do evento com usuário (preload), com filtro
         opcional de status. Itens podem incluir comment e comment_kind após accept/reject/reagendamento.
+        Mesma visibilidade do detalhe: MENTORING/COMMUNITY_EVENT CLOSED → 404 para
+        terceiro.
       parameters:
       - description: ID do evento
         in: path
@@ -1445,7 +1449,10 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retorna o detalhe do evento com owner, endereço e comunidade (preloads)
+      description: Retorna o detalhe do evento com owner, endereço e comunidade (preloads).
+        MENTORING CLOSED e COMMUNITY_EVENT CLOSED: terceiro recebe 404. meeting_link
+        só para owner, participante ativo (status ≠ CANCELLED) ou staff; omitido no
+        JSON para os demais.
       parameters:
       - description: ID do evento
         in: path
@@ -1644,7 +1651,9 @@ paths:
       description: Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id
         é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário
         autenticado (owner_id do body é ignorado). creator_role (MENTOR default ou
-        MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1
+        MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1.
+        MENTORING nasce CLOSED (não entra no catálogo); WEBINAR nasce PUBLIC; COMMUNITY_EVENT
+        nasce CLOSED.
       parameters:
       - description: Dados do evento
         in: body

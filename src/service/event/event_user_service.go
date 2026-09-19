@@ -51,9 +51,6 @@ func (e *eventUserService) JoinEvent(eventId string, requesterId string) (*event
 	if !isEventApproved(event) {
 		return nil, eventNotApprovedError()
 	}
-	if !isEventPublic(event) {
-		return nil, eventNotPublicError()
-	}
 	eventUser := &eventdomain.EventUserDomain{
 		EventId: eventId,
 		UserId:  requester.Id,
@@ -62,6 +59,9 @@ func (e *eventUserService) JoinEvent(eventId string, requesterId string) (*event
 	}
 	if err := e.eventUserValidator.ValidateJoin(*eventUser, event.Category); err != nil {
 		return nil, err
+	}
+	if !isEventPublic(event) {
+		return nil, eventNotPublicError()
 	}
 	return e.eventUserRepository.CreateOrUpdate(eventUser, event.MaxSlots)
 }
@@ -159,7 +159,7 @@ func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string
 				break
 			}
 		}
-		if role != eventdomain.RoleSpeaker && role != eventdomain.RoleHost {
+		if !isInviteRole(role) {
 			if !isEventApproved(event) {
 				return nil, eventNotApprovedError()
 			}

@@ -26,6 +26,13 @@ func canRescheduleEvent(requester *userdomain.UserDomain, event *eventdomain.Eve
 	return isInviteParticipant
 }
 
+func isInviteRole(role string) bool {
+	return role == eventdomain.RoleSpeaker ||
+		role == eventdomain.RoleHost ||
+		role == eventdomain.RoleMentor ||
+		role == eventdomain.RoleMentee
+}
+
 func isActiveInviteParticipant(participants []*eventdomain.EventUserDomain, userId string, category string) bool {
 	for _, participant := range participants {
 		if participant == nil || participant.UserId != userId || participant.Status == eventdomain.StatusCancelled {
@@ -76,10 +83,17 @@ func isEventApproved(event *eventdomain.EventDomain) bool {
 }
 
 func isEventPublic(event *eventdomain.EventDomain) bool {
-	if event.Category != eventdomain.CategoryCommunityEvent {
-		return true
-	}
 	return event.Visibility == "" || event.Visibility == eventdomain.EventVisibilityPublic
+}
+
+func redactEventMeetingLink(event *eventdomain.EventDomain, requester *userdomain.UserDomain, isParticipant bool) {
+	if event == nil || requester == nil {
+		return
+	}
+	if canManageEvent(requester, event) || isParticipant {
+		return
+	}
+	event.MeetingLink = ""
 }
 
 func isActiveEventParticipant(participants []*eventdomain.EventUserDomain, userId string) bool {

@@ -75,6 +75,7 @@ func (e *eventService) CreateEvent(event *eventdomain.EventDomain) (*eventdomain
 		event.Visibility = eventdomain.EventVisibilityClosed
 	}
 	if event.Category == eventdomain.CategoryMentoring {
+		event.Visibility = eventdomain.EventVisibilityClosed
 		maxSlots := 2
 		event.MaxSlots = &maxSlots
 		if event.CreatorRole == "" {
@@ -202,7 +203,7 @@ func (e *eventService) GetEventDetail(id string, requesterId string) (*eventdoma
 		return nil, err
 	}
 	isParticipant := false
-	if !isEventVisible(requester, event, false) {
+	if !canManageEvent(requester, event) {
 		participants, partErr := e.eventUserRepository.FindByEvent(id, "")
 		if partErr != nil {
 			return nil, partErr
@@ -216,6 +217,7 @@ func (e *eventService) GetEventDetail(id string, requesterId string) (*eventdoma
 	if event.Community != nil {
 		identity.ApplyVisibilityFilter(&event.Community.Owner, requester)
 	}
+	redactEventMeetingLink(event, requester, isParticipant)
 	return event, nil
 }
 
@@ -240,11 +242,24 @@ func (e *eventService) GetAll(filter eventrepo.EventFilter, page int, limit int,
 	if err != nil {
 		return nil, err
 	}
+	activeParticipantIds := map[string]bool{}
+	if !isStaff(requester) && len(pageable.Data) > 0 {
+		participations, partErr := e.eventUserRepository.FindByUser(requester.Id, "", "")
+		if partErr != nil {
+			return nil, partErr
+		}
+		for _, participant := range participations {
+			if participant != nil && participant.Status != eventdomain.StatusCancelled {
+				activeParticipantIds[participant.EventId] = true
+			}
+		}
+	}
 	for _, event := range pageable.Data {
 		identity.ApplyVisibilityFilter(&event.Owner, requester)
 		if event.Community != nil {
 			identity.ApplyVisibilityFilter(&event.Community.Owner, requester)
 		}
+		redactEventMeetingLink(event, requester, activeParticipantIds[event.Id])
 	}
 	return pageable, nil
 }

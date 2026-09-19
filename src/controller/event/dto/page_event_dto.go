@@ -23,7 +23,7 @@ type EventDto struct {
 	Description string                     `json:"description"`
 	StartAt     time.Time                  `json:"start_at"`
 	DurationMin int                        `json:"duration_min"`
-	MeetingLink string                     `json:"meeting_link"`
+	MeetingLink string                     `json:"meeting_link,omitempty"`
 	MaxSlots    *int                       `json:"max_slots"`
 	Status      string                     `json:"status"`
 	Visibility  string                     `json:"visibility"`

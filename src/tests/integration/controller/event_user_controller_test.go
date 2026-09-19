@@ -302,8 +302,8 @@ func TestJoinMentoringEventBlocked(t *testing.T) {
 	}
 	respBody := decodeRestErr(t, resp)
 	causes := getCauseByField("event_id", respBody.Causes)
-	if len(causes) == 0 {
-		t.Errorf("esperava cause em event_id para MENTORING, recebeu %+v", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "MENTORING events cannot be joined, the host must invite the mentee" {
+		t.Errorf("esperava cause de categoria MENTORING, recebeu %+v", respBody.Causes)
 	}
 }
 

@@ -109,7 +109,7 @@ func (e *eventUserController) AddParticipant() fiber.Handler {
 
 // GetParticipants godoc
 // @Summary      Lista participantes do evento
-// @Description  Retorna os participantes do evento com usuário (preload), com filtro opcional de status. Itens podem incluir comment e comment_kind após accept/reject/reagendamento.
+// @Description  Retorna os participantes do evento com usuário (preload), com filtro opcional de status. Itens podem incluir comment e comment_kind após accept/reject/reagendamento. Mesma visibilidade do detalhe: MENTORING/COMMUNITY_EVENT CLOSED → 404 para terceiro.
 // @Tags         event_users
 // @Accept       json
 // @Produce      json

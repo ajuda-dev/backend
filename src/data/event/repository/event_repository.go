@@ -237,10 +237,9 @@ func (e *eventRepository) FindAll(filter EventFilter, page int, limit int) (*eve
 		query = query.Where("events.status = ?", filter.ApprovalStatus)
 	} else if filter.UserId == "" && !filter.IncludeNonApproved {
 		query = query.Where(
-			"((events.status = ? AND (events.visibility = ? OR events.visibility = '' OR events.category <> ?)) OR events.owner_id = ? OR events.community_id IN (SELECT id FROM community WHERE owner_id = ? AND deleted_at IS NULL) OR EXISTS (SELECT 1 FROM event_users WHERE event_users.event_id = events.id AND event_users.user_id = ? AND event_users.status <> ?))",
+			"((events.status = ? AND (events.visibility = ? OR events.visibility = '')) OR events.owner_id = ? OR events.community_id IN (SELECT id FROM community WHERE owner_id = ? AND deleted_at IS NULL) OR EXISTS (SELECT 1 FROM event_users WHERE event_users.event_id = events.id AND event_users.user_id = ? AND event_users.status <> ?))",
 			eventdomain.EventStatusApproved,
 			eventdomain.EventVisibilityPublic,
-			eventdomain.CategoryCommunityEvent,
 			filter.RequesterId,
 			filter.RequesterId,
 			filter.RequesterId,

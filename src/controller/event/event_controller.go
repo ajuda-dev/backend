@@ -37,7 +37,7 @@ func NewEventController(eventService event.EventService) EventController {
 
 // RegisterEvent godoc
 // @Summary      Registra um novo evento
-// @Description  Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado). creator_role (MENTOR default ou MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1
+// @Description  Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado). creator_role (MENTOR default ou MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1. MENTORING nasce CLOSED (não entra no catálogo); WEBINAR nasce PUBLIC; COMMUNITY_EVENT nasce CLOSED.
 // @Tags         events
 // @Accept       json
 // @Produce      json
@@ -76,7 +76,7 @@ func (e *eventController) RegisterEvent() fiber.Handler {
 
 // GetEventById godoc
 // @Summary      Busca evento por id
-// @Description  Retorna o detalhe do evento com owner, endereço e comunidade (preloads)
+// @Description  Retorna o detalhe do evento com owner, endereço e comunidade (preloads). MENTORING CLOSED e COMMUNITY_EVENT CLOSED: terceiro recebe 404. meeting_link só para owner, participante ativo (status ≠ CANCELLED) ou staff; omitido no JSON para os demais.
 // @Tags         events
 // @Accept       json
 // @Produce      json
@@ -110,7 +110,7 @@ func (e *eventController) GetEventById() fiber.Handler {
 
 // GetAllEvents godoc
 // @Summary      Lista eventos
-// @Description  Retorna todos os eventos, com paginação e filtros por comunidade, categoria, tipo, endereço, cidade e apenas futuros
+// @Description  Catálogo paginado: só eventos APPROVED com visibility PUBLIC (ou vazia), mais os do requester (owner, dono da comunidade ou participante ativo). MENTORING CLOSED não aparece para terceiro; use ?user_id= self para a agenda. meeting_link omitido para quem não participa. Staff lista também não aprovados/fechados.
 // @Tags         events
 // @Accept       json
 // @Produce      json
