@@ -16,8 +16,8 @@ import (
 
 type CommunityService interface {
 	CreateCommunity(community *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr)
-	GetCommunityById(id string) (*communitydomain.CommunityDomain, *rest_err.RestErr)
-	GetAll(filter communityrepo.CommunityFilter, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr)
+	GetCommunityById(id string, requesterId string) (*communitydomain.CommunityDomain, *rest_err.RestErr)
+	GetAll(filter communityrepo.CommunityFilter, page int, limit int, requesterId string) (*communitydomain.PageableCommunity, *rest_err.RestErr)
 	UpdateCommunity(id string, requesterId string, changes *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr)
 	DeleteCommunity(id string, requesterId string) *rest_err.RestErr
 }
@@ -128,15 +128,47 @@ func (c *communityService) CreateCommunity(community *communitydomain.CommunityD
 	if !rateBypass {
 		c.rateLimiter.Record(quota.BucketCommunityCreate, user.Id, time.Now())
 	}
+	if err := c.filterOwner(created, user.Id); err != nil {
+		return created, err
+	}
 	return created, nil
 }
 
-func (c *communityService) GetCommunityById(id string) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
-	return c.communityRepository.FindById(id)
+func (c *communityService) filterOwner(community *communitydomain.CommunityDomain, requesterId string) *rest_err.RestErr {
+	requester, err := identity.AuthenticatedUser(c.userService, requesterId)
+	if err != nil {
+		return err
+	}
+	identity.ApplyVisibilityFilter(&community.Owner, requester)
+	return nil
 }
 
-func (c *communityService) GetAll(filter communityrepo.CommunityFilter, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr) {
-	return c.communityRepository.FindAll(filter, page, limit)
+func (c *communityService) GetCommunityById(id string, requesterId string) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(c.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	community, err := c.communityRepository.FindById(id)
+	if err != nil {
+		return nil, err
+	}
+	identity.ApplyVisibilityFilter(&community.Owner, requester)
+	return community, nil
+}
+
+func (c *communityService) GetAll(filter communityrepo.CommunityFilter, page int, limit int, requesterId string) (*communitydomain.PageableCommunity, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(c.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	result, err := c.communityRepository.FindAll(filter, page, limit)
+	if err != nil {
+		return nil, err
+	}
+	for _, community := range result.Data {
+		identity.ApplyVisibilityFilter(&community.Owner, requester)
+	}
+	return result, nil
 }
 
 func (c *communityService) UpdateCommunity(id string, requesterId string, changes *communitydomain.CommunityDomain) (*communitydomain.CommunityDomain, *rest_err.RestErr) {
@@ -144,7 +176,7 @@ func (c *communityService) UpdateCommunity(id string, requesterId string, change
 	if err != nil {
 		return nil, err
 	}
-	community, err := c.GetCommunityById(id)
+	community, err := c.GetCommunityById(id, requesterId)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +225,12 @@ func (c *communityService) UpdateCommunity(id string, requesterId string, change
 		}
 		changes.ConfigVisibility = merged
 	}
-	return c.communityRepository.Update(id, changes)
+	updated, updateErr := c.communityRepository.Update(id, changes)
+	if updateErr != nil {
+		return nil, updateErr
+	}
+	identity.ApplyVisibilityFilter(&updated.Owner, requester)
+	return updated, nil
 }
 
 func (c *communityService) DeleteCommunity(id string, requesterId string) *rest_err.RestErr {
@@ -201,7 +238,7 @@ func (c *communityService) DeleteCommunity(id string, requesterId string) *rest_
 	if err != nil {
 		return err
 	}
-	community, err := c.GetCommunityById(id)
+	community, err := c.GetCommunityById(id, requesterId)
 	if err != nil {
 		return err
 	}

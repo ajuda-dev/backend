@@ -14,7 +14,7 @@ type CommunityUserService interface {
 	JoinCommunity(communityId string, userId string) (*communitydomain.CommunityUserDomain, *rest_err.RestErr)
 	LeaveCommunity(communityId string, userId string) *rest_err.RestErr
 	GetCommunityMembers(communityId string, requesterId string, page int, limit int) (*communitydomain.PageableCommunityMember, *rest_err.RestErr)
-	GetUserCommunities(userId string, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr)
+	GetUserCommunities(userId string, requesterId string, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr)
 }
 
 type communityUserService struct {
@@ -41,7 +41,7 @@ func NewCommunityUserService(
 }
 
 func (c *communityUserService) JoinCommunity(communityId string, userId string) (*communitydomain.CommunityUserDomain, *rest_err.RestErr) {
-	if _, err := c.communityService.GetCommunityById(communityId); err != nil {
+	if _, err := c.communityService.GetCommunityById(communityId, userId); err != nil {
 		return nil, err
 	}
 	user, err := identity.AuthenticatedUser(c.userService, userId)
@@ -84,7 +84,7 @@ func (c *communityUserService) JoinCommunity(communityId string, userId string) 
 }
 
 func (c *communityUserService) LeaveCommunity(communityId string, userId string) *rest_err.RestErr {
-	if _, err := c.communityService.GetCommunityById(communityId); err != nil {
+	if _, err := c.communityService.GetCommunityById(communityId, userId); err != nil {
 		return err
 	}
 	return c.communityUserRepository.DeleteByCommunityAndUser(communityId, userId)
@@ -95,7 +95,7 @@ func (c *communityUserService) GetCommunityMembers(communityId string, requester
 	if err != nil {
 		return nil, err
 	}
-	if _, err := c.communityService.GetCommunityById(communityId); err != nil {
+	if _, err := c.communityService.GetCommunityById(communityId, requesterId); err != nil {
 		return nil, err
 	}
 	result, err := c.communityUserRepository.FindMembersByCommunity(communityId, page, limit)
@@ -108,6 +108,17 @@ func (c *communityUserService) GetCommunityMembers(communityId string, requester
 	return result, nil
 }
 
-func (c *communityUserService) GetUserCommunities(userId string, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr) {
-	return c.communityUserRepository.FindCommunitiesByUser(userId, page, limit)
+func (c *communityUserService) GetUserCommunities(userId string, requesterId string, page int, limit int) (*communitydomain.PageableCommunity, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(c.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	result, err := c.communityUserRepository.FindCommunitiesByUser(userId, page, limit)
+	if err != nil {
+		return nil, err
+	}
+	for _, community := range result.Data {
+		identity.ApplyVisibilityFilter(&community.Owner, requester)
+	}
+	return result, nil
 }

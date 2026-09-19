@@ -34,7 +34,7 @@ func NewCommunityController(communityService community.CommunityService) Communi
 
 // RegisterCommunity godoc
 // @Summary      Registra uma nova comunidade
-// @Description  Cria uma nova comunidade no sistema. O owner é sempre o usuário autenticado (owner_id do body é ignorado). configVisibility (github, linkedin, otherlink, photo) é opcional; os links são sempre públicos.
+// @Description  Cria uma nova comunidade no sistema. O owner é sempre o usuário autenticado (owner_id do body é ignorado) e sai como id/name/email (sem role/emailVerified). configVisibility (github, linkedin, otherlink, photo) é opcional; os links são sempre públicos.
 // @Tags         communities
 // @Accept       json
 // @Produce      json
@@ -73,7 +73,7 @@ func (c *communityController) RegisterCommunity() fiber.Handler {
 
 // GetCommunityById godoc
 // @Summary      Busca comunidade por id
-// @Description  Retorna o detalhe da comunidade com owner, endereço e configVisibility (github, linkedin, otherlink, photo). Os links são sempre públicos.
+// @Description  Retorna o detalhe da comunidade com owner (id, name e email só se compartilhado ou se o requester for o dono/ADMIN; sem role/emailVerified), endereço e configVisibility (github, linkedin, otherlink, photo). Os links são sempre públicos. Requester inexistente → 401.
 // @Tags         communities
 // @Accept       json
 // @Produce      json
@@ -92,7 +92,11 @@ func (c *communityController) GetCommunityById() fiber.Handler {
 				"Invalid params",
 				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
 		}
-		community, err := c.communityService.GetCommunityById(id)
+		requesterId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || requesterId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		community, err := c.communityService.GetCommunityById(id, requesterId)
 		if err != nil {
 			logger.Error("error: ", err)
 			return cf.Status(err.Code).JSON(err)
@@ -103,7 +107,7 @@ func (c *communityController) GetCommunityById() fiber.Handler {
 
 // GetAllCommunities godoc
 // @Summary      Lista comunidades
-// @Description  Retorna todas as comunidades, com paginação e filtros por dono, nome e cidade (buscas parciais, case-insensitive e accent-insensitive)
+// @Description  Retorna todas as comunidades, com paginação e filtros por dono, nome e cidade (buscas parciais, case-insensitive e accent-insensitive). O owner de cada item não inclui role/emailVerified; o e-mail só aparece se compartilhado ou se o requester for o dono/ADMIN.
 // @Tags         communities
 // @Accept       json
 // @Produce      json
@@ -132,7 +136,11 @@ func (c *communityController) GetAllCommunities() fiber.Handler {
 				"Invalid query params",
 				[]rest_err.Causes{{Field: "owner_id", Message: "owner_id must be a valid UUID v7"}}))
 		}
-		result, e := c.communityService.GetAll(filter, page, limit)
+		requesterId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || requesterId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		result, e := c.communityService.GetAll(filter, page, limit, requesterId)
 		if e != nil {
 			logger.Error("error: ", e)
 			return cf.Status(e.Code).JSON(e)
@@ -145,7 +153,7 @@ func (c *communityController) GetAllCommunities() fiber.Handler {
 
 // UpdateCommunity godoc
 // @Summary      Altera uma comunidade
-// @Description  Atualiza nome, descrição, endereço e/ou links públicos (configVisibility: github, linkedin, otherlink, photo). Campos vazios de name/description/address_id são ignorados; chaves de configVisibility enviadas substituem a entrada. Somente o dono da comunidade, moderadores e admins.
+// @Description  Atualiza nome, descrição, endereço e/ou links públicos (configVisibility: github, linkedin, otherlink, photo). Campos vazios de name/description/address_id são ignorados; chaves de configVisibility enviadas substituem a entrada. Somente o dono da comunidade, moderadores e admins. O owner na resposta segue o mesmo filtro de visibilidade do GET.
 // @Tags         communities
 // @Accept       json
 // @Produce      json

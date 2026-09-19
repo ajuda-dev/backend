@@ -62,7 +62,7 @@ func toCommunityDto(community *communitydomain.CommunityDomain) *communitydto.Co
 		Name:        community.Name,
 		Description: community.Description,
 		Address:     (&addressdto.AddressDto{}).FromDomain(&community.Address),
-		Owner:       (&userdto.UserDtoOut{}).FromDomainUser(&community.Owner),
+		Owner:       communitydto.CommunityOwnerDto{}.FromDomain(&community.Owner),
 	}
 }
 

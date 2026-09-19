@@ -98,11 +98,14 @@ func TestCreateCommunitySuccess(t *testing.T) {
 	if respDto.Owner == nil || respDto.Owner.Id != user.Id {
 		t.Fatalf("esperava owner.id '%s' no 201, recebeu %+v", user.Id, respDto.Owner)
 	}
-	if respDto.Owner.Name != "teste" || respDto.Owner.Email != testEmail || respDto.Owner.Role != "USER" {
-		t.Errorf("esperava owner completo no 201, recebeu %+v", respDto.Owner)
+	if respDto.Owner.Name != "teste" || respDto.Owner.Email != testEmail {
+		t.Errorf("esperava owner com name e email no 201, recebeu %+v", respDto.Owner)
 	}
-	if respDto.Owner.Token != "" {
-		t.Errorf("esperava owner.token vazio no 201, recebeu '%s'", respDto.Owner.Token)
+	if _, exists := decodedBody["owner"].(map[string]interface{})["role"]; exists {
+		t.Errorf("o 201 não deve expor owner.role, recebeu %v", decodedBody["owner"])
+	}
+	if _, exists := decodedBody["owner"].(map[string]interface{})["emailVerified"]; exists {
+		t.Errorf("o 201 não deve expor owner.emailVerified, recebeu %v", decodedBody["owner"])
 	}
 	if _, ok := decodedBody["owner_id"]; ok {
 		t.Errorf("o 201 não deve expor owner_id (contrato novo), recebeu %v", decodedBody)
@@ -628,10 +631,12 @@ func TestGetCommunityByIdInvalidId(t *testing.T) {
 }
 
 func TestGetCommunityByIdNotFound(t *testing.T) {
-	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	t.Cleanup(cleanUsersTable)
 
-	resp := getCommunityByIdRequest(t, app, token, uuidv7.New().String())
+	app := setupApp()
+	requester := createCommunityUser(t)
+
+	resp := getCommunityByIdRequest(t, app, validTokenFor(t, requester.Id), uuidv7.New().String())
 	defer resp.Body.Close()
 	if resp.StatusCode != fiber.StatusNotFound {
 		t.Fatalf("esperava 404 para id inexistente, recebeu %d", resp.StatusCode)

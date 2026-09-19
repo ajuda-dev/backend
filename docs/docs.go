@@ -194,7 +194,7 @@ const docTemplate = `{
         },
         "/v1/auth/{provider}/login": {
             "get": {
-                "description": "Redireciona o navegador para o provedor OAuth informado no path (ex.: github). Endpoint público: é o início do fluxo de login. O state é gravado em cookie HttpOnly de curta duração e conferido no callback.",
+                "description": "Redireciona o navegador para o provedor OAuth informado no path (ex.: github). Endpoint público: é o início do fluxo de login. O state é gravado em cookie HttpOnly de curta duração e conferido no callback. Se o login começar em outro host (ex.: localhost vs 127.0.0.1), redireciona antes para o host do callback.",
                 "produces": [
                     "application/json"
                 ],
@@ -235,7 +235,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna todas as comunidades, com paginação e filtros por dono, nome e cidade (buscas parciais, case-insensitive e accent-insensitive)",
+                "description": "Retorna todas as comunidades, com paginação e filtros por dono, nome e cidade (buscas parciais, case-insensitive e accent-insensitive). O owner de cada item não inclui role/emailVerified; o e-mail só aparece se compartilhado ou se o requester for o dono/ADMIN.",
                 "consumes": [
                     "application/json"
                 ],
@@ -309,7 +309,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cria uma nova comunidade no sistema. O owner é sempre o usuário autenticado (owner_id do body é ignorado). configVisibility (github, linkedin, otherlink, photo) é opcional; os links são sempre públicos.",
+                "description": "Cria uma nova comunidade no sistema. O owner é sempre o usuário autenticado (owner_id do body é ignorado) e sai como id/name/email (sem role/emailVerified). configVisibility (github, linkedin, otherlink, photo) é opcional; os links são sempre públicos.",
                 "consumes": [
                     "application/json"
                 ],
@@ -369,7 +369,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna o detalhe da comunidade com owner, endereço e configVisibility (github, linkedin, otherlink, photo). Os links são sempre públicos.",
+                "description": "Retorna o detalhe da comunidade com owner (id, name e email só se compartilhado ou se o requester for o dono/ADMIN; sem role/emailVerified), endereço e configVisibility (github, linkedin, otherlink, photo). Os links são sempre públicos. Requester inexistente → 401.",
                 "consumes": [
                     "application/json"
                 ],
@@ -425,7 +425,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Atualiza nome, descrição, endereço e/ou links públicos (configVisibility: github, linkedin, otherlink, photo). Campos vazios de name/description/address_id são ignorados; chaves de configVisibility enviadas substituem a entrada. Somente o dono da comunidade, moderadores e admins.",
+                "description": "Atualiza nome, descrição, endereço e/ou links públicos (configVisibility: github, linkedin, otherlink, photo). Campos vazios de name/description/address_id são ignorados; chaves de configVisibility enviadas substituem a entrada. Somente o dono da comunidade, moderadores e admins. O owner na resposta segue o mesmo filtro de visibilidade do GET.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1188,6 +1188,87 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/event/{eventId}/participants/{userId}/comment": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "O próprio usuário grava ou limpa status_comment (comment_kind=NOTE quando não vazio). Não altera status/role e não emite notificação. Participação CANCELLED não pode atualizar.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "event_users"
+                ],
+                "summary": "Atualiza só o comentário do participante",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "eventId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID do usuário",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "comment (trim, máx. 500; vazio limpa)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.UpdateParticipantCommentDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventUserDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/event/{eventId}/participants/{userId}/status": {
             "put": {
                 "security": [
@@ -1467,14 +1548,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/event/{id}/visibility": {
+        "/v1/event/{id}/reschedule": {
             "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Quem gerencia o evento (dono, dono da comunidade ou staff) torna um COMMUNITY_EVENT CLOSED em PUBLIC. Exige palestrante CONFIRMED e que o owner não esteja HOST REQUESTED. Se o ator puder aprovar e o evento estiver PENDING, a publicação também aprova.",
+                "description": "Quem gerencia o evento (ou o convidado: MENTORING, ou SPEAKER em COMMUNITY_EVENT/WEBINAR) altera start_at e grava um comment obrigatório (trim, máx. 500) na linha event_users de quem reagenda (comment_kind=RESCHEDULE). Reagendar de novo sobrescreve o comment anterior do ator. Não muda a aprovação. Quem reagenda fica CONFIRMED; em MENTORING o outro CONFIRMED volta para REQUESTED; em COMMUNITY_EVENT/WEBINAR os outros palestrantes CONFIRMED voltam para REQUESTED e inscritos ATTENDEE permanecem CONFIRMED.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1484,7 +1565,7 @@ const docTemplate = `{
                 "tags": [
                     "events"
                 ],
-                "summary": "Publica um evento da comunidade",
+                "summary": "Reagenda um evento",
                 "parameters": [
                     {
                         "type": "string",
@@ -1494,12 +1575,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "visibility PUBLIC",
+                        "description": "Nova data (futuro) e comment obrigatório",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventVisibilityDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.RescheduleEventDto"
                         }
                     }
                 ],
@@ -1541,14 +1622,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/event/{id}/reschedule": {
+        "/v1/event/{id}/visibility": {
             "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Quem gerencia o evento (ou o convidado: MENTORING, ou SPEAKER em COMMUNITY_EVENT/WEBINAR) altera start_at e grava um comment obrigatório (trim, máx. 500) na linha event_users de quem reagenda (comment_kind=RESCHEDULE). Reagendar de novo sobrescreve o comment anterior do ator. Não muda a aprovação. Quem reagenda fica CONFIRMED; em MENTORING o outro CONFIRMED volta para REQUESTED; em COMMUNITY_EVENT/WEBINAR os outros palestrantes CONFIRMED voltam para REQUESTED e inscritos ATTENDEE permanecem CONFIRMED.",
+                "description": "Quem gerencia o evento (dono, dono da comunidade ou staff) torna um COMMUNITY_EVENT CLOSED em PUBLIC. Exige palestrante CONFIRMED e que o owner não esteja HOST REQUESTED. Se o ator puder aprovar e o evento estiver PENDING, a publicação também aprova.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1558,7 +1639,7 @@ const docTemplate = `{
                 "tags": [
                     "events"
                 ],
-                "summary": "Reagenda um evento",
+                "summary": "Publica um evento da comunidade",
                 "parameters": [
                     {
                         "type": "string",
@@ -1568,12 +1649,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Nova data (futuro) e comment obrigatório",
+                        "description": "visibility PUBLIC",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.RescheduleEventDto"
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventVisibilityDto"
                         }
                     }
                 ],
@@ -2784,7 +2865,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna as comunidades em que o usuário é membro (linhas de community_users), paginadas em ordem alfabética pelo nome. Comunidades próprias do usuário não aparecem aqui (usar GET /v1/community?owner_id=). Qualquer usuário autenticado pode consultar.",
+                "description": "Retorna as comunidades em que o usuário é membro (linhas de community_users), paginadas em ordem alfabética pelo nome. Comunidades próprias do usuário não aparecem aqui (usar GET /v1/community?owner_id=). Qualquer usuário autenticado pode consultar. O owner de cada item não inclui role/emailVerified; o e-mail só aparece se compartilhado ou se o requester for o dono/ADMIN.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3024,7 +3105,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "owner": {
-                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut"
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityOwnerDto"
                 }
             }
         },
@@ -3060,6 +3141,20 @@ const docTemplate = `{
             }
         },
         "github_com_ajuda-dev_backend_src_controller_community_dto.CommunityMemberUserDto": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_community_dto.CommunityOwnerDto": {
             "type": "object",
             "properties": {
                 "email": {
@@ -3383,6 +3478,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "visibility": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.UpdateParticipantCommentDto": {
+            "type": "object",
+            "properties": {
+                "comment": {
                     "type": "string"
                 }
             }

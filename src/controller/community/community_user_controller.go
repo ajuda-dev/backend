@@ -131,7 +131,7 @@ func (c *communityUserController) GetCommunityMembers() fiber.Handler {
 
 // GetUserCommunities godoc
 // @Summary      Lista comunidades do usuário
-// @Description  Retorna as comunidades em que o usuário é membro (linhas de community_users), paginadas em ordem alfabética pelo nome. Comunidades próprias do usuário não aparecem aqui (usar GET /v1/community?owner_id=). Qualquer usuário autenticado pode consultar.
+// @Description  Retorna as comunidades em que o usuário é membro (linhas de community_users), paginadas em ordem alfabética pelo nome. Comunidades próprias do usuário não aparecem aqui (usar GET /v1/community?owner_id=). Qualquer usuário autenticado pode consultar. O owner de cada item não inclui role/emailVerified; o e-mail só aparece se compartilhado ou se o requester for o dono/ADMIN.
 // @Tags         community_users
 // @Accept       json
 // @Produce      json
@@ -153,7 +153,11 @@ func (c *communityUserController) GetUserCommunities() fiber.Handler {
 		}
 		page, _ := strconv.Atoi(cf.Query("page", "1"))
 		limit, _ := strconv.Atoi(cf.Query("limit", "10"))
-		result, err := c.communityUserService.GetUserCommunities(userId, page, limit)
+		requesterId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || requesterId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		result, err := c.communityUserService.GetUserCommunities(userId, requesterId, page, limit)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)
