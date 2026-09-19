@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"strings"
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
@@ -13,6 +14,7 @@ type EventValidator interface {
 	ValidatorRegisterEvent(event eventdomain.EventDomain) *rest_err.RestErr
 	ValidateReschedule(startAt time.Time, comment string) *rest_err.RestErr
 	ValidateCancelComment(comment string) *rest_err.RestErr
+	ValidateMeetingLink(eventType string, meetingLink string) *rest_err.RestErr
 }
 
 type eventValidator struct{}
@@ -109,6 +111,7 @@ func (e *eventValidator) ValidatorRegisterEvent(event eventdomain.EventDomain) *
 			})
 		}
 	}
+	causes = append(causes, meetingLinkCauses(event.Type, event.MeetingLink)...)
 
 	if len(causes) > 0 {
 		return rest_err.NewBadRequestValidationError(
@@ -138,6 +141,34 @@ func (e *eventValidator) ValidateCancelComment(comment string) *rest_err.RestErr
 	causes := commentCauses(comment, "comment is required when cancelling")
 	if len(causes) > 0 {
 		return rest_err.NewBadRequestValidationError("Invalid event data", causes)
+	}
+	return nil
+}
+
+func (e *eventValidator) ValidateMeetingLink(eventType string, meetingLink string) *rest_err.RestErr {
+	causes := meetingLinkCauses(eventType, meetingLink)
+	if len(causes) > 0 {
+		return rest_err.NewBadRequestValidationError("Invalid event data", causes)
+	}
+	return nil
+}
+
+func meetingLinkCauses(eventType string, meetingLink string) []rest_err.Causes {
+	trimmed := strings.TrimSpace(meetingLink)
+	if trimmed == "" {
+		return nil
+	}
+	if eventType == eventdomain.TypeInperson {
+		return []rest_err.Causes{{
+			Field:   "meeting_link",
+			Message: "meeting_link is only allowed for ONLINE and HYBRID events",
+		}}
+	}
+	if !validation.IsValidHTTPURL(trimmed) {
+		return []rest_err.Causes{{
+			Field:   "meeting_link",
+			Message: "value must be a valid http or https url",
+		}}
 	}
 	return nil
 }

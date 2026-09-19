@@ -23,6 +23,7 @@ type EventService interface {
 	DeleteEventById(id string, requesterId string, comment string) *rest_err.RestErr
 	UpdateApproval(id string, requesterId string, status string) (*eventdomain.EventDomain, *rest_err.RestErr)
 	UpdateVisibility(id string, requesterId string, visibility string) (*eventdomain.EventDomain, *rest_err.RestErr)
+	UpdateMeetingLink(id string, requesterId string, meetingLink string) (*eventdomain.EventDomain, *rest_err.RestErr)
 }
 
 type eventService struct {
@@ -86,6 +87,7 @@ func (e *eventService) CreateEvent(event *eventdomain.EventDomain) (*eventdomain
 	if err := e.eventValidator.ValidatorRegisterEvent(*event); err != nil {
 		return &eventdomain.EventDomain{}, err
 	}
+	event.MeetingLink = strings.TrimSpace(event.MeetingLink)
 
 	if event.Address != nil {
 		address, err_a := e.addressService.GetAddressById(event.Address.Id)
@@ -417,4 +419,23 @@ func (e *eventService) UpdateVisibility(id string, requesterId string, visibilit
 	}
 	alsoApprove := event.Status == eventdomain.EventStatusPending && canApproveEvent(requester, event)
 	return e.eventRepository.Publish(id, requester.Id, alsoApprove)
+}
+
+func (e *eventService) UpdateMeetingLink(id string, requesterId string, meetingLink string) (*eventdomain.EventDomain, *rest_err.RestErr) {
+	meetingLink = strings.TrimSpace(meetingLink)
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	event, err := e.eventRepository.FindById(id)
+	if err != nil {
+		return nil, err
+	}
+	if !canManageEvent(requester, event) {
+		return nil, forbiddenManageEvent()
+	}
+	if err := e.eventValidator.ValidateMeetingLink(event.Type, meetingLink); err != nil {
+		return nil, err
+	}
+	return e.eventRepository.UpdateMeetingLink(id, meetingLink)
 }

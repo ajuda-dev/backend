@@ -39,6 +39,7 @@ type EventRepository interface {
 	CountByOwnerIdAndStatuses(ownerId string, statuses []string) (int64, *rest_err.RestErr)
 	UpdateApprovalStatus(id string, current string, status string, actorId string) (*eventdomain.EventDomain, *rest_err.RestErr)
 	Publish(id string, actorId string, alsoApprove bool) (*eventdomain.EventDomain, *rest_err.RestErr)
+	UpdateMeetingLink(id string, meetingLink string) (*eventdomain.EventDomain, *rest_err.RestErr)
 }
 
 type eventRepository struct {
@@ -360,6 +361,16 @@ func (e *eventRepository) Publish(id string, actorId string, alsoApprove bool) (
 	})
 	if txErr != nil {
 		return nil, toRestErr(txErr)
+	}
+	return e.FindById(id)
+}
+
+func (e *eventRepository) UpdateMeetingLink(id string, meetingLink string) (*eventdomain.EventDomain, *rest_err.RestErr) {
+	result := e.database.Model(&evententity.EventEntity{}).
+		Where("id = ? AND deleted_at IS NULL", id).
+		Updates(map[string]interface{}{"meeting_link": meetingLink})
+	if result.Error != nil {
+		return nil, rest_err.NewInternalServerError("Error updating meeting link: " + result.Error.Error())
 	}
 	return e.FindById(id)
 }

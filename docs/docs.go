@@ -1548,6 +1548,80 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/event/{id}/meeting-link": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Quem gerencia o evento (dono, dono da comunidade ou staff) inclui, altera ou limpa meeting_link. Vazio limpa o campo. Só ONLINE e HYBRID; URL http/https.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Atualiza o link da reunião",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "meeting_link (vazio limpa)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventMeetingLinkDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/event/{id}/reschedule": {
             "put": {
                 "security": [
@@ -3470,6 +3544,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventMeetingLinkDto": {
+            "type": "object",
+            "properties": {
+                "meeting_link": {
                     "type": "string"
                 }
             }

@@ -23,6 +23,7 @@ type EventController interface {
 	DeleteEventById() fiber.Handler
 	UpdateEventApproval() fiber.Handler
 	UpdateEventVisibility() fiber.Handler
+	UpdateEventMeetingLink() fiber.Handler
 }
 
 type eventController struct {
@@ -344,6 +345,49 @@ func (e *eventController) UpdateEventVisibility() fiber.Handler {
 			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
 		}
 		eventResult, err := e.eventService.UpdateVisibility(id, userId, updateEventVisibilityDto.Visibility)
+		if err != nil {
+			logger.Error("error: ", err)
+			return cf.Status(err.Code).JSON(err)
+		}
+		return cf.Status(fiber.StatusOK).JSON(eventdto.EventDto{}.FromDomain(eventResult))
+	}
+}
+
+// UpdateEventMeetingLink godoc
+// @Summary      Atualiza o link da reunião
+// @Description  Quem gerencia o evento (dono, dono da comunidade ou staff) inclui, altera ou limpa meeting_link. Vazio limpa o campo. Só ONLINE e HYBRID; URL http/https.
+// @Tags         events
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string  true  "ID do evento"
+// @Param        body  body  eventdto.UpdateEventMeetingLinkDto  true  "meeting_link (vazio limpa)"
+// @Success      200   {object}  eventdto.EventDto
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/event/{id}/meeting-link [put]
+func (e *eventController) UpdateEventMeetingLink() fiber.Handler {
+	return func(cf *fiber.Ctx) error {
+		id := cf.Params("id")
+		if !uuidv7.IsValidString(id) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
+		}
+		var updateEventMeetingLinkDto eventdto.UpdateEventMeetingLinkDto
+		if err := cf.BodyParser(&updateEventMeetingLinkDto); err != nil {
+			logger.Error("erro body request", err)
+			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		eventResult, err := e.eventService.UpdateMeetingLink(id, userId, updateEventMeetingLinkDto.MeetingLink)
 		if err != nil {
 			logger.Error("error: ", err)
 			return cf.Status(err.Code).JSON(err)

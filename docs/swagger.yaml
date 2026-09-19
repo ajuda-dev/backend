@@ -277,6 +277,11 @@ definitions:
       status:
         type: string
     type: object
+  github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventMeetingLinkDto:
+    properties:
+      meeting_link:
+        type: string
+    type: object
   github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventVisibilityDto:
     properties:
       visibility:
@@ -1535,6 +1540,57 @@ paths:
       security:
       - BearerAuth: []
       summary: Aprova ou rejeita um evento da comunidade
+      tags:
+      - events
+  /v1/event/{id}/meeting-link:
+    put:
+      consumes:
+      - application/json
+      description: Quem gerencia o evento (dono, dono da comunidade ou staff) inclui,
+        altera ou limpa meeting_link. Vazio limpa o campo. Só ONLINE e HYBRID; URL
+        http/https.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: meeting_link (vazio limpa)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventMeetingLinkDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Atualiza o link da reunião
       tags:
       - events
   /v1/event/{id}/reschedule:
