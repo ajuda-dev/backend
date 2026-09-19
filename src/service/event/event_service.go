@@ -22,6 +22,7 @@ type EventService interface {
 	Reschedule(id string, requesterId string, startAt time.Time, comment string) (*eventdomain.EventDomain, *rest_err.RestErr)
 	DeleteEventById(id string, requesterId string, comment string) *rest_err.RestErr
 	UpdateApproval(id string, requesterId string, status string) (*eventdomain.EventDomain, *rest_err.RestErr)
+	UpdateVisibility(id string, requesterId string, visibility string) (*eventdomain.EventDomain, *rest_err.RestErr)
 }
 
 type eventService struct {
@@ -69,6 +70,10 @@ func (e *eventService) CreateEvent(event *eventdomain.EventDomain) (*eventdomain
 	}
 	event.Owner = *requester
 	event.Status = eventdomain.EventStatusApproved
+	event.Visibility = eventdomain.EventVisibilityPublic
+	if event.Category == eventdomain.CategoryCommunityEvent {
+		event.Visibility = eventdomain.EventVisibilityClosed
+	}
 	if event.Category == eventdomain.CategoryMentoring {
 		maxSlots := 2
 		event.MaxSlots = &maxSlots
@@ -196,7 +201,15 @@ func (e *eventService) GetEventDetail(id string, requesterId string) (*eventdoma
 	if err != nil {
 		return nil, err
 	}
-	if !isEventVisible(requester, event) {
+	isParticipant := false
+	if !isEventVisible(requester, event, false) {
+		participants, partErr := e.eventUserRepository.FindByEvent(id, "")
+		if partErr != nil {
+			return nil, partErr
+		}
+		isParticipant = isActiveEventParticipant(participants, requester.Id)
+	}
+	if !isEventVisible(requester, event, isParticipant) {
 		return nil, rest_err.NewNotFoundError("event not found")
 	}
 	identity.ApplyVisibilityFilter(&event.Owner, requester)
@@ -220,6 +233,9 @@ func (e *eventService) GetAll(filter eventrepo.EventFilter, page int, limit int,
 		}
 	}
 	filter.RequesterId = requester.Id
+	if isStaff(requester) {
+		filter.IncludeNonApproved = true
+	}
 	pageable, err := e.eventRepository.FindAll(filter, page, limit)
 	if err != nil {
 		return nil, err
@@ -313,4 +329,77 @@ func (e *eventService) UpdateApproval(id string, requesterId string, status stri
 			}})
 	}
 	return e.eventRepository.UpdateApprovalStatus(id, event.Status, status, requester.Id)
+}
+
+func (e *eventService) UpdateVisibility(id string, requesterId string, visibility string) (*eventdomain.EventDomain, *rest_err.RestErr) {
+	if visibility != eventdomain.EventVisibilityPublic {
+		return nil, rest_err.NewBadRequestValidationError(
+			"Invalid event data",
+			[]rest_err.Causes{{
+				Field:   "visibility",
+				Message: "visibility must be PUBLIC",
+			}})
+	}
+	requester, err := identity.AuthenticatedUser(e.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	event, err := e.eventRepository.FindById(id)
+	if err != nil {
+		return nil, err
+	}
+	if !canManageEvent(requester, event) {
+		return nil, forbiddenManageEvent()
+	}
+	if event.Category != eventdomain.CategoryCommunityEvent {
+		return nil, rest_err.NewBadRequestValidationError(
+			"Invalid event data",
+			[]rest_err.Causes{{
+				Field:   "category",
+				Message: "only community events can be published",
+			}})
+	}
+	if event.Status == eventdomain.EventStatusRejected {
+		return nil, rest_err.NewBadRequestValidationError(
+			"Invalid event data",
+			[]rest_err.Causes{{
+				Field:   "status",
+				Message: "rejected events cannot be published",
+			}})
+	}
+	if isEventPublic(event) {
+		return event, nil
+	}
+	participants, partErr := e.eventUserRepository.FindByEvent(id, "")
+	if partErr != nil {
+		return nil, partErr
+	}
+	speakerConfirmed := false
+	hostRequested := false
+	for _, participant := range participants {
+		if participant.Role == eventdomain.RoleSpeaker && participant.Status == eventdomain.StatusConfirmed {
+			speakerConfirmed = true
+		}
+		if participant.Role == eventdomain.RoleHost && participant.Status == eventdomain.StatusRequested {
+			hostRequested = true
+		}
+	}
+	if !speakerConfirmed {
+		return nil, rest_err.NewBadRequestValidationError(
+			"Invalid event data",
+			[]rest_err.Causes{{
+				Field:   "visibility",
+				Message: "speaker must confirm the schedule first",
+			}})
+	}
+	if hostRequested {
+		return nil, rest_err.NewBadRequestValidationError(
+			"Invalid event data",
+			[]rest_err.Causes{{
+				Field:   "visibility",
+				Message: "event owner must accept the new time",
+			}})
+	}
+	alsoApprove := event.Status == eventdomain.EventStatusPending && canApproveEvent(requester, event)
+	return e.eventRepository.Publish(id, requester.Id, alsoApprove)
 }

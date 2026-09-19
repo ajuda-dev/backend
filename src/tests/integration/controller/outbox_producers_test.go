@@ -275,6 +275,7 @@ func TestSpeakerReschedule_NotifiesOwnerAndOtherSpeakers(t *testing.T) {
 	}
 	assert.Equal(t, eventdomain.StatusConfirmed, statusByUser[speaker.Id])
 	assert.Equal(t, eventdomain.StatusRequested, statusByUser[other.Id])
+	assert.Equal(t, eventdomain.StatusRequested, statusByUser[owner.Id])
 }
 
 func TestCreateEvent_OutboxFailureRollsBackEvent(t *testing.T) {

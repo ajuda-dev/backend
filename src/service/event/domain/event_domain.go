@@ -20,6 +20,9 @@ const (
 	EventStatusPending  = "PENDING"
 	EventStatusApproved = "APPROVED"
 	EventStatusRejected = "REJECTED"
+
+	EventVisibilityClosed = "CLOSED"
+	EventVisibilityPublic = "PUBLIC"
 )
 
 type EventDomain struct {
@@ -37,6 +40,7 @@ type EventDomain struct {
 	MaxSlots    *int
 	CreatorRole string
 	Status      string
+	Visibility  string
 }
 
 type PageableEvent struct {

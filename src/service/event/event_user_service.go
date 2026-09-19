@@ -51,6 +51,9 @@ func (e *eventUserService) JoinEvent(eventId string, requesterId string) (*event
 	if !isEventApproved(event) {
 		return nil, eventNotApprovedError()
 	}
+	if !isEventPublic(event) {
+		return nil, eventNotPublicError()
+	}
 	eventUser := &eventdomain.EventUserDomain{
 		EventId: eventId,
 		UserId:  requester.Id,
@@ -90,6 +93,9 @@ func (e *eventUserService) AddParticipant(eventId string, requesterId string, ta
 	if err := e.eventUserValidator.ValidateAddParticipant(*eventUser, event.Category, creatorRole); err != nil {
 		return nil, err
 	}
+	if err := e.ensureSingleCommunitySpeaker(event, eventUser.UserId, eventUser.Role); err != nil {
+		return nil, err
+	}
 	eventUser.Status = eventdomain.StatusRequested
 	if err := e.validateUserExists(eventUser.UserId); err != nil {
 		return nil, err
@@ -106,12 +112,21 @@ func (e *eventUserService) GetParticipants(eventId string, status string, reques
 	if err != nil {
 		return nil, err
 	}
-	if !isEventApproved(event) && !canManageEvent(requester, event) {
-		return nil, rest_err.NewNotFoundError("event not found")
-	}
-	participants, err := e.eventUserRepository.FindByEvent(eventId, status)
+	participants, err := e.eventUserRepository.FindByEvent(eventId, "")
 	if err != nil {
 		return nil, err
+	}
+	if !isEventVisible(requester, event, isActiveEventParticipant(participants, requester.Id)) {
+		return nil, rest_err.NewNotFoundError("event not found")
+	}
+	if status != "" {
+		filtered := make([]*eventdomain.EventUserDomain, 0, len(participants))
+		for _, participant := range participants {
+			if participant.Status == status {
+				filtered = append(filtered, participant)
+			}
+		}
+		participants = filtered
 	}
 	for _, participant := range participants {
 		identity.ApplyVisibilityFilter(participant.User, requester)
@@ -132,8 +147,26 @@ func (e *eventUserService) UpdateParticipantStatus(eventId string, userId string
 	if userId != requester.Id {
 		return nil, rest_err.NewForbiddenError("only the invited user can accept or reject this invitation")
 	}
-	if status == eventdomain.StatusConfirmed && !isEventApproved(event) {
-		return nil, eventNotApprovedError()
+	if status == eventdomain.StatusConfirmed {
+		participants, partErr := e.eventUserRepository.FindByEvent(eventId, "")
+		if partErr != nil {
+			return nil, partErr
+		}
+		role := ""
+		for _, participant := range participants {
+			if participant.UserId == userId {
+				role = participant.Role
+				break
+			}
+		}
+		if role != eventdomain.RoleSpeaker && role != eventdomain.RoleHost {
+			if !isEventApproved(event) {
+				return nil, eventNotApprovedError()
+			}
+			if !isEventPublic(event) {
+				return nil, eventNotPublicError()
+			}
+		}
 	}
 	if err := e.eventUserValidator.ValidateUpdateParticipantStatus(status, comment); err != nil {
 		return nil, err
@@ -193,6 +226,30 @@ func (e *eventUserService) creatorRole(event *eventdomain.EventDomain) (string, 
 		}
 	}
 	return eventdomain.RoleMentor, nil
+}
+
+func (e *eventUserService) ensureSingleCommunitySpeaker(event *eventdomain.EventDomain, targetUserId string, role string) *rest_err.RestErr {
+	if event.Category != eventdomain.CategoryCommunityEvent || role != eventdomain.RoleSpeaker {
+		return nil
+	}
+	participants, err := e.eventUserRepository.FindByEvent(event.Id, "")
+	if err != nil {
+		return err
+	}
+	for _, participant := range participants {
+		if participant.UserId == targetUserId || participant.Role != eventdomain.RoleSpeaker {
+			continue
+		}
+		if participant.Status == eventdomain.StatusRequested || participant.Status == eventdomain.StatusConfirmed {
+			return rest_err.NewBadRequestValidationError(
+				"Invalid participation data",
+				[]rest_err.Causes{{
+					Field:   "role",
+					Message: "community event allows only one speaker",
+				}})
+		}
+	}
+	return nil
 }
 
 func (e *eventUserService) validateUserExists(userId string) *rest_err.RestErr {

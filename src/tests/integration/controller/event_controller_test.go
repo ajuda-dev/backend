@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -39,6 +40,13 @@ func newEventRegisterRequest(body []byte) *http.Request {
 	req := httptest.NewRequest("POST", "/v1/event/register", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	return req
+}
+
+var testEventSlot atomic.Int64
+
+func uniqueEventStartAt() time.Time {
+	slot := testEventSlot.Add(1)
+	return time.Now().UTC().Add(48*time.Hour + time.Duration(slot)*2*time.Hour)
 }
 
 func createEventOwner(t *testing.T) *userdomain.UserDomain {
@@ -164,6 +172,9 @@ func TestCreateOnlineEventSuccess(t *testing.T) {
 	}
 	if respDto.AddressId != nil {
 		t.Errorf("esperava address_id nulo para evento ONLINE, recebeu %v", *respDto.AddressId)
+	}
+	if respDto.Visibility != eventdomain.EventVisibilityClosed {
+		t.Errorf("esperava visibility CLOSED para COMMUNITY_EVENT, recebeu '%s'", respDto.Visibility)
 	}
 }
 
@@ -611,11 +622,11 @@ func TestRescheduleAndCancelEventComment(t *testing.T) {
 		Type:        eventdomain.TypeOnline,
 		Title:       "Evento do dono da comunidade",
 		Description: "reagendar pelo dono da comunidade",
-		StartAt:     time.Now().Add(48 * time.Hour),
+		StartAt:     uniqueEventStartAt(),
 		DurationMin: 60,
 	})
 	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+communityEvent.Id+"/reschedule",
-		eventRescheduleBody(t, time.Now().Add(80*time.Hour), "Dono da comunidade reagendou"), validTokenFor(t, communityOwner.Id))
+		eventRescheduleBody(t, uniqueEventStartAt(), "Dono da comunidade reagendou"), validTokenFor(t, communityOwner.Id))
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 para o dono da comunidade, recebeu %d", resp.StatusCode)
 	}
@@ -629,11 +640,11 @@ func TestRescheduleAndCancelEventComment(t *testing.T) {
 		Type:        eventdomain.TypeOnline,
 		Title:       "Evento do moderador",
 		Description: "reagendar pelo moderador",
-		StartAt:     time.Now().Add(48 * time.Hour),
+		StartAt:     uniqueEventStartAt(),
 		DurationMin: 60,
 	})
 	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+moderatorEvent.Id+"/reschedule",
-		eventRescheduleBody(t, time.Now().Add(80*time.Hour), "Moderador reagendou"), validTokenFor(t, moderator.Id))
+		eventRescheduleBody(t, uniqueEventStartAt(), "Moderador reagendou"), validTokenFor(t, moderator.Id))
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("esperava 200 para o moderador, recebeu %d", resp.StatusCode)
 	}
@@ -817,7 +828,6 @@ func TestSpeakerCanRescheduleCommunityEvent(t *testing.T) {
 	app := setupApp()
 	owner := createUserWithRole(t, "speaker_reschedule_owner@ajuda.dev", userdomain.UserRoleUser)
 	speaker := createUserWithRole(t, "speaker_reschedule_guest@ajuda.dev", userdomain.UserRoleUser)
-	otherSpeaker := createUserWithRole(t, "speaker_reschedule_other@ajuda.dev", userdomain.UserRoleUser)
 	attendee := createUserWithRole(t, "speaker_reschedule_attendee@ajuda.dev", userdomain.UserRoleUser)
 	event := euCreateCommunityEvent(t, app, owner, nil)
 	ownerToken := validTokenFor(t, owner.Id)
@@ -828,14 +838,9 @@ func TestSpeakerCanRescheduleCommunityEvent(t *testing.T) {
 		t.Fatalf("esperava 201 no convite do palestrante, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
-	resp = euAddParticipant(t, app, event.Id, `{"user_id":"`+otherSpeaker.Id+`","role":"SPEAKER"}`, ownerToken)
-	if resp.StatusCode != fiber.StatusCreated {
-		t.Fatalf("esperava 201 no convite do segundo palestrante, recebeu %d", resp.StatusCode)
-	}
-	resp.Body.Close()
-	resp = euUpdateStatus(t, app, event.Id, otherSpeaker.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, otherSpeaker.Id))
+	resp = euUpdateStatus(t, app, event.Id, speaker.Id, eventdomain.StatusConfirmed, "", speakerToken)
 	if resp.StatusCode != fiber.StatusOK {
-		t.Fatalf("esperava 200 no aceite do segundo palestrante, recebeu %d", resp.StatusCode)
+		t.Fatalf("esperava 200 no aceite do palestrante, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
@@ -854,9 +859,13 @@ func TestSpeakerCanRescheduleCommunityEvent(t *testing.T) {
 	resp.Body.Close()
 
 	assertEventUserStatus(t, event.Id, speaker.Id, eventdomain.StatusConfirmed)
-	assertEventUserStatus(t, event.Id, otherSpeaker.Id, eventdomain.StatusRequested)
+	assertEventUserStatus(t, event.Id, owner.Id, eventdomain.StatusRequested)
 	assertEventUserStatus(t, event.Id, attendee.Id, eventdomain.StatusConfirmed)
 	assertEventUserComment(t, event.Id, speaker.Id, "Preciso de outro horário", eventdomain.CommentKindReschedule)
+	row := euFindRow(t, event.Id, owner.Id)
+	if row.Role != eventdomain.RoleHost {
+		t.Errorf("esperava HOST para o owner após o reagendamento do palestrante, recebeu %s", row.Role)
+	}
 }
 
 func assertEventUserStatus(t *testing.T, eventId string, userId string, want string) {

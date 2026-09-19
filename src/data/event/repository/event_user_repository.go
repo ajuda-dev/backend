@@ -392,6 +392,11 @@ func applyInviteRescheduleStatuses(tx *gorm.DB, outbox notificationrepo.OutboxEv
 	if event.Category != eventdomain.CategoryMentoring && event.OwnerId != "" && event.OwnerId != requesterId {
 		recipients = appendUniqueUserId(recipients, event.OwnerId)
 	}
+	if event.Category == eventdomain.CategoryCommunityEvent && requesterIsSpeaker(participants, requesterId) {
+		if err := upsertOwnerHostRequested(tx, event.Id, event.OwnerId); err != nil {
+			return err
+		}
+	}
 	if outbox == nil || len(recipients) == 0 {
 		return nil
 	}
@@ -418,6 +423,51 @@ func inviteRescheduledOutboxType(category string) string {
 		return notificationdomain.OutboxTypeMentoringInviteRescheduled
 	}
 	return notificationdomain.OutboxTypeSpeakerInviteRescheduled
+}
+
+func requesterIsSpeaker(participants []evententity.EventUserEntity, requesterId string) bool {
+	for _, participant := range participants {
+		if participant.UserId == requesterId && participant.Role == eventdomain.RoleSpeaker && participant.Status != eventdomain.StatusCancelled {
+			return true
+		}
+	}
+	return false
+}
+
+func upsertOwnerHostRequested(tx *gorm.DB, eventId, ownerId string) error {
+	if ownerId == "" {
+		return nil
+	}
+	var existing evententity.EventUserEntity
+	queryErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("event_id = ? AND user_id = ?", eventId, ownerId).
+		First(&existing).Error
+	if queryErr != nil && !errors.Is(queryErr, gorm.ErrRecordNotFound) {
+		return rest_err.NewInternalServerError("Error getting event owner participation: " + queryErr.Error())
+	}
+	if errors.Is(queryErr, gorm.ErrRecordNotFound) {
+		entity := &evententity.EventUserEntity{
+			Id:      uuidv7.New().String(),
+			EventId: eventId,
+			UserId:  ownerId,
+			Role:    eventdomain.RoleHost,
+			Status:  eventdomain.StatusRequested,
+		}
+		if err := tx.Create(entity).Error; err != nil {
+			return rest_err.NewInternalServerError("Error creating host participation: " + err.Error())
+		}
+		return nil
+	}
+	if err := tx.Model(&evententity.EventUserEntity{}).Where("id = ?", existing.Id).
+		Updates(map[string]interface{}{
+			"role":                eventdomain.RoleHost,
+			"status":              eventdomain.StatusRequested,
+			"status_comment":      nil,
+			"status_comment_kind": nil,
+		}).Error; err != nil {
+		return rest_err.NewInternalServerError("Error updating host participation: " + err.Error())
+	}
+	return nil
 }
 
 func appendUniqueUserId(ids []string, userId string) []string {
@@ -547,7 +597,7 @@ func checkEventCapacity(tx *gorm.DB, eventId string, maxSlots *int) error {
 	}
 	var confirmed int64
 	if err := tx.Model(&evententity.EventUserEntity{}).
-		Where("event_id = ? AND status = ?", eventId, eventdomain.StatusConfirmed).
+		Where("event_id = ? AND status = ? AND role <> ?", eventId, eventdomain.StatusConfirmed, eventdomain.RoleHost).
 		Count(&confirmed).Error; err != nil {
 		return rest_err.NewInternalServerError("Error counting participants: " + err.Error())
 	}

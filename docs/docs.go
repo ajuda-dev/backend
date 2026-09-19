@@ -1467,6 +1467,80 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/event/{id}/visibility": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Quem gerencia o evento (dono, dono da comunidade ou staff) torna um COMMUNITY_EVENT CLOSED em PUBLIC. Exige palestrante CONFIRMED e que o owner não esteja HOST REQUESTED. Se o ator puder aprovar e o evento estiver PENDING, a publicação também aprova.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "events"
+                ],
+                "summary": "Publica um evento da comunidade",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do evento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "visibility PUBLIC",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventVisibilityDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventDto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/event/{id}/reschedule": {
             "put": {
                 "security": [
@@ -3118,6 +3192,9 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                },
+                "visibility": {
+                    "type": "string"
                 }
             }
         },
@@ -3251,6 +3328,9 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                },
+                "visibility": {
+                    "type": "string"
                 }
             }
         },
@@ -3269,6 +3349,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventVisibilityDto": {
+            "type": "object",
+            "properties": {
+                "visibility": {
                     "type": "string"
                 }
             }

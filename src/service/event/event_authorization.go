@@ -75,11 +75,36 @@ func isEventApproved(event *eventdomain.EventDomain) bool {
 	return event.Status == "" || event.Status == eventdomain.EventStatusApproved
 }
 
-func isEventVisible(requester *userdomain.UserDomain, event *eventdomain.EventDomain) bool {
-	if isEventApproved(event) {
+func isEventPublic(event *eventdomain.EventDomain) bool {
+	if event.Category != eventdomain.CategoryCommunityEvent {
 		return true
 	}
-	return canManageEvent(requester, event)
+	return event.Visibility == "" || event.Visibility == eventdomain.EventVisibilityPublic
+}
+
+func isActiveEventParticipant(participants []*eventdomain.EventUserDomain, userId string) bool {
+	for _, participant := range participants {
+		if participant == nil || participant.UserId != userId {
+			continue
+		}
+		if participant.Status != eventdomain.StatusCancelled {
+			return true
+		}
+	}
+	return false
+}
+
+func isEventVisible(requester *userdomain.UserDomain, event *eventdomain.EventDomain, isParticipant bool) bool {
+	if canManageEvent(requester, event) {
+		return true
+	}
+	if event.Status == eventdomain.EventStatusRejected {
+		return false
+	}
+	if isEventPublic(event) && isEventApproved(event) {
+		return true
+	}
+	return isParticipant
 }
 
 func eventNotApprovedError() *rest_err.RestErr {
@@ -88,5 +113,14 @@ func eventNotApprovedError() *rest_err.RestErr {
 		[]rest_err.Causes{{
 			Field:   "event_id",
 			Message: "event is not approved yet",
+		}})
+}
+
+func eventNotPublicError() *rest_err.RestErr {
+	return rest_err.NewBadRequestValidationError(
+		"Invalid participation data",
+		[]rest_err.Causes{{
+			Field:   "event_id",
+			Message: "event is not public yet",
 		}})
 }

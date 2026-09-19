@@ -141,7 +141,7 @@ func euCountRows(t *testing.T, eventId string, userId string) int64 {
 
 func euCreateCommunityEvent(t *testing.T, app *fiber.App, owner *userdomain.UserDomain, maxSlots *int) eventdto.RegisterEventDto {
 	t.Helper()
-	return registerEventViaApi(t, app, eventTestRequest{
+	created := registerEventViaApi(t, app, eventTestRequest{
 		OwnerId:     owner.Id,
 		Category:    eventdomain.CategoryCommunityEvent,
 		Type:        eventdomain.TypeOnline,
@@ -151,6 +151,22 @@ func euCreateCommunityEvent(t *testing.T, app *fiber.App, owner *userdomain.User
 		DurationMin: 60,
 		MaxSlots:    maxSlots,
 	})
+	forceEventPublic(t, created.Id)
+	created.Visibility = eventdomain.EventVisibilityPublic
+	return created
+}
+
+func forceEventPublic(t *testing.T, eventId string) {
+	t.Helper()
+	if err := db.Model(&evententity.EventEntity{}).Where("id = ?", eventId).
+		Update("visibility", eventdomain.EventVisibilityPublic).Error; err != nil {
+		t.Fatalf("failed to force event public: %v", err)
+	}
+}
+
+func euPublishEvent(t *testing.T, app *fiber.App, eventId string, token string) *http.Response {
+	t.Helper()
+	return euRequest(t, app, http.MethodPut, "/v1/event/"+eventId+"/visibility", `{"visibility":"PUBLIC"}`, token)
 }
 
 func euCreateMentoringEvent(t *testing.T, app *fiber.App, owner *userdomain.UserDomain) eventdto.RegisterEventDto {
@@ -349,12 +365,44 @@ func TestAddParticipantOnlyManager(t *testing.T) {
 	}
 
 	resp = euAddParticipant(t, app, event.Id, `{"user_id":"`+mentee.Id+`","role":"SPEAKER"}`, validTokenFor(t, communityOwner.Id))
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("esperava 400 no segundo palestrante pelo dono da comunidade, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euAddParticipant(t, app, event.Id, `{"user_id":"`+speakerByModerator.Id+`","role":"SPEAKER"}`, validTokenFor(t, moderator.Id))
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("esperava 400 no segundo palestrante pelo moderador, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	secondEvent := registerEventViaApi(t, app, eventTestRequest{
+		OwnerId:     eventOwner.Id,
+		CommunityId: strPtr(community.Id),
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
+		Title:       "Segundo evento com convidados",
+		Description: "teste de convite",
+		StartAt:     time.Now().Add(96 * time.Hour),
+		DurationMin: 60,
+	})
+	resp = euAddParticipant(t, app, secondEvent.Id, `{"user_id":"`+mentee.Id+`","role":"SPEAKER"}`, validTokenFor(t, communityOwner.Id))
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 para o dono da comunidade no convite, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
-	resp = euAddParticipant(t, app, event.Id, `{"user_id":"`+speakerByModerator.Id+`","role":"SPEAKER"}`, validTokenFor(t, moderator.Id))
+	thirdEvent := registerEventViaApi(t, app, eventTestRequest{
+		OwnerId:     eventOwner.Id,
+		CommunityId: strPtr(community.Id),
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
+		Title:       "Terceiro evento com convidados",
+		Description: "teste de convite",
+		StartAt:     time.Now().Add(144 * time.Hour),
+		DurationMin: 60,
+	})
+	resp = euAddParticipant(t, app, thirdEvent.Id, `{"user_id":"`+speakerByModerator.Id+`","role":"SPEAKER"}`, validTokenFor(t, moderator.Id))
 	if resp.StatusCode != fiber.StatusCreated {
 		t.Errorf("esperava 201 para moderador no convite, recebeu %d", resp.StatusCode)
 	}
@@ -474,6 +522,7 @@ func TestCancelParticipationPermissions(t *testing.T) {
 		DurationMin: 60,
 	})
 	eaApproveEvent(t, app, event.Id, communityOwner.Id)
+	forceEventPublic(t, event.Id)
 	participantToken := validTokenFor(t, participant.Id)
 
 	cases := []struct {
@@ -1176,8 +1225,22 @@ func TestSpeakerInviteStartsRequestedAndCanRespond(t *testing.T) {
 	}
 
 	resp = euAddParticipant(t, app, event.Id, `{"user_id":"`+other.Id+`","role":"SPEAKER"}`, ownerToken)
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 no segundo convite com palestrante confirmado, recebeu %d", resp.StatusCode)
+	}
+	respBody := decodeRestErr(t, resp)
+	if len(getCauseByField("role", respBody.Causes)) == 0 || getCauseByField("role", respBody.Causes)[0] != "community event allows only one speaker" {
+		t.Errorf("esperava cause de um palestrante, recebeu %+v", respBody.Causes)
+	}
+
+	resp = euCancelParticipation(t, app, event.Id, speaker.Id, ownerToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 ao remover o palestrante, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	resp = euAddParticipant(t, app, event.Id, `{"user_id":"`+other.Id+`","role":"SPEAKER"}`, ownerToken)
 	if resp.StatusCode != fiber.StatusCreated {
-		t.Fatalf("esperava 201 no segundo convite, recebeu %d", resp.StatusCode)
+		t.Fatalf("esperava 201 no convite após liberar a vaga de palestrante, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 	resp = euUpdateStatus(t, app, event.Id, other.Id, eventdomain.StatusRejected, "Agenda conflitou nesta semana", otherToken)

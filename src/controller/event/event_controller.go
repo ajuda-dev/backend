@@ -22,6 +22,7 @@ type EventController interface {
 	RescheduleEvent() fiber.Handler
 	DeleteEventById() fiber.Handler
 	UpdateEventApproval() fiber.Handler
+	UpdateEventVisibility() fiber.Handler
 }
 
 type eventController struct {
@@ -299,11 +300,54 @@ func (e *eventController) UpdateEventApproval() fiber.Handler {
 		if !ok || userId == "" {
 			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
 		}
-		event, err := e.eventService.UpdateApproval(id, userId, updateEventApprovalDto.Status)
+		eventResult, err := e.eventService.UpdateApproval(id, userId, updateEventApprovalDto.Status)
 		if err != nil {
 			logger.Error("error: ", err)
 			return cf.Status(err.Code).JSON(err)
 		}
-		return cf.Status(fiber.StatusOK).JSON(eventdto.EventDto{}.FromDomain(event))
+		return cf.Status(fiber.StatusOK).JSON(eventdto.EventDto{}.FromDomain(eventResult))
+	}
+}
+
+// UpdateEventVisibility godoc
+// @Summary      Publica um evento da comunidade
+// @Description  Quem gerencia o evento (dono, dono da comunidade ou staff) torna um COMMUNITY_EVENT CLOSED em PUBLIC. Exige palestrante CONFIRMED e que o owner não esteja HOST REQUESTED. Se o ator puder aprovar e o evento estiver PENDING, a publicação também aprova.
+// @Tags         events
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string  true  "ID do evento"
+// @Param        body  body  eventdto.UpdateEventVisibilityDto  true  "visibility PUBLIC"
+// @Success      200   {object}  eventdto.EventDto
+// @Failure      400   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
+// @Failure      404   {object}  map[string]interface{}
+// @Failure      401   {object}  map[string]interface{}
+// @Security     BearerAuth
+// @Router       /v1/event/{id}/visibility [put]
+func (e *eventController) UpdateEventVisibility() fiber.Handler {
+	return func(cf *fiber.Ctx) error {
+		id := cf.Params("id")
+		if !uuidv7.IsValidString(id) {
+			return cf.Status(fiber.StatusBadRequest).JSON(rest_err.NewBadRequestValidationError(
+				"Invalid params",
+				[]rest_err.Causes{{Field: "id", Message: "id must be a valid UUID v7"}}))
+		}
+		var updateEventVisibilityDto eventdto.UpdateEventVisibilityDto
+		if err := cf.BodyParser(&updateEventVisibilityDto); err != nil {
+			logger.Error("erro body request", err)
+			return cf.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Não foi possível processar o corpo da requisição",
+			})
+		}
+		userId, ok := cf.Locals(middleware.UserIdKey).(string)
+		if !ok || userId == "" {
+			return cf.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
+		eventResult, err := e.eventService.UpdateVisibility(id, userId, updateEventVisibilityDto.Visibility)
+		if err != nil {
+			logger.Error("error: ", err)
+			return cf.Status(err.Code).JSON(err)
+		}
+		return cf.Status(fiber.StatusOK).JSON(eventdto.EventDto{}.FromDomain(eventResult))
 	}
 }

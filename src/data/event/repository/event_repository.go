@@ -38,6 +38,7 @@ type EventRepository interface {
 	CountByOwnerId(userId string) (int64, *rest_err.RestErr)
 	CountByOwnerIdAndStatuses(ownerId string, statuses []string) (int64, *rest_err.RestErr)
 	UpdateApprovalStatus(id string, current string, status string, actorId string) (*eventdomain.EventDomain, *rest_err.RestErr)
+	Publish(id string, actorId string, alsoApprove bool) (*eventdomain.EventDomain, *rest_err.RestErr)
 }
 
 type eventRepository struct {
@@ -56,7 +57,15 @@ func (e *eventRepository) CreateEvent(event *eventdomain.EventDomain) (*eventdom
 	if event.Status == "" {
 		event.Status = eventdomain.EventStatusPending
 	}
+	if event.Visibility == "" {
+		event.Visibility = eventdomain.EventVisibilityPublic
+	}
 	txErr := e.database.Transaction(func(tx *gorm.DB) error {
+		if event.Community != nil {
+			if err := communityEventOverlaps(tx, event.Community.Id, "", event.StartAt, event.DurationMin); err != nil {
+				return err
+			}
+		}
 		eventEntity := (&evententity.EventEntity{}).FromDomain(*event)
 		eventEntity.Id = uuidv7.New().String()
 		if err := tx.Create(eventEntity).Error; err != nil {
@@ -109,6 +118,13 @@ func (e *eventRepository) Reschedule(id string, startAt time.Time, comment strin
 		eventRow, lockErr := lockEventRow(tx, id)
 		if lockErr != nil {
 			return lockErr
+		}
+		communityId := ""
+		if eventRow.CommunityId != nil {
+			communityId = *eventRow.CommunityId
+		}
+		if err := communityEventOverlaps(tx, communityId, id, startAt, eventRow.DurationMin); err != nil {
+			return err
 		}
 		if err := tx.Model(&evententity.EventEntity{}).
 			Where("id = ?", id).
@@ -219,10 +235,16 @@ func (e *eventRepository) FindAll(filter EventFilter, page int, limit int) (*eve
 	}
 	if filter.ApprovalStatus != "" {
 		query = query.Where("events.status = ?", filter.ApprovalStatus)
-	} else if !filter.IncludeNonApproved {
+	} else if filter.UserId == "" && !filter.IncludeNonApproved {
 		query = query.Where(
-			"events.status = ? OR events.owner_id = ? OR events.community_id IN (SELECT id FROM community WHERE owner_id = ? AND deleted_at IS NULL)",
-			eventdomain.EventStatusApproved, filter.RequesterId, filter.RequesterId)
+			"((events.status = ? AND (events.visibility = ? OR events.visibility = '' OR events.category <> ?)) OR events.owner_id = ? OR events.community_id IN (SELECT id FROM community WHERE owner_id = ? AND deleted_at IS NULL) OR EXISTS (SELECT 1 FROM event_users WHERE event_users.event_id = events.id AND event_users.user_id = ? AND event_users.status <> ?))",
+			eventdomain.EventStatusApproved,
+			eventdomain.EventVisibilityPublic,
+			eventdomain.CategoryCommunityEvent,
+			filter.RequesterId,
+			filter.RequesterId,
+			filter.RequesterId,
+			eventdomain.StatusCancelled)
 	}
 	query = query.Order("start_at")
 	query = query.Preload("Owner").
@@ -309,4 +331,64 @@ func communityApprovalOutboxType(status string) string {
 	default:
 		return ""
 	}
+}
+
+func (e *eventRepository) Publish(id string, actorId string, alsoApprove bool) (*eventdomain.EventDomain, *rest_err.RestErr) {
+	txErr := e.database.Transaction(func(tx *gorm.DB) error {
+		updates := map[string]interface{}{
+			"visibility": eventdomain.EventVisibilityPublic,
+		}
+		if alsoApprove {
+			updates["status"] = eventdomain.EventStatusApproved
+		}
+		result := tx.Model(&evententity.EventEntity{}).
+			Where("id = ? AND deleted_at IS NULL", id).
+			Updates(updates)
+		if result.Error != nil {
+			return rest_err.NewInternalServerError("Error publishing event: " + result.Error.Error())
+		}
+		if result.RowsAffected == 0 {
+			return rest_err.NewNotFoundError("event not found")
+		}
+		if !alsoApprove {
+			return nil
+		}
+		var eventEntity evententity.EventEntity
+		if err := tx.Where("id = ?", id).First(&eventEntity).Error; err != nil {
+			return rest_err.NewInternalServerError("Error getting event: " + err.Error())
+		}
+		return e.insertCommunityApprovalOutbox(tx, &eventEntity, actorId, eventdomain.EventStatusApproved)
+	})
+	if txErr != nil {
+		return nil, toRestErr(txErr)
+	}
+	return e.FindById(id)
+}
+
+func communityEventOverlaps(tx *gorm.DB, communityId string, excludeEventId string, startAt time.Time, durationMin int) error {
+	if communityId == "" {
+		return nil
+	}
+	newEnd := startAt.Add(time.Duration(durationMin) * time.Minute)
+	query := tx.Model(&evententity.EventEntity{}).
+		Where("community_id = ?", communityId).
+		Where("status <> ?", eventdomain.EventStatusRejected).
+		Where("start_at < ?", newEnd).
+		Where("start_at + (duration_min * interval '1 minute') > ?", startAt)
+	if excludeEventId != "" {
+		query = query.Where("id <> ?", excludeEventId)
+	}
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return rest_err.NewInternalServerError("Error checking community schedule: " + err.Error())
+	}
+	if count > 0 {
+		return rest_err.NewBadRequestValidationError(
+			"Invalid event data",
+			[]rest_err.Causes{{
+				Field:   "start_at",
+				Message: "community already has an event at that time",
+			}})
+	}
+	return nil
 }

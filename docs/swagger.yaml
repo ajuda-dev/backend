@@ -147,6 +147,8 @@ definitions:
         type: string
       type:
         type: string
+      visibility:
+        type: string
     type: object
   github_com_ajuda-dev_backend_src_controller_event_dto.EventParticipantDto:
     properties:
@@ -234,6 +236,8 @@ definitions:
         type: string
       type:
         type: string
+      visibility:
+        type: string
     type: object
   github_com_ajuda-dev_backend_src_controller_event_dto.RescheduleEventDto:
     properties:
@@ -245,6 +249,11 @@ definitions:
   github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventApprovalDto:
     properties:
       status:
+        type: string
+    type: object
+  github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventVisibilityDto:
+    properties:
+      visibility:
         type: string
     type: object
   github_com_ajuda-dev_backend_src_controller_event_dto.UpdateParticipantStatusDto:
@@ -1480,7 +1489,55 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Aprova ou rejeita um evento da comunidade
+      tags:
+      - events
+  /v1/event/{id}/visibility:
+    put:
+      consumes:
+      - application/json
+      description: Quem gerencia o evento (dono, dono da comunidade ou staff) torna um COMMUNITY_EVENT CLOSED em PUBLIC. Exige palestrante CONFIRMED e que o owner não esteja HOST REQUESTED. Se o ator puder aprovar e o evento estiver PENDING, a publicação também aprova.
+      parameters:
+      - description: ID do evento
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: visibility PUBLIC
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventVisibilityDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_event_dto.EventDto'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Publica um evento da comunidade
       tags:
       - events
   /v1/event/{id}/reschedule:

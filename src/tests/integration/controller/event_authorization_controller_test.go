@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
-	"time"
 
 	eventdto "github.com/ajuda-dev/backend/src/controller/event/dto"
 	evententity "github.com/ajuda-dev/backend/src/data/event/entity"
@@ -55,7 +54,7 @@ func TestDeleteEventAuthorization(t *testing.T) {
 			Type:        eventdomain.TypeOnline,
 			Title:       title,
 			Description: "teste de delete",
-			StartAt:     time.Now().Add(48 * time.Hour),
+			StartAt:     uniqueEventStartAt(),
 			DurationMin: 60,
 		})
 	}

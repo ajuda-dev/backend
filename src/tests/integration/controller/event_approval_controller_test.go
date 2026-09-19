@@ -62,7 +62,7 @@ func eaCreateCommunityEvent(t *testing.T, app *fiber.App, owner *userdomain.User
 		Type:        eventdomain.TypeOnline,
 		Title:       title,
 		Description: "evento de teste de aprovação",
-		StartAt:     time.Now().Add(48 * time.Hour),
+		StartAt:     uniqueEventStartAt(),
 		DurationMin: 60,
 	})
 }
@@ -192,8 +192,8 @@ func TestEventApprovalFlow(t *testing.T) {
 	resp.Body.Close()
 
 	resp = euRequest(t, app, http.MethodGet, "/v1/event/"+memberEvent.Id, "", thirdToken)
-	if resp.StatusCode != fiber.StatusOK {
-		t.Errorf("esperava 200 no detalhe do evento aprovado para terceiro, recebeu %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusNotFound {
+		t.Errorf("esperava 404 no detalhe do evento aprovado mas fechado para terceiro, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
@@ -305,8 +305,26 @@ func TestEventApprovalGatesParticipation(t *testing.T) {
 	resp.Body.Close()
 
 	resp = euJoinEvent(t, app, pendingEvent.Id, "", validTokenFor(t, attendee.Id))
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Errorf("esperava 400 no join de evento aprovado mas fechado, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euUpdateStatus(t, app, pendingEvent.Id, speaker.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, speaker.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no aceite do palestrante em evento fechado, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euPublishEvent(t, app, pendingEvent.Id, validTokenFor(t, member.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 ao tornar o evento público, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euJoinEvent(t, app, pendingEvent.Id, "", validTokenFor(t, attendee.Id))
 	if resp.StatusCode != fiber.StatusCreated {
-		t.Errorf("esperava 201 no join de evento aprovado, recebeu %d", resp.StatusCode)
+		t.Errorf("esperava 201 no join de evento aprovado e público, recebeu %d", resp.StatusCode)
 	}
 	resp.Body.Close()
 
