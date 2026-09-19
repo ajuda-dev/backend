@@ -100,6 +100,20 @@ func euShareEmail(t *testing.T, app *fiber.App, user *userdomain.UserDomain) {
 	}
 }
 
+func euSetPhoto(t *testing.T, app *fiber.App, user *userdomain.UserDomain, url string, share bool) {
+	t.Helper()
+	shareLiteral := "false"
+	if share {
+		shareLiteral = "true"
+	}
+	payload := []byte(`{"configVisibility":{"photo":{"value":"` + url + `","shareWithCommunity":` + shareLiteral + `}}}`)
+	resp := doPutUser(t, app, user.Id, payload, validTokenFor(t, user.Id))
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 ao gravar a foto, recebeu %d", resp.StatusCode)
+	}
+}
+
 func euInviteMentee(t *testing.T, app *fiber.App, eventId string, menteeId string, ownerId string) {
 	t.Helper()
 	resp := euAddParticipant(t, app, eventId, `{"user_id":"`+menteeId+`","role":"MENTEE"}`, validTokenFor(t, ownerId))
@@ -703,6 +717,69 @@ func TestGetParticipantsEmailFiltered(t *testing.T) {
 	participants = euDecodeParticipants(t, resp)
 	if adminRow := findParticipant(participants, private.Id); adminRow.User == nil || adminRow.User.Email != private.Email {
 		t.Errorf("esperava o email completo para o admin, recebeu %+v", adminRow.User)
+	}
+}
+
+func TestGetParticipantsPhotoFiltered(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "photo_owner@ajuda.dev", userdomain.UserRoleUser)
+	shared := createUserWithRole(t, "photo_shared@ajuda.dev", userdomain.UserRoleUser)
+	private := createUserWithRole(t, "photo_private@ajuda.dev", userdomain.UserRoleUser)
+	third := createUserWithRole(t, "photo_third@ajuda.dev", userdomain.UserRoleUser)
+	admin := createUserWithRole(t, "photo_admin@ajuda.dev", userdomain.UserRoleAdmin)
+	event := euCreateCommunityEvent(t, app, owner, nil)
+
+	for _, user := range []*userdomain.UserDomain{shared, private} {
+		resp := euJoinEvent(t, app, event.Id, "", validTokenFor(t, user.Id))
+		if resp.StatusCode != fiber.StatusCreated {
+			t.Fatalf("esperava 201 no join de preparação, recebeu %d", resp.StatusCode)
+		}
+		resp.Body.Close()
+	}
+
+	const sharedPhoto = "https://exemplo.com/shared.png"
+	const privatePhoto = "https://exemplo.com/private.png"
+	euSetPhoto(t, app, shared, sharedPhoto, true)
+	euSetPhoto(t, app, private, privatePhoto, false)
+
+	resp := euGetParticipants(t, app, event.Id, validTokenFor(t, third.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no GET participants, recebeu %d", resp.StatusCode)
+	}
+	participants := euDecodeParticipants(t, resp)
+	if len(participants) != 2 {
+		t.Fatalf("esperava 2 participantes, recebeu %d", len(participants))
+	}
+	sharedRow := euFindParticipant(t, participants, shared.Id)
+	if sharedRow.User == nil || sharedRow.User.Photo != sharedPhoto {
+		t.Errorf("esperava a foto compartilhada visível ao terceiro, recebeu %+v", sharedRow.User)
+	}
+	privateRow := euFindParticipant(t, participants, private.Id)
+	if privateRow.User == nil || privateRow.User.Photo != "" {
+		t.Errorf("esperava a foto não compartilhada omitida, recebeu %+v", privateRow.User)
+	}
+	if privateRow.User != nil && privateRow.User.Name != private.Name {
+		t.Errorf("esperava o nome do participante, recebeu '%s'", privateRow.User.Name)
+	}
+
+	resp = euGetParticipants(t, app, event.Id, validTokenFor(t, private.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no GET participants do próprio usuário, recebeu %d", resp.StatusCode)
+	}
+	participants = euDecodeParticipants(t, resp)
+	if selfRow := euFindParticipant(t, participants, private.Id); selfRow.User == nil || selfRow.User.Photo != privatePhoto {
+		t.Errorf("esperava a própria foto completa, recebeu %+v", selfRow.User)
+	}
+
+	resp = euGetParticipants(t, app, event.Id, validTokenFor(t, admin.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no GET participants do admin, recebeu %d", resp.StatusCode)
+	}
+	participants = euDecodeParticipants(t, resp)
+	if adminRow := euFindParticipant(t, participants, private.Id); adminRow.User == nil || adminRow.User.Photo != privatePhoto {
+		t.Errorf("esperava a foto completa para o admin, recebeu %+v", adminRow.User)
 	}
 }
 

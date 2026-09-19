@@ -3281,6 +3281,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "photo": {
+                    "type": "string"
                 }
             }
         },

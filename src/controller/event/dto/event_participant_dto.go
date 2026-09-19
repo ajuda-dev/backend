@@ -1,13 +1,17 @@
 package dto
 
 import (
+	"strings"
+
 	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 )
 
 type ParticipantUserDto struct {
 	Id    string `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email,omitempty"`
+	Photo string `json:"photo,omitempty"`
 }
 
 type EventParticipantDto struct {
@@ -36,9 +40,21 @@ func (e EventParticipantDto) FromDomain(eventUser *eventdomain.EventUserDomain) 
 			Id:    eventUser.User.Id,
 			Name:  eventUser.User.Name,
 			Email: eventUser.User.Email,
+			Photo: participantPhoto(eventUser.User),
 		}
 	}
 	return dtoParticipant
+}
+
+func participantPhoto(user *userdomain.UserDomain) string {
+	if user == nil {
+		return ""
+	}
+	item, ok := user.ConfigVisibility[userdomain.VisibilityKeyPhoto]
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(item.Value)
 }
 
 func ToEventParticipantDtoList(eventUsers []*eventdomain.EventUserDomain) []EventParticipantDto {
