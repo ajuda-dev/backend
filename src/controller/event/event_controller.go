@@ -182,7 +182,7 @@ func (e *eventController) GetAllEvents() fiber.Handler {
 
 // RescheduleEvent godoc
 // @Summary      Reagenda um evento
-// @Description  Quem gerencia o evento (ou, em MENTORING, o convidado) altera start_at e grava um comment obrigatório (trim, máx. 500) na linha event_users de quem reagenda (comment_kind=RESCHEDULE). Reagendar de novo sobrescreve o comment anterior do ator. Não muda a aprovação. Em MENTORING, quem reagenda fica CONFIRMED e o outro participante CONFIRMED (em geral o criador) volta para REQUESTED.
+// @Description  Quem gerencia o evento (ou o convidado: MENTORING, ou SPEAKER em COMMUNITY_EVENT/WEBINAR) altera start_at e grava um comment obrigatório (trim, máx. 500) na linha event_users de quem reagenda (comment_kind=RESCHEDULE). Reagendar de novo sobrescreve o comment anterior do ator. Não muda a aprovação. Quem reagenda fica CONFIRMED; em MENTORING o outro CONFIRMED volta para REQUESTED; em COMMUNITY_EVENT/WEBINAR os outros palestrantes CONFIRMED voltam para REQUESTED e inscritos ATTENDEE permanecem CONFIRMED.
 // @Tags         events
 // @Accept       json
 // @Produce      json

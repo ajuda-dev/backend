@@ -115,7 +115,7 @@ func (e *eventRepository) Reschedule(id string, startAt time.Time, comment strin
 			Updates(map[string]interface{}{"start_at": startAt}).Error; err != nil {
 			return rest_err.NewInternalServerError("Error rescheduling event: " + err.Error())
 		}
-		if err := applyMentoringRescheduleStatuses(tx, e.outbox, eventRow, requesterId); err != nil {
+		if err := applyInviteRescheduleStatuses(tx, e.outbox, eventRow, requesterId); err != nil {
 			return err
 		}
 		return upsertActorStatusComment(tx, id, requesterId, comment, eventdomain.CommentKindReschedule)

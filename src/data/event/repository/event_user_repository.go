@@ -104,7 +104,8 @@ func (e *eventUserRepository) CountActiveByUserId(userId string) (int64, *rest_e
 func (e *eventUserRepository) CreateOrUpdate(eventUser *eventdomain.EventUserDomain, maxSlots *int) (*eventdomain.EventUserDomain, *rest_err.RestErr) {
 	var result *eventdomain.EventUserDomain
 	txErr := e.database.Transaction(func(tx *gorm.DB) error {
-		if _, lockErr := lockEventRow(tx, eventUser.EventId); lockErr != nil {
+		eventRow, lockErr := lockEventRow(tx, eventUser.EventId)
+		if lockErr != nil {
 			return lockErr
 		}
 		if eventUser.Status == eventdomain.StatusConfirmed {
@@ -132,7 +133,7 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *eventdomain.EventUserDom
 				return rest_err.NewInternalServerError("Error creating participant: " + err.Error())
 			}
 			result = eventUserEntity.ToDomain()
-			if err := e.insertMentoringInviteOutbox(tx, eventUser); err != nil {
+			if err := e.insertInvitePendingOutbox(tx, eventRow, eventUser); err != nil {
 				return err
 			}
 			return nil
@@ -154,7 +155,7 @@ func (e *eventUserRepository) CreateOrUpdate(eventUser *eventdomain.EventUserDom
 			existing.StatusComment = nil
 			existing.StatusCommentKind = nil
 			result = existing.ToDomain()
-			if err := e.insertMentoringInviteOutbox(tx, eventUser); err != nil {
+			if err := e.insertInvitePendingOutbox(tx, eventRow, eventUser); err != nil {
 				return err
 			}
 			return nil
@@ -238,7 +239,7 @@ func (e *eventUserRepository) UpdateStatus(eventId string, userId string, status
 			existing.StatusCommentKind = &kind
 		}
 		result = existing.ToDomain()
-		if err := e.insertMentoringInviteResponseOutbox(tx, eventRow, userId, status); err != nil {
+		if err := e.insertInviteResponseOutbox(tx, eventRow, userId, existing.Role, status); err != nil {
 			return err
 		}
 		return nil
@@ -335,8 +336,8 @@ func upsertActorStatusComment(tx *gorm.DB, eventId, userId, comment, kind string
 	return nil
 }
 
-func applyMentoringRescheduleStatuses(tx *gorm.DB, outbox notificationrepo.OutboxEventRepository, event *evententity.EventEntity, requesterId string) error {
-	if event == nil || event.Category != eventdomain.CategoryMentoring {
+func applyInviteRescheduleStatuses(tx *gorm.DB, outbox notificationrepo.OutboxEventRepository, event *evententity.EventEntity, requesterId string) error {
+	if event == nil || !isInviteRescheduleCategory(event.Category) {
 		return nil
 	}
 	var participants []evententity.EventUserEntity
@@ -347,7 +348,10 @@ func applyMentoringRescheduleStatuses(tx *gorm.DB, outbox notificationrepo.Outbo
 		return rest_err.NewInternalServerError("Error getting participants: " + err.Error())
 	}
 
-	confirmedUserId := event.OwnerId
+	confirmedUserId := ""
+	if event.Category == eventdomain.CategoryMentoring {
+		confirmedUserId = event.OwnerId
+	}
 	for _, participant := range participants {
 		if participant.UserId == requesterId && participant.Status != eventdomain.StatusCancelled {
 			confirmedUserId = requesterId
@@ -361,6 +365,9 @@ func applyMentoringRescheduleStatuses(tx *gorm.DB, outbox notificationrepo.Outbo
 			continue
 		}
 		if participant.Status != eventdomain.StatusConfirmed {
+			continue
+		}
+		if event.Category != eventdomain.CategoryMentoring && participant.Role != eventdomain.RoleSpeaker {
 			continue
 		}
 		if err := updateEventUserStatus(tx, participant.Id, eventdomain.StatusRequested); err != nil {
@@ -381,15 +388,48 @@ func applyMentoringRescheduleStatuses(tx *gorm.DB, outbox notificationrepo.Outbo
 		}
 	}
 
-	if outbox == nil || len(pendingUserIds) == 0 {
+	recipients := pendingUserIds
+	if event.Category != eventdomain.CategoryMentoring && event.OwnerId != "" && event.OwnerId != requesterId {
+		recipients = appendUniqueUserId(recipients, event.OwnerId)
+	}
+	if outbox == nil || len(recipients) == 0 {
+		return nil
+	}
+	outboxType := inviteRescheduledOutboxType(event.Category)
+	if outboxType == "" {
 		return nil
 	}
 	payload, _ := json.Marshal(map[string]string{
 		"event_id": event.Id,
 		"title":    event.Title,
-		"category": eventdomain.CategoryMentoring,
+		"category": event.Category,
 	})
-	return insertOutboxForUsers(outbox, tx, notificationdomain.OutboxTypeMentoringInviteRescheduled, pendingUserIds, payload)
+	return insertOutboxForUsers(outbox, tx, outboxType, recipients, payload)
+}
+
+func isInviteRescheduleCategory(category string) bool {
+	return category == eventdomain.CategoryMentoring ||
+		category == eventdomain.CategoryCommunityEvent ||
+		category == eventdomain.CategoryWebinar
+}
+
+func inviteRescheduledOutboxType(category string) string {
+	if category == eventdomain.CategoryMentoring {
+		return notificationdomain.OutboxTypeMentoringInviteRescheduled
+	}
+	return notificationdomain.OutboxTypeSpeakerInviteRescheduled
+}
+
+func appendUniqueUserId(ids []string, userId string) []string {
+	if userId == "" {
+		return ids
+	}
+	for _, id := range ids {
+		if id == userId {
+			return ids
+		}
+	}
+	return append(ids, userId)
 }
 
 func updateEventUserStatus(tx *gorm.DB, id string, status string) error {
@@ -404,41 +444,88 @@ func updateEventUserStatus(tx *gorm.DB, id string, status string) error {
 	return nil
 }
 
-func (e *eventUserRepository) insertMentoringInviteOutbox(tx *gorm.DB, eventUser *eventdomain.EventUserDomain) error {
-	if e.outbox == nil || eventUser.Status != eventdomain.StatusRequested {
+func (e *eventUserRepository) insertInvitePendingOutbox(tx *gorm.DB, event *evententity.EventEntity, eventUser *eventdomain.EventUserDomain) error {
+	if e.outbox == nil || event == nil || eventUser.Status != eventdomain.StatusRequested {
 		return nil
 	}
-	payload, _ := json.Marshal(map[string]string{
-		"event_id": eventUser.EventId,
-		"category": eventdomain.CategoryMentoring,
-	})
-	return insertOutboxForUsers(e.outbox, tx, notificationdomain.OutboxTypeMentoringInvitePending, []string{eventUser.UserId}, payload)
-}
-
-func (e *eventUserRepository) insertMentoringInviteResponseOutbox(tx *gorm.DB, event *evententity.EventEntity, actorId, status string) error {
-	if e.outbox == nil || event == nil || event.Category != eventdomain.CategoryMentoring {
-		return nil
-	}
-	outboxType := mentoringInviteResponseOutboxType(status)
+	outboxType := invitePendingOutboxType(event.Category, eventUser.Role)
 	if outboxType == "" {
 		return nil
 	}
-	recipients, err := eventRelatedRecipientIds(tx, event.Id, event.OwnerId, actorId)
+	payload, _ := json.Marshal(map[string]string{
+		"event_id": event.Id,
+		"title":    event.Title,
+		"category": event.Category,
+	})
+	return insertOutboxForUsers(e.outbox, tx, outboxType, []string{eventUser.UserId}, payload)
+}
+
+func (e *eventUserRepository) insertInviteResponseOutbox(tx *gorm.DB, event *evententity.EventEntity, actorId, actorRole, status string) error {
+	if e.outbox == nil || event == nil {
+		return nil
+	}
+	outboxType := inviteResponseOutboxType(event.Category, actorRole, status)
+	if outboxType == "" {
+		return nil
+	}
+	recipients, err := inviteResponseRecipientIds(tx, event, actorId)
 	if err != nil {
 		return err
 	}
 	return insertOutboxForUsers(e.outbox, tx, outboxType, recipients, eventUpdateOutboxPayload(event, actorId, status))
 }
 
-func mentoringInviteResponseOutboxType(status string) string {
-	switch status {
-	case eventdomain.StatusConfirmed:
-		return notificationdomain.OutboxTypeMentoringInviteAccepted
-	case eventdomain.StatusRejected:
-		return notificationdomain.OutboxTypeMentoringInviteRejected
-	default:
+func invitePendingOutboxType(category, role string) string {
+	if category == eventdomain.CategoryMentoring {
+		return notificationdomain.OutboxTypeMentoringInvitePending
+	}
+	if role == eventdomain.RoleSpeaker {
+		return notificationdomain.OutboxTypeSpeakerInvitePending
+	}
+	return ""
+}
+
+func inviteResponseOutboxType(category, role, status string) string {
+	if status != eventdomain.StatusConfirmed && status != eventdomain.StatusRejected {
 		return ""
 	}
+	if category == eventdomain.CategoryMentoring {
+		if status == eventdomain.StatusConfirmed {
+			return notificationdomain.OutboxTypeMentoringInviteAccepted
+		}
+		return notificationdomain.OutboxTypeMentoringInviteRejected
+	}
+	if role != eventdomain.RoleSpeaker {
+		return ""
+	}
+	if status == eventdomain.StatusConfirmed {
+		return notificationdomain.OutboxTypeSpeakerInviteAccepted
+	}
+	return notificationdomain.OutboxTypeSpeakerInviteRejected
+}
+
+func inviteResponseRecipientIds(tx *gorm.DB, event *evententity.EventEntity, actorId string) ([]string, error) {
+	if event.Category == eventdomain.CategoryMentoring {
+		return eventRelatedRecipientIds(tx, event.Id, event.OwnerId, actorId)
+	}
+	ids := map[string]struct{}{}
+	if event.OwnerId != "" && event.OwnerId != actorId {
+		ids[event.OwnerId] = struct{}{}
+	}
+	var participants []evententity.EventUserEntity
+	if err := tx.Select("user_id", "role").Where("event_id = ?", event.Id).Find(&participants).Error; err != nil {
+		return nil, rest_err.NewInternalServerError("Error listing event participants: " + err.Error())
+	}
+	for _, participant := range participants {
+		if participant.UserId != "" && participant.UserId != actorId && participant.Role == eventdomain.RoleSpeaker {
+			ids[participant.UserId] = struct{}{}
+		}
+	}
+	recipients := make([]string, 0, len(ids))
+	for id := range ids {
+		recipients = append(recipients, id)
+	}
+	return recipients, nil
 }
 
 func lockEventRow(tx *gorm.DB, eventId string) (*evententity.EventEntity, error) {

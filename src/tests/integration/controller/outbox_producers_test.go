@@ -135,6 +135,148 @@ func TestMentoringInvite_InsertsOutboxForGuest(t *testing.T) {
 	assert.Equal(t, notificationdomain.OutboxTypeMentoringInvitePending, pending[0].Type)
 }
 
+func TestSpeakerInvite_InsertsOutboxForGuest(t *testing.T) {
+	t.Cleanup(func() {
+		db.Exec("DELETE FROM outbox_events")
+		cleanEventUsersTable()
+		cleanEventsTable()
+		cleanAddressesTable()
+		cleanUsersTable()
+	})
+	owner, speaker, event := setupSpeakerInvite(t)
+
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: speaker.Id, Role: eventdomain.RoleSpeaker, Status: eventdomain.StatusRequested,
+	}, event.MaxSlots)
+	require.Nil(t, joinErr)
+
+	pending, findErr := outboxEventRepository.FindPending(10)
+	require.Nil(t, findErr)
+	require.Len(t, pending, 1)
+	assert.Equal(t, speaker.Id, pending[0].UserId)
+	assert.Equal(t, notificationdomain.OutboxTypeSpeakerInvitePending, pending[0].Type)
+	assertOutboxPayload(t, pending[0].Payload, map[string]string{
+		"event_id": event.Id,
+		"title":    event.Title,
+		"category": eventdomain.CategoryCommunityEvent,
+	})
+	assert.Empty(t, pendingOutboxByUserAndType(t, owner.Id, notificationdomain.OutboxTypeSpeakerInvitePending))
+}
+
+func TestSpeakerInvite_Accept_NotifiesOwner(t *testing.T) {
+	t.Cleanup(func() {
+		db.Exec("DELETE FROM outbox_events")
+		cleanEventUsersTable()
+		cleanEventsTable()
+		cleanAddressesTable()
+		cleanUsersTable()
+	})
+	owner, speaker, event := setupSpeakerInvite(t)
+
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: speaker.Id, Role: eventdomain.RoleSpeaker, Status: eventdomain.StatusRequested,
+	}, event.MaxSlots)
+	require.Nil(t, joinErr)
+
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, speaker.Id, eventdomain.StatusConfirmed, "", event.MaxSlots)
+	require.Nil(t, updateErr)
+
+	accepted := pendingOutboxByUserAndType(t, owner.Id, notificationdomain.OutboxTypeSpeakerInviteAccepted)
+	require.Len(t, accepted, 1)
+	assertOutboxPayload(t, accepted[0].Payload, map[string]string{
+		"event_id": event.Id,
+		"title":    event.Title,
+		"category": eventdomain.CategoryCommunityEvent,
+		"status":   eventdomain.StatusConfirmed,
+		"actor_id": speaker.Id,
+	})
+	assert.NotContains(t, string(accepted[0].Payload), `"comment"`)
+	assert.Empty(t, pendingOutboxByUserAndType(t, speaker.Id, notificationdomain.OutboxTypeSpeakerInviteAccepted))
+	assert.Len(t, pendingOutboxByUserAndType(t, speaker.Id, notificationdomain.OutboxTypeSpeakerInvitePending), 1)
+}
+
+func TestSpeakerInvite_Reject_NotifiesOwner(t *testing.T) {
+	t.Cleanup(func() {
+		db.Exec("DELETE FROM outbox_events")
+		cleanEventUsersTable()
+		cleanEventsTable()
+		cleanAddressesTable()
+		cleanUsersTable()
+	})
+	owner, speaker, event := setupSpeakerInvite(t)
+
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: speaker.Id, Role: eventdomain.RoleSpeaker, Status: eventdomain.StatusRequested,
+	}, event.MaxSlots)
+	require.Nil(t, joinErr)
+
+	_, updateErr := eventUserRepository.UpdateStatus(event.Id, speaker.Id, eventdomain.StatusRejected, "Agenda conflitou nesta semana", event.MaxSlots)
+	require.Nil(t, updateErr)
+
+	rejected := pendingOutboxByUserAndType(t, owner.Id, notificationdomain.OutboxTypeSpeakerInviteRejected)
+	require.Len(t, rejected, 1)
+	assertOutboxPayload(t, rejected[0].Payload, map[string]string{
+		"event_id": event.Id,
+		"title":    event.Title,
+		"category": eventdomain.CategoryCommunityEvent,
+		"status":   eventdomain.StatusRejected,
+		"actor_id": speaker.Id,
+	})
+	assert.NotContains(t, string(rejected[0].Payload), `"comment"`)
+	assert.Empty(t, pendingOutboxByUserAndType(t, speaker.Id, notificationdomain.OutboxTypeSpeakerInviteRejected))
+}
+
+func TestSpeakerReschedule_NotifiesOwnerAndOtherSpeakers(t *testing.T) {
+	t.Cleanup(func() {
+		db.Exec("DELETE FROM outbox_events")
+		cleanEventUsersTable()
+		cleanEventsTable()
+		cleanAddressesTable()
+		cleanUsersTable()
+	})
+	owner, speaker, event := setupSpeakerInvite(t)
+	other, err := userRepository.CreateUser(&userdomain.UserDomain{
+		Name: "other-speaker", Email: "spk2_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
+	})
+	require.Nil(t, err)
+
+	_, joinErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: speaker.Id, Role: eventdomain.RoleSpeaker, Status: eventdomain.StatusRequested,
+	}, event.MaxSlots)
+	require.Nil(t, joinErr)
+	_, otherErr := eventUserRepository.CreateOrUpdate(&eventdomain.EventUserDomain{
+		EventId: event.Id, UserId: other.Id, Role: eventdomain.RoleSpeaker, Status: eventdomain.StatusRequested,
+	}, event.MaxSlots)
+	require.Nil(t, otherErr)
+	_, acceptErr := eventUserRepository.UpdateStatus(event.Id, other.Id, eventdomain.StatusConfirmed, "", event.MaxSlots)
+	require.Nil(t, acceptErr)
+
+	db.Exec("DELETE FROM outbox_events")
+	newStart := time.Now().Add(72 * time.Hour)
+	_, rescheduleErr := eventRepository.Reschedule(event.Id, newStart, "Sexta 15h encaixa melhor", speaker.Id)
+	require.Nil(t, rescheduleErr)
+
+	ownerNotes := pendingOutboxByUserAndType(t, owner.Id, notificationdomain.OutboxTypeSpeakerInviteRescheduled)
+	require.Len(t, ownerNotes, 1)
+	assertOutboxPayload(t, ownerNotes[0].Payload, map[string]string{
+		"event_id": event.Id,
+		"title":    event.Title,
+		"category": eventdomain.CategoryCommunityEvent,
+	})
+	otherNotes := pendingOutboxByUserAndType(t, other.Id, notificationdomain.OutboxTypeSpeakerInviteRescheduled)
+	require.Len(t, otherNotes, 1)
+	assert.Empty(t, pendingOutboxByUserAndType(t, speaker.Id, notificationdomain.OutboxTypeSpeakerInviteRescheduled))
+
+	participants, findErr := eventUserRepository.FindByEvent(event.Id, "")
+	require.Nil(t, findErr)
+	statusByUser := map[string]string{}
+	for _, participant := range participants {
+		statusByUser[participant.UserId] = participant.Status
+	}
+	assert.Equal(t, eventdomain.StatusConfirmed, statusByUser[speaker.Id])
+	assert.Equal(t, eventdomain.StatusRequested, statusByUser[other.Id])
+}
+
 func TestCreateEvent_OutboxFailureRollsBackEvent(t *testing.T) {
 	t.Cleanup(func() {
 		_ = db.Callback().Create().Remove("fail_outbox_payload")
@@ -496,6 +638,30 @@ func setupMentoringInvite(t *testing.T) (*userdomain.UserDomain, *userdomain.Use
 	}, &slots)
 	require.Nil(t, ownerErr)
 	return mentor, guest, event, &slots
+}
+
+func setupSpeakerInvite(t *testing.T) (*userdomain.UserDomain, *userdomain.UserDomain, *eventdomain.EventDomain) {
+	t.Helper()
+	owner, err := userRepository.CreateUser(&userdomain.UserDomain{
+		Name: "owner", Email: "own_spk_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
+	})
+	require.Nil(t, err)
+	speaker, err := userRepository.CreateUser(&userdomain.UserDomain{
+		Name: "speaker", Email: "spk_" + uuidv7.New().String() + "@ajuda.dev", Password: "123456",
+	})
+	require.Nil(t, err)
+	event, err := eventRepository.CreateEvent(&eventdomain.EventDomain{
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
+		Title:       "Meetup",
+		Description: "d",
+		StartAt:     time.Now().Add(48 * time.Hour),
+		DurationMin: 60,
+		Owner:       *owner,
+		Status:      eventdomain.EventStatusApproved,
+	})
+	require.Nil(t, err)
+	return owner, speaker, event
 }
 
 func setupPendingCommunityEvent(t *testing.T) (*userdomain.UserDomain, *userdomain.UserDomain, *eventdomain.EventDomain) {

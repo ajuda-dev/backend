@@ -19,6 +19,10 @@ const (
 	OutboxTypeMentoringInviteAccepted       = "MENTORING_INVITE_ACCEPTED"
 	OutboxTypeMentoringInviteRejected       = "MENTORING_INVITE_REJECTED"
 	OutboxTypeMentoringInviteRescheduled    = "MENTORING_INVITE_RESCHEDULED"
+	OutboxTypeSpeakerInvitePending          = "SPEAKER_INVITE_PENDING"
+	OutboxTypeSpeakerInviteAccepted         = "SPEAKER_INVITE_ACCEPTED"
+	OutboxTypeSpeakerInviteRejected         = "SPEAKER_INVITE_REJECTED"
+	OutboxTypeSpeakerInviteRescheduled      = "SPEAKER_INVITE_RESCHEDULED"
 	OutboxTypeCreatedAccount                = "CREATED_ACCOUNT"
 )
 
@@ -37,6 +41,10 @@ func InboxNotificationTypes() []string {
 		OutboxTypeMentoringInviteAccepted,
 		OutboxTypeMentoringInviteRejected,
 		OutboxTypeMentoringInviteRescheduled,
+		OutboxTypeSpeakerInvitePending,
+		OutboxTypeSpeakerInviteAccepted,
+		OutboxTypeSpeakerInviteRejected,
+		OutboxTypeSpeakerInviteRescheduled,
 	}
 }
 

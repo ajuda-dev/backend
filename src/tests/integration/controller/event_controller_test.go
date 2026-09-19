@@ -811,6 +811,54 @@ func TestCommunityEventRescheduleLeavesParticipantsUnchanged(t *testing.T) {
 	assertEventUserStatus(t, event.Id, attendee.Id, eventdomain.StatusConfirmed)
 }
 
+func TestSpeakerCanRescheduleCommunityEvent(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "speaker_reschedule_owner@ajuda.dev", userdomain.UserRoleUser)
+	speaker := createUserWithRole(t, "speaker_reschedule_guest@ajuda.dev", userdomain.UserRoleUser)
+	otherSpeaker := createUserWithRole(t, "speaker_reschedule_other@ajuda.dev", userdomain.UserRoleUser)
+	attendee := createUserWithRole(t, "speaker_reschedule_attendee@ajuda.dev", userdomain.UserRoleUser)
+	event := euCreateCommunityEvent(t, app, owner, nil)
+	ownerToken := validTokenFor(t, owner.Id)
+	speakerToken := validTokenFor(t, speaker.Id)
+
+	resp := euAddParticipant(t, app, event.Id, `{"user_id":"`+speaker.Id+`","role":"SPEAKER"}`, ownerToken)
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no convite do palestrante, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	resp = euAddParticipant(t, app, event.Id, `{"user_id":"`+otherSpeaker.Id+`","role":"SPEAKER"}`, ownerToken)
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no convite do segundo palestrante, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	resp = euUpdateStatus(t, app, event.Id, otherSpeaker.Id, eventdomain.StatusConfirmed, "", validTokenFor(t, otherSpeaker.Id))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no aceite do segundo palestrante, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	join := euJoinEvent(t, app, event.Id, "", validTokenFor(t, attendee.Id))
+	if join.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no join, recebeu %d", join.StatusCode)
+	}
+	join.Body.Close()
+
+	newStart := time.Now().Add(80 * time.Hour).UTC().Truncate(time.Second)
+	resp = euRequest(t, app, http.MethodPut, "/v1/event/"+event.Id+"/reschedule",
+		eventRescheduleBody(t, newStart, "Preciso de outro horário"), speakerToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 quando o palestrante reagenda, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	assertEventUserStatus(t, event.Id, speaker.Id, eventdomain.StatusConfirmed)
+	assertEventUserStatus(t, event.Id, otherSpeaker.Id, eventdomain.StatusRequested)
+	assertEventUserStatus(t, event.Id, attendee.Id, eventdomain.StatusConfirmed)
+	assertEventUserComment(t, event.Id, speaker.Id, "Preciso de outro horário", eventdomain.CommentKindReschedule)
+}
+
 func assertEventUserStatus(t *testing.T, eventId string, userId string, want string) {
 	t.Helper()
 	row := euFindRow(t, eventId, userId)

@@ -19,16 +19,22 @@ func canManageEvent(requester *userdomain.UserDomain, event *eventdomain.EventDo
 	return event.Community != nil && event.Community.Owner.Id == requester.Id
 }
 
-func canRescheduleEvent(requester *userdomain.UserDomain, event *eventdomain.EventDomain, isMentoringParticipant bool) bool {
+func canRescheduleEvent(requester *userdomain.UserDomain, event *eventdomain.EventDomain, isInviteParticipant bool) bool {
 	if canManageEvent(requester, event) {
 		return true
 	}
-	return event.Category == eventdomain.CategoryMentoring && isMentoringParticipant
+	return isInviteParticipant
 }
 
-func isActiveMentoringParticipant(participants []*eventdomain.EventUserDomain, userId string) bool {
+func isActiveInviteParticipant(participants []*eventdomain.EventUserDomain, userId string, category string) bool {
 	for _, participant := range participants {
-		if participant != nil && participant.UserId == userId && participant.Status != eventdomain.StatusCancelled {
+		if participant == nil || participant.UserId != userId || participant.Status == eventdomain.StatusCancelled {
+			continue
+		}
+		if category == eventdomain.CategoryMentoring {
+			return true
+		}
+		if participant.Role == eventdomain.RoleSpeaker {
 			return true
 		}
 	}

@@ -66,7 +66,7 @@ func (e *eventUserController) JoinEvent() fiber.Handler {
 
 // AddParticipant godoc
 // @Summary      Adiciona participante (MENTOR/MENTEE ou SPEAKER)
-// @Description  Quem gerencia o evento convida um participante. Em MENTORING o papel deve ser complementar ao creator_role de quem criou (MENTOR convida MENTEE e vice-versa) e a linha nasce REQUESTED; em COMMUNITY_EVENT/WEBINAR o convidado é SPEAKER e a linha nasce CONFIRMED.
+// @Description  Quem gerencia o evento convida um participante. Em MENTORING o papel deve ser complementar ao creator_role de quem criou (MENTOR convida MENTEE e vice-versa); em COMMUNITY_EVENT/WEBINAR o convidado é SPEAKER. Em ambos os casos a linha nasce REQUESTED e o convidado recebe notificação para aceitar, recusar ou pedir reagendamento.
 // @Tags         event_users
 // @Accept       json
 // @Produce      json

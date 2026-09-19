@@ -90,11 +90,7 @@ func (e *eventUserService) AddParticipant(eventId string, requesterId string, ta
 	if err := e.eventUserValidator.ValidateAddParticipant(*eventUser, event.Category, creatorRole); err != nil {
 		return nil, err
 	}
-	if event.Category == eventdomain.CategoryMentoring {
-		eventUser.Status = eventdomain.StatusRequested
-	} else {
-		eventUser.Status = eventdomain.StatusConfirmed
-	}
+	eventUser.Status = eventdomain.StatusRequested
 	if err := e.validateUserExists(eventUser.UserId); err != nil {
 		return nil, err
 	}

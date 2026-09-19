@@ -1049,7 +1049,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Quem gerencia o evento convida um participante. Em MENTORING o papel deve ser complementar ao creator_role de quem criou (MENTOR convida MENTEE e vice-versa) e a linha nasce REQUESTED; em COMMUNITY_EVENT/WEBINAR o convidado é SPEAKER e a linha nasce CONFIRMED.",
+                "description": "Quem gerencia o evento convida um participante. Em MENTORING o papel deve ser complementar ao creator_role de quem criou (MENTOR convida MENTEE e vice-versa); em COMMUNITY_EVENT/WEBINAR o convidado é SPEAKER. Em ambos os casos a linha nasce REQUESTED e o convidado recebe notificação para aceitar, recusar ou pedir reagendamento.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1474,7 +1474,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Quem gerencia o evento (ou, em MENTORING, o convidado) altera start_at e grava um comment obrigatório (trim, máx. 500) na linha event_users de quem reagenda (comment_kind=RESCHEDULE). Reagendar de novo sobrescreve o comment anterior do ator. Não muda a aprovação. Em MENTORING, quem reagenda fica CONFIRMED e o outro participante CONFIRMED (em geral o criador) volta para REQUESTED.",
+                "description": "Quem gerencia o evento (ou o convidado: MENTORING, ou SPEAKER em COMMUNITY_EVENT/WEBINAR) altera start_at e grava um comment obrigatório (trim, máx. 500) na linha event_users de quem reagenda (comment_kind=RESCHEDULE). Reagendar de novo sobrescreve o comment anterior do ator. Não muda a aprovação. Quem reagenda fica CONFIRMED; em MENTORING o outro CONFIRMED volta para REQUESTED; em COMMUNITY_EVENT/WEBINAR os outros palestrantes CONFIRMED voltam para REQUESTED e inscritos ATTENDEE permanecem CONFIRMED.",
                 "consumes": [
                     "application/json"
                 ],

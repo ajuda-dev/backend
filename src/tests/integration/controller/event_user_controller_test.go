@@ -344,8 +344,8 @@ func TestAddParticipantOnlyManager(t *testing.T) {
 		t.Fatalf("esperava 201 para o criador no convite, recebeu %d", resp.StatusCode)
 	}
 	row := euDecodeEventUserDto(t, resp)
-	if row.Role != eventdomain.RoleSpeaker || row.Status != eventdomain.StatusConfirmed {
-		t.Errorf("esperava SPEAKER/CONFIRMED no convite, recebeu %s/%s", row.Role, row.Status)
+	if row.Role != eventdomain.RoleSpeaker || row.Status != eventdomain.StatusRequested {
+		t.Errorf("esperava SPEAKER/REQUESTED no convite, recebeu %s/%s", row.Role, row.Status)
 	}
 
 	resp = euAddParticipant(t, app, event.Id, `{"user_id":"`+mentee.Id+`","role":"SPEAKER"}`, validTokenFor(t, communityOwner.Id))
@@ -1136,5 +1136,56 @@ func TestUpdateParticipantComment(t *testing.T) {
 	respBody = decodeRestErr(t, resp)
 	if len(getCauseByField("status", respBody.Causes)) == 0 {
 		t.Errorf("esperava cause em status, recebeu %+v", respBody.Causes)
+	}
+}
+
+func TestSpeakerInviteStartsRequestedAndCanRespond(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "speaker_invite_owner@ajuda.dev", userdomain.UserRoleUser)
+	speaker := createUserWithRole(t, "speaker_invite_guest@ajuda.dev", userdomain.UserRoleUser)
+	other := createUserWithRole(t, "speaker_invite_other@ajuda.dev", userdomain.UserRoleUser)
+	event := euCreateCommunityEvent(t, app, owner, nil)
+	ownerToken := validTokenFor(t, owner.Id)
+	speakerToken := validTokenFor(t, speaker.Id)
+	otherToken := validTokenFor(t, other.Id)
+
+	resp := euAddParticipant(t, app, event.Id, `{"user_id":"`+speaker.Id+`","role":"SPEAKER"}`, ownerToken)
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no convite de palestrante, recebeu %d", resp.StatusCode)
+	}
+	invited := euDecodeEventUserDto(t, resp)
+	if invited.Role != eventdomain.RoleSpeaker || invited.Status != eventdomain.StatusRequested {
+		t.Fatalf("esperava SPEAKER/REQUESTED, recebeu %s/%s", invited.Role, invited.Status)
+	}
+
+	resp = euUpdateStatus(t, app, event.Id, speaker.Id, eventdomain.StatusConfirmed, "", otherToken)
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Errorf("esperava 403 para terceiro aceitar o convite, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = euUpdateStatus(t, app, event.Id, speaker.Id, eventdomain.StatusConfirmed, "", speakerToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no aceite do palestrante, recebeu %d", resp.StatusCode)
+	}
+	accepted := euDecodeEventUserDto(t, resp)
+	if accepted.Status != eventdomain.StatusConfirmed {
+		t.Errorf("esperava CONFIRMED após o aceite, recebeu %s", accepted.Status)
+	}
+
+	resp = euAddParticipant(t, app, event.Id, `{"user_id":"`+other.Id+`","role":"SPEAKER"}`, ownerToken)
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no segundo convite, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	resp = euUpdateStatus(t, app, event.Id, other.Id, eventdomain.StatusRejected, "Agenda conflitou nesta semana", otherToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 na recusa do palestrante, recebeu %d", resp.StatusCode)
+	}
+	rejected := euDecodeEventUserDto(t, resp)
+	if rejected.Status != eventdomain.StatusRejected {
+		t.Errorf("esperava REJECTED após a recusa, recebeu %s", rejected.Status)
 	}
 }

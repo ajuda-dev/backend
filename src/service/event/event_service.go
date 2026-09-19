@@ -243,15 +243,15 @@ func (e *eventService) Reschedule(id string, requesterId string, startAt time.Ti
 	if err != nil {
 		return nil, err
 	}
-	isMentoringParticipant := false
-	if event.Category == eventdomain.CategoryMentoring && !canManageEvent(requester, event) {
+	isInviteParticipant := false
+	if !canManageEvent(requester, event) {
 		participants, partErr := e.eventUserRepository.FindByEvent(id, "")
 		if partErr != nil {
 			return nil, partErr
 		}
-		isMentoringParticipant = isActiveMentoringParticipant(participants, requester.Id)
+		isInviteParticipant = isActiveInviteParticipant(participants, requester.Id, event.Category)
 	}
-	if !canRescheduleEvent(requester, event, isMentoringParticipant) {
+	if !canRescheduleEvent(requester, event, isInviteParticipant) {
 		if event.Category == eventdomain.CategoryMentoring {
 			return nil, forbiddenRescheduleEvent()
 		}
