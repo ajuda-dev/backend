@@ -178,6 +178,31 @@ func TestCreateOnlineEventSuccess(t *testing.T) {
 	}
 }
 
+func TestCreateEventRejectsDescriptionTooLong(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+	t.Cleanup(cleanEventsTable)
+
+	app := setupApp()
+	user := createEventOwner(t)
+
+	respBody := eventReqValidation(t, app, eventTestRequest{
+		OwnerId:     user.Id,
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeOnline,
+		Title:       "Encontro online",
+		Description: strings.Repeat("a", 501),
+		StartAt:     time.Now().Add(48 * time.Hour),
+		DurationMin: 60,
+	}, "description")
+
+	causes := getCauseByField("description", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "description must have at most 500 characters" {
+		t.Errorf("esperava cause description must have at most 500 characters, recebeu %+v", respBody.Causes)
+	}
+}
+
 func TestCreateInpersonEventRequiresAddress(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	t.Cleanup(cleanUsersTable)

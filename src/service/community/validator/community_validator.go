@@ -34,6 +34,11 @@ func (c *communityValidator) ValidatorRegisterCommunity(community communitydomai
 			Field:   "description",
 			Message: "Description is not valid",
 		})
+	} else if len(community.Description) > 500 {
+		causes = append(causes, rest_err.Causes{
+			Field:   "description",
+			Message: "description must have at most 500 characters",
+		})
 	}
 	if community.Address == (addressdomain.AddressDomain{}) || !uuidv7.IsValidString(community.Address.Id) {
 		causes = append(causes, rest_err.Causes{
@@ -76,6 +81,12 @@ func (c *communityValidator) ValidateUpdateCommunity(community communitydomain.C
 		causes = append(causes, rest_err.Causes{
 			Field:   "name",
 			Message: "Name is not valid",
+		})
+	}
+	if description != "" && len(community.Description) > 500 {
+		causes = append(causes, rest_err.Causes{
+			Field:   "description",
+			Message: "description must have at most 500 characters",
 		})
 	}
 	if addressId != "" && !uuidv7.IsValidString(addressId) {

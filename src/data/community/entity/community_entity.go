@@ -15,7 +15,7 @@ type CommunityEntity struct {
 	UpdatedAt        time.Time
 	DeletedAt        gorm.DeletedAt              `gorm:"uniqueIndex:idx_community_name_del,priority:2"`
 	Name             string                      `gorm:"not null;uniqueIndex:idx_community_name_del,priority:1"`
-	Description      string                      `gorm:"not null"`
+	Description      string                      `gorm:"not null;type:varchar(500)"`
 	OwnerId          string                      `gorm:"type:uuid;not null;index"`
 	AddressId        string                      `gorm:"type:uuid;not null;index"`
 	ConfigVisibility CommunityConfigVisibility   `gorm:"type:jsonb;column:config_visibility"`

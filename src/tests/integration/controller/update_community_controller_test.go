@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
@@ -281,6 +282,22 @@ func TestUpdateCommunityValidationErrors(t *testing.T) {
 		causes := getCauseByField("address_id", respBody.Causes)
 		if len(causes) == 0 || causes[0] != "AddressId is not valid" {
 			t.Errorf("esperava cause do campo 'address_id', recebeu %+v", respBody.Causes)
+		}
+	})
+
+	t.Run("description acima de 500", func(t *testing.T) {
+		payload, err := json.Marshal(map[string]string{"description": strings.Repeat("a", 501)})
+		if err != nil {
+			t.Fatalf("erro ao montar body: %v", err)
+		}
+		resp := updateCommunityViaApi(t, app, communityId, token, payload)
+		if resp.StatusCode != fiber.StatusBadRequest {
+			t.Fatalf("esperava 400, recebeu %d", resp.StatusCode)
+		}
+		respBody := decodeRestErr(t, resp)
+		causes := getCauseByField("description", respBody.Causes)
+		if len(causes) == 0 || causes[0] != "description must have at most 500 characters" {
+			t.Errorf("esperava cause description must have at most 500 characters, recebeu %+v", respBody.Causes)
 		}
 	})
 }

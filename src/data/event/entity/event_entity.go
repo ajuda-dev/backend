@@ -18,16 +18,16 @@ type EventEntity struct {
 	Category    string         `gorm:"type:varchar(30);not null;index"`
 	Type        string         `gorm:"type:varchar(30);not null;index"`
 	Title       string         `gorm:"not null"`
-	Description string
-	StartAt     time.Time `gorm:"not null;index:idx_events_community_start,priority:2"`
-	DurationMin int       `gorm:"not null;default:60"`
-	OwnerId     string    `gorm:"type:uuid;not null;index"`
-	CommunityId *string   `gorm:"type:uuid;index:idx_events_community_start,priority:1"`
-	AddressId   *string   `gorm:"type:uuid;index"`
+	Description string         `gorm:"type:varchar(500)"`
+	StartAt     time.Time      `gorm:"not null;index:idx_events_community_start,priority:2"`
+	DurationMin int            `gorm:"not null;default:60"`
+	OwnerId     string         `gorm:"type:uuid;not null;index"`
+	CommunityId *string        `gorm:"type:uuid;index:idx_events_community_start,priority:1"`
+	AddressId   *string        `gorm:"type:uuid;index"`
 	MeetingLink string
-	MaxSlots   *int
-	Status     string `gorm:"type:varchar(20);not null;default:'PENDING';index"`
-	Visibility string `gorm:"type:varchar(20);not null;default:'PUBLIC';index"`
+	MaxSlots    *int
+	Status      string `gorm:"type:varchar(20);not null;default:'PENDING';index"`
+	Visibility  string `gorm:"type:varchar(20);not null;default:'PUBLIC';index"`
 
 	Community *communityentity.CommunityEntity `gorm:"foreignKey:CommunityId;references:Id;constraint:OnDelete:RESTRICT"`
 	Address   *addressentity.AddressEntity     `gorm:"foreignKey:AddressId;references:Id;constraint:OnDelete:SET NULL"`

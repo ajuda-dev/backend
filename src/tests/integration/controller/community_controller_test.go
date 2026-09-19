@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
@@ -155,6 +156,41 @@ func TestCreateCommunityFail(t *testing.T) {
 	causes = getCauseByField("ownerId", respBody.Causes)
 	if len(causes) != 0 {
 		t.Errorf("o owner agora vem do token; não esperava cause para o campo 'ownerId', recebeu %+v", respBody.Causes)
+	}
+}
+
+func TestCreateCommunityRejectsDescriptionTooLong(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	user := createCommunityUser(t)
+	address := createCommunityAddress(t, "campos")
+	payload, err := json.Marshal(map[string]string{
+		"address_id":  address.Id,
+		"name":        "Comunidade Descricao Longa",
+		"description": strings.Repeat("a", 501),
+	})
+	if err != nil {
+		t.Fatalf("erro ao montar body: %v", err)
+	}
+	resp, err := doAuthedRequest(app, newCommunityRegisterRequest(payload), validTokenFor(t, user.Id))
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400, recebeu %d", resp.StatusCode)
+	}
+	var respBody rest_err.RestErr
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	causes := getCauseByField("description", respBody.Causes)
+	if len(causes) == 0 || causes[0] != "description must have at most 500 characters" {
+		t.Errorf("esperava cause description must have at most 500 characters, recebeu %+v", respBody.Causes)
 	}
 }
 

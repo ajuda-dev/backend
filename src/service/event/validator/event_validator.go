@@ -30,6 +30,12 @@ func (e *eventValidator) ValidatorRegisterEvent(event eventdomain.EventDomain) *
 			Message: "Title is not valid",
 		})
 	}
+	if len(event.Description) > 500 {
+		causes = append(causes, rest_err.Causes{
+			Field:   "description",
+			Message: "description must have at most 500 characters",
+		})
+	}
 	if event.Category != eventdomain.CategoryCommunityEvent &&
 		event.Category != eventdomain.CategoryMentoring &&
 		event.Category != eventdomain.CategoryWebinar {
