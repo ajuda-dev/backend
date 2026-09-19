@@ -12,11 +12,12 @@ type PageableCommunityDto struct {
 }
 
 type CommunityDto struct {
-	Id          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Address     *addressdto.AddressDto `json:"address"`
-	Owner       *userdto.UserDtoOut    `json:"owner"`
+	Id               string                 `json:"id"`
+	Name             string                 `json:"name"`
+	Description      string                 `json:"description"`
+	Address          *addressdto.AddressDto `json:"address"`
+	Owner            *userdto.UserDtoOut    `json:"owner"`
+	ConfigVisibility CommunityLinksDto      `json:"configVisibility,omitempty"`
 }
 
 func (pc PageableCommunityDto) FromDomain(domain communitydomain.PageableCommunity) *PageableCommunityDto {
@@ -36,10 +37,11 @@ func toCommunityDtoSlice(domains []*communitydomain.CommunityDomain) []Community
 
 func (c CommunityDto) FromDomain(community *communitydomain.CommunityDomain) CommunityDto {
 	return CommunityDto{
-		Id:          community.Id,
-		Name:        community.Name,
-		Description: community.Description,
-		Address:     (&addressdto.AddressDto{}).FromDomain(&community.Address),
-		Owner:       (&userdto.UserDtoOut{}).FromDomainUser(&community.Owner),
+		Id:               community.Id,
+		Name:             community.Name,
+		Description:      community.Description,
+		Address:          (&addressdto.AddressDto{}).FromDomain(&community.Address),
+		Owner:            (&userdto.UserDtoOut{}).FromDomainUser(&community.Owner),
+		ConfigVisibility: CommunityLinksDtoFromDomain(community.ConfigVisibility),
 	}
 }

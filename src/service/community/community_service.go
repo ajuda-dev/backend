@@ -1,6 +1,7 @@
 package community
 
 import (
+	"strings"
 	"time"
 
 	"github.com/ajuda-dev/backend/src/config/quota"
@@ -53,6 +54,13 @@ func (c *communityService) CreateCommunity(community *communitydomain.CommunityD
 	err := c.communityValidator.ValidatorRegisterCommunity(*community)
 	if err != nil {
 		return &communitydomain.CommunityDomain{}, err
+	}
+	if community.ConfigVisibility != nil {
+		trimmed := communitydomain.CommunityLinks{}
+		for key, item := range community.ConfigVisibility {
+			trimmed[key] = communitydomain.CommunityLink{Value: strings.TrimSpace(item.Value)}
+		}
+		community.ConfigVisibility = trimmed
 	}
 	rc, err_rc := c.communityRepository.FindByName(community.Name)
 
@@ -174,6 +182,16 @@ func (c *communityService) UpdateCommunity(id string, requesterId string, change
 			return nil, addrErr
 		}
 		changes.Address = *address
+	}
+	if changes.ConfigVisibility != nil {
+		merged := community.ConfigVisibility
+		if merged == nil {
+			merged = communitydomain.CommunityLinks{}
+		}
+		for key, item := range changes.ConfigVisibility {
+			merged[key] = communitydomain.CommunityLink{Value: strings.TrimSpace(item.Value)}
+		}
+		changes.ConfigVisibility = merged
 	}
 	return c.communityRepository.Update(id, changes)
 }

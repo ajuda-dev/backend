@@ -7,17 +7,19 @@ import (
 )
 
 type RegisterCommunityDto struct {
-	Id          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	OwnerId     string `json:"owner_id"`
-	AddressId   string `json:"address_id"`
+	Id               string            `json:"id"`
+	Name             string            `json:"name"`
+	Description      string            `json:"description"`
+	OwnerId          string            `json:"owner_id"`
+	AddressId        string            `json:"address_id"`
+	ConfigVisibility CommunityLinksDto `json:"configVisibility"`
 }
 
 func (r *RegisterCommunityDto) ToDomain() *communitydomain.CommunityDomain {
 	return &communitydomain.CommunityDomain{
-		Name:        r.Name,
-		Description: r.Description,
+		Name:             r.Name,
+		Description:      r.Description,
+		ConfigVisibility: r.ConfigVisibility.ToDomain(),
 		Owner: userdomain.UserDomain{
 			Id: r.OwnerId,
 		},

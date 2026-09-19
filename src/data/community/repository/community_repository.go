@@ -81,6 +81,9 @@ func (c *communityRepository) Update(id string, community *communitydomain.Commu
 	if community.Address.Id != "" {
 		fields["address_id"] = community.Address.Id
 	}
+	if community.ConfigVisibility != nil {
+		fields["config_visibility"] = communityentity.CommunityConfigVisibilityFromDomain(community.ConfigVisibility)
+	}
 	result := c.database.Model(&communityentity.CommunityEntity{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Updates(fields)

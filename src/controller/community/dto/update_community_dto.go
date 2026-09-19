@@ -8,15 +8,17 @@ import (
 // Atualização parcial: campo vazio significa "não alterar".
 // Não há OwnerId de propósito — troca de dono não é feita por este endpoint.
 type UpdateCommunityDto struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	AddressId   string `json:"address_id"`
+	Name             string            `json:"name"`
+	Description      string            `json:"description"`
+	AddressId        string            `json:"address_id"`
+	ConfigVisibility CommunityLinksDto `json:"configVisibility"`
 }
 
 func (u *UpdateCommunityDto) ToDomain() *communitydomain.CommunityDomain {
 	return &communitydomain.CommunityDomain{
-		Name:        u.Name,
-		Description: u.Description,
+		Name:             u.Name,
+		Description:      u.Description,
+		ConfigVisibility: u.ConfigVisibility.ToDomain(),
 		Address: addressdomain.AddressDomain{
 			Id: u.AddressId,
 		},

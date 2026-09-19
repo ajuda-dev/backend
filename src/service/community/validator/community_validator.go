@@ -48,6 +48,7 @@ func (c *communityValidator) ValidatorRegisterCommunity(community communitydomai
 			Message: "OwnerId is not valid",
 		})
 	}
+	causes = append(causes, validateCommunityLinks(community.ConfigVisibility)...)
 
 	if len(causes) > 0 {
 		return rest_err.NewBadRequestValidationError(
@@ -65,7 +66,7 @@ func (c *communityValidator) ValidateUpdateCommunity(community communitydomain.C
 	description := strings.TrimSpace(community.Description)
 	addressId := strings.TrimSpace(community.Address.Id)
 
-	if name == "" && description == "" && addressId == "" {
+	if name == "" && description == "" && addressId == "" && len(community.ConfigVisibility) == 0 {
 		causes = append(causes, rest_err.Causes{
 			Field:   "body",
 			Message: "provide at least one field to update",
@@ -83,8 +84,40 @@ func (c *communityValidator) ValidateUpdateCommunity(community communitydomain.C
 			Message: "AddressId is not valid",
 		})
 	}
+	causes = append(causes, validateCommunityLinks(community.ConfigVisibility)...)
 	if len(causes) > 0 {
 		return rest_err.NewBadRequestValidationError("Invalid community data", causes)
 	}
 	return nil
+}
+
+func validateCommunityLinks(config communitydomain.CommunityLinks) []rest_err.Causes {
+	causes := []rest_err.Causes{}
+	for key, item := range config {
+		field := "config_visibility." + key
+		value := strings.TrimSpace(item.Value)
+		switch key {
+		case communitydomain.LinkKeyGithub, communitydomain.LinkKeyLinkedin, communitydomain.LinkKeyOtherlink, communitydomain.LinkKeyPhoto:
+			if value == "" {
+				continue
+			}
+			if !validation.IsValidHTTPURL(value) {
+				causes = append(causes, rest_err.Causes{
+					Field:   field + ".value",
+					Message: "value must be a valid http or https url",
+				})
+			} else if len(value) > 500 {
+				causes = append(causes, rest_err.Causes{
+					Field:   field + ".value",
+					Message: "value must have at most 500 characters",
+				})
+			}
+		default:
+			causes = append(causes, rest_err.Causes{
+				Field:   field,
+				Message: "unsupported visibility key",
+			})
+		}
+	}
+	return causes
 }

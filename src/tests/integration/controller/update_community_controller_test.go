@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
+	communitydomain "github.com/ajuda-dev/backend/src/service/community/domain"
 	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
@@ -534,5 +535,245 @@ func TestUpdateCommunityNoOpReturnsOk(t *testing.T) {
 	updated := decodeCommunityDto(t, resp)
 	if updated.Id != communityId || updated.Name != "Comunidade Update No Op" {
 		t.Errorf("esperava a comunidade '%s' inalterada, recebeu %+v", communityId, updated)
+	}
+}
+
+func rawCommunityConfigVisibility(t *testing.T, communityId string) string {
+	t.Helper()
+	var raw *string
+	if err := db.Raw("SELECT config_visibility::text FROM community WHERE id = ?", communityId).Scan(&raw).Error; err != nil {
+		t.Fatalf("failed to read config_visibility: %v", err)
+	}
+	if raw == nil {
+		return ""
+	}
+	return *raw
+}
+
+func TestUpdateCommunityLinksSuccess(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	owner := createCommunityOwner(t, "owner.update.links@ajuda.dev")
+	other := createCommunityOwner(t, "other.update.links@ajuda.dev")
+	token := validTokenFor(t, owner.Id)
+	address := createCommunityAddress(t, "sao paulo")
+	communityId := registerCommunityViaApi(t, app, token, address.Id, "Comunidade Update Links")
+
+	body := []byte(`{
+		"configVisibility": {
+			"github":    { "value": "https://github.com/ajudadev" },
+			"linkedin":  { "value": "https://www.linkedin.com/company/ajudadev" },
+			"otherlink": { "value": "https://ajudadev.dev" },
+			"photo":     { "value": "https://avatars.githubusercontent.com/u/1" }
+		}
+	}`)
+	resp := updateCommunityViaApi(t, app, communityId, token, body)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
+	}
+	updated := decodeCommunityDto(t, resp)
+	if updated.ConfigVisibility[communitydomain.LinkKeyGithub].Value != "https://github.com/ajudadev" {
+		t.Errorf("esperava github na resposta, recebeu %+v", updated.ConfigVisibility)
+	}
+	if updated.ConfigVisibility[communitydomain.LinkKeyPhoto].Value != "https://avatars.githubusercontent.com/u/1" {
+		t.Errorf("esperava photo na resposta, recebeu %+v", updated.ConfigVisibility)
+	}
+	if updated.Name != "Comunidade Update Links" {
+		t.Errorf("nome não informado não deveria mudar, recebeu '%s'", updated.Name)
+	}
+
+	raw := rawCommunityConfigVisibility(t, communityId)
+	if raw == "" {
+		t.Fatal("esperava config_visibility gravado no banco")
+	}
+	var persisted map[string]map[string]string
+	if err := json.Unmarshal([]byte(raw), &persisted); err != nil {
+		t.Fatalf("erro ao decodificar jsonb: %v", err)
+	}
+	if persisted["github"]["value"] != "https://github.com/ajudadev" {
+		t.Errorf("esperava github no jsonb, recebeu %s", raw)
+	}
+	if _, exists := persisted["github"]["shareWithCommunity"]; exists {
+		t.Errorf("links da comunidade não devem ter shareWithCommunity, recebeu %s", raw)
+	}
+
+	asOther := getCommunityById(t, app, communityId, validTokenFor(t, other.Id))
+	if asOther.ConfigVisibility[communitydomain.LinkKeyGithub].Value != "https://github.com/ajudadev" {
+		t.Errorf("links devem ser públicos para qualquer autenticado, recebeu %+v", asOther.ConfigVisibility)
+	}
+}
+
+func TestUpdateCommunityLinksPartialMerge(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	owner := createCommunityOwner(t, "owner.update.links.merge@ajuda.dev")
+	token := validTokenFor(t, owner.Id)
+	address := createCommunityAddress(t, "sao paulo")
+	communityId := registerCommunityViaApi(t, app, token, address.Id, "Comunidade Update Links Merge")
+
+	first := []byte(`{"configVisibility": {"github": {"value": "https://github.com/antigo"}, "linkedin": {"value": "https://www.linkedin.com/company/antigo"}}}`)
+	resp := updateCommunityViaApi(t, app, communityId, token, first)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("setup: esperava 200, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = updateCommunityViaApi(t, app, communityId, token, []byte(`{"configVisibility": {"github": {"value": "https://github.com/novo"}}}`))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
+	}
+	updated := decodeCommunityDto(t, resp)
+	if updated.ConfigVisibility[communitydomain.LinkKeyGithub].Value != "https://github.com/novo" {
+		t.Errorf("esperava github atualizado, recebeu %+v", updated.ConfigVisibility)
+	}
+	if updated.ConfigVisibility[communitydomain.LinkKeyLinkedin].Value != "https://www.linkedin.com/company/antigo" {
+		t.Errorf("esperava linkedin intacto, recebeu %+v", updated.ConfigVisibility)
+	}
+}
+
+func TestUpdateCommunityLinksClear(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	owner := createCommunityOwner(t, "owner.update.links.clear@ajuda.dev")
+	token := validTokenFor(t, owner.Id)
+	address := createCommunityAddress(t, "sao paulo")
+	communityId := registerCommunityViaApi(t, app, token, address.Id, "Comunidade Update Links Clear")
+
+	resp := updateCommunityViaApi(t, app, communityId, token, []byte(`{"configVisibility": {"github": {"value": "https://github.com/ajudadev"}}}`))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("setup: esperava 200, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = updateCommunityViaApi(t, app, communityId, token, []byte(`{"configVisibility": {"github": {"value": ""}}}`))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200, recebeu %d", resp.StatusCode)
+	}
+	updated := decodeCommunityDto(t, resp)
+	if updated.ConfigVisibility[communitydomain.LinkKeyGithub].Value != "" {
+		t.Errorf("esperava github limpo, recebeu %+v", updated.ConfigVisibility)
+	}
+}
+
+func TestUpdateCommunityLinksValidation(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	owner := createCommunityOwner(t, "owner.update.links.validation@ajuda.dev")
+	token := validTokenFor(t, owner.Id)
+	address := createCommunityAddress(t, "sao paulo")
+	communityId := registerCommunityViaApi(t, app, token, address.Id, "Comunidade Update Links Validacao")
+
+	t.Run("url invalida", func(t *testing.T) {
+		resp := updateCommunityViaApi(t, app, communityId, token, []byte(`{"configVisibility": {"github": {"value": "github.com/ajudadev"}}}`))
+		if resp.StatusCode != fiber.StatusBadRequest {
+			t.Fatalf("esperava 400, recebeu %d", resp.StatusCode)
+		}
+		respBody := decodeRestErr(t, resp)
+		causes := getCauseByField("config_visibility.github.value", respBody.Causes)
+		if len(causes) == 0 || causes[0] != "value must be a valid http or https url" {
+			t.Errorf("esperava cause de url invalida, recebeu %+v", respBody.Causes)
+		}
+		if rawCommunityConfigVisibility(t, communityId) != "" {
+			t.Errorf("esperava config_visibility NULL após 400, recebeu '%s'", rawCommunityConfigVisibility(t, communityId))
+		}
+	})
+
+	t.Run("chave desconhecida", func(t *testing.T) {
+		resp := updateCommunityViaApi(t, app, communityId, token, []byte(`{"configVisibility": {"twitter": {"value": "https://x.com/ajudadev"}}}`))
+		if resp.StatusCode != fiber.StatusBadRequest {
+			t.Fatalf("esperava 400, recebeu %d", resp.StatusCode)
+		}
+		respBody := decodeRestErr(t, resp)
+		causes := getCauseByField("config_visibility.twitter", respBody.Causes)
+		if len(causes) == 0 || causes[0] != "unsupported visibility key" {
+			t.Errorf("esperava cause de chave desconhecida, recebeu %+v", respBody.Causes)
+		}
+	})
+}
+
+func TestUpdateCommunityLinksForbiddenDoesNotChange(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	owner := createCommunityOwner(t, "owner.update.links.forbidden@ajuda.dev")
+	other := createCommunityOwner(t, "other.update.links.forbidden@ajuda.dev")
+	ownerToken := validTokenFor(t, owner.Id)
+	address := createCommunityAddress(t, "sao paulo")
+	communityId := registerCommunityViaApi(t, app, ownerToken, address.Id, "Comunidade Update Links Proibida")
+
+	resp := updateCommunityViaApi(t, app, communityId, validTokenFor(t, other.Id), []byte(`{"configVisibility": {"github": {"value": "https://github.com/intruso"}}}`))
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Fatalf("esperava 403, recebeu %d", resp.StatusCode)
+	}
+	if rawCommunityConfigVisibility(t, communityId) != "" {
+		t.Errorf("não-dono não pode gravar links, recebeu '%s'", rawCommunityConfigVisibility(t, communityId))
+	}
+}
+
+func TestUpdateCommunityLinksModeratorAllowed(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	owner := createCommunityOwner(t, "owner.update.links.staff@ajuda.dev")
+	moderator := createUserWithRole(t, "moderator.update.links.staff@ajuda.dev", userdomain.UserRoleModerator)
+	ownerToken := validTokenFor(t, owner.Id)
+	address := createCommunityAddress(t, "sao paulo")
+	communityId := registerCommunityViaApi(t, app, ownerToken, address.Id, "Comunidade Update Links Moderador")
+
+	resp := updateCommunityViaApi(t, app, communityId, validTokenFor(t, moderator.Id), []byte(`{"configVisibility": {"github": {"value": "https://github.com/staff"}}}`))
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("moderador não-dono: esperava 200, recebeu %d", resp.StatusCode)
+	}
+	updated := decodeCommunityDto(t, resp)
+	if updated.ConfigVisibility[communitydomain.LinkKeyGithub].Value != "https://github.com/staff" {
+		t.Errorf("esperava github gravado pelo moderador, recebeu %+v", updated.ConfigVisibility)
+	}
+}
+
+func TestRegisterCommunityWithLinks(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+	t.Cleanup(cleanCommunityTable)
+
+	app := setupApp()
+	owner := createCommunityOwner(t, "owner.register.links@ajuda.dev")
+	token := validTokenFor(t, owner.Id)
+	address := createCommunityAddress(t, "sao paulo")
+
+	body := []byte(`{
+		"name": "Comunidade Register Links",
+		"description": "comunidade de teste",
+		"address_id": "` + address.Id + `",
+		"configVisibility": {
+			"github": { "value": "https://github.com/register" }
+		}
+	}`)
+	req := newCommunityRegisterRequest(body)
+	resp, err := doAuthedRequest(app, req, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201, recebeu %d", resp.StatusCode)
+	}
+	created := decodeCommunityDto(t, resp)
+	if created.ConfigVisibility[communitydomain.LinkKeyGithub].Value != "https://github.com/register" {
+		t.Errorf("esperava github no 201, recebeu %+v", created.ConfigVisibility)
 	}
 }

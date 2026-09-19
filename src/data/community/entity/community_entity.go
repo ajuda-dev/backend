@@ -10,16 +10,17 @@ import (
 )
 
 type CommunityEntity struct {
-	Id          string `gorm:"primaryKey;type:uuid"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt              `gorm:"uniqueIndex:idx_community_name_del,priority:2"`
-	Name        string                      `gorm:"not null;uniqueIndex:idx_community_name_del,priority:1"`
-	Description string                      `gorm:"not null"`
-	OwnerId     string                      `gorm:"type:uuid;not null;index"`
-	AddressId   string                      `gorm:"type:uuid;not null;index"`
-	Address     addressentity.AddressEntity `gorm:"foreignKey:AddressId;references:Id"`
-	Owner       userentity.UserEntity       `gorm:"foreignKey:OwnerId;references:Id"`
+	Id               string `gorm:"primaryKey;type:uuid"`
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	DeletedAt        gorm.DeletedAt              `gorm:"uniqueIndex:idx_community_name_del,priority:2"`
+	Name             string                      `gorm:"not null;uniqueIndex:idx_community_name_del,priority:1"`
+	Description      string                      `gorm:"not null"`
+	OwnerId          string                      `gorm:"type:uuid;not null;index"`
+	AddressId        string                      `gorm:"type:uuid;not null;index"`
+	ConfigVisibility CommunityConfigVisibility   `gorm:"type:jsonb;column:config_visibility"`
+	Address          addressentity.AddressEntity `gorm:"foreignKey:AddressId;references:Id"`
+	Owner            userentity.UserEntity       `gorm:"foreignKey:OwnerId;references:Id"`
 }
 
 func (c *CommunityEntity) TableName() string {
@@ -29,23 +30,25 @@ func (c *CommunityEntity) TableName() string {
 func (c *CommunityEntity) FromDomain(domain communitydomain.CommunityDomain) *CommunityEntity {
 
 	return &CommunityEntity{
-		Id:          domain.Id,
-		Name:        domain.Name,
-		Description: domain.Description,
-		OwnerId:     domain.Owner.Id,
-		Owner:       *userentity.FromDomainUser(&domain.Owner),
-		AddressId:   domain.Address.Id,
-		Address:     *c.Address.FromDomainAddress(&domain.Address),
+		Id:               domain.Id,
+		Name:             domain.Name,
+		Description:      domain.Description,
+		OwnerId:          domain.Owner.Id,
+		Owner:            *userentity.FromDomainUser(&domain.Owner),
+		AddressId:        domain.Address.Id,
+		Address:          *c.Address.FromDomainAddress(&domain.Address),
+		ConfigVisibility: CommunityConfigVisibilityFromDomain(domain.ConfigVisibility),
 	}
 }
 
 func (c CommunityEntity) ToDomain() *communitydomain.CommunityDomain {
 	return &communitydomain.CommunityDomain{
-		Id:          c.Id,
-		Name:        c.Name,
-		Description: c.Description,
-		Owner:       *c.Owner.ToDomainUser(),
-		Address:     *c.Address.ToDomainAddress(),
+		Id:               c.Id,
+		Name:             c.Name,
+		Description:      c.Description,
+		Owner:            *c.Owner.ToDomainUser(),
+		Address:          *c.Address.ToDomainAddress(),
+		ConfigVisibility: c.ConfigVisibility.ToDomain(),
 	}
 }
 

@@ -34,7 +34,7 @@ func NewCommunityController(communityService community.CommunityService) Communi
 
 // RegisterCommunity godoc
 // @Summary      Registra uma nova comunidade
-// @Description  Cria uma nova comunidade no sistema. O owner é sempre o usuário autenticado (owner_id do body é ignorado)
+// @Description  Cria uma nova comunidade no sistema. O owner é sempre o usuário autenticado (owner_id do body é ignorado). configVisibility (github, linkedin, otherlink, photo) é opcional; os links são sempre públicos.
 // @Tags         communities
 // @Accept       json
 // @Produce      json
@@ -73,7 +73,7 @@ func (c *communityController) RegisterCommunity() fiber.Handler {
 
 // GetCommunityById godoc
 // @Summary      Busca comunidade por id
-// @Description  Retorna o detalhe da comunidade com owner e endereço (preloads)
+// @Description  Retorna o detalhe da comunidade com owner, endereço e configVisibility (github, linkedin, otherlink, photo). Os links são sempre públicos.
 // @Tags         communities
 // @Accept       json
 // @Produce      json
@@ -145,7 +145,7 @@ func (c *communityController) GetAllCommunities() fiber.Handler {
 
 // UpdateCommunity godoc
 // @Summary      Altera uma comunidade
-// @Description  Atualiza nome, descrição e/ou endereço (campos vazios são ignorados). Somente o dono da comunidade, moderadores e admins.
+// @Description  Atualiza nome, descrição, endereço e/ou links públicos (configVisibility: github, linkedin, otherlink, photo). Campos vazios de name/description/address_id são ignorados; chaves de configVisibility enviadas substituem a entrada. Somente o dono da comunidade, moderadores e admins.
 // @Tags         communities
 // @Accept       json
 // @Produce      json

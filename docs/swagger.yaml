@@ -29,6 +29,8 @@ definitions:
     properties:
       address:
         $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_address_dto.AddressDto'
+      configVisibility:
+        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinksDto'
       description:
         type: string
       id:
@@ -37,6 +39,15 @@ definitions:
         type: string
       owner:
         $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut'
+    type: object
+  github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinkDto:
+    properties:
+      value:
+        type: string
+    type: object
+  github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinksDto:
+    additionalProperties:
+      $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinkDto'
     type: object
   github_com_ajuda-dev_backend_src_controller_community_dto.CommunityMemberDto:
     properties:
@@ -89,6 +100,8 @@ definitions:
     properties:
       address_id:
         type: string
+      configVisibility:
+        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinksDto'
       description:
         type: string
       id:
@@ -102,6 +115,8 @@ definitions:
     properties:
       address_id:
         type: string
+      configVisibility:
+        $ref: '#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinksDto'
       description:
         type: string
       name:
@@ -722,7 +737,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retorna o detalhe da comunidade com owner e endereço (preloads)
+      description: Retorna o detalhe da comunidade com owner, endereço e configVisibility (github, linkedin, otherlink, photo). Os links são sempre públicos.
       parameters:
       - description: ID da comunidade
         in: path
@@ -759,8 +774,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: Atualiza nome, descrição e/ou endereço (campos vazios são ignorados).
-        Somente o dono da comunidade, moderadores e admins.
+      description: Atualiza nome, descrição, endereço e/ou links públicos (configVisibility: github, linkedin, otherlink, photo). Campos vazios de name/description/address_id são ignorados; chaves de configVisibility enviadas substituem a entrada. Somente o dono da comunidade, moderadores e admins.
       parameters:
       - description: ID da comunidade
         in: path
@@ -942,7 +956,7 @@ paths:
       consumes:
       - application/json
       description: Cria uma nova comunidade no sistema. O owner é sempre o usuário
-        autenticado (owner_id do body é ignorado)
+        autenticado (owner_id do body é ignorado). configVisibility (github, linkedin, otherlink, photo) é opcional; os links são sempre públicos.
       parameters:
       - description: Dados da comunidade
         in: body

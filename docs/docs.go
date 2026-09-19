@@ -309,7 +309,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cria uma nova comunidade no sistema. O owner é sempre o usuário autenticado (owner_id do body é ignorado)",
+                "description": "Cria uma nova comunidade no sistema. O owner é sempre o usuário autenticado (owner_id do body é ignorado). configVisibility (github, linkedin, otherlink, photo) é opcional; os links são sempre públicos.",
                 "consumes": [
                     "application/json"
                 ],
@@ -369,7 +369,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna o detalhe da comunidade com owner e endereço (preloads)",
+                "description": "Retorna o detalhe da comunidade com owner, endereço e configVisibility (github, linkedin, otherlink, photo). Os links são sempre públicos.",
                 "consumes": [
                     "application/json"
                 ],
@@ -425,7 +425,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Atualiza nome, descrição e/ou endereço (campos vazios são ignorados). Somente o dono da comunidade, moderadores e admins.",
+                "description": "Atualiza nome, descrição, endereço e/ou links públicos (configVisibility: github, linkedin, otherlink, photo). Campos vazios de name/description/address_id são ignorados; chaves de configVisibility enviadas substituem a entrada. Somente o dono da comunidade, moderadores e admins.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3011,6 +3011,9 @@ const docTemplate = `{
                 "address": {
                     "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_address_dto.AddressDto"
                 },
+                "configVisibility": {
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinksDto"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -3023,6 +3026,20 @@ const docTemplate = `{
                 "owner": {
                     "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_identity_dto.UserDtoOut"
                 }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinkDto": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinksDto": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinkDto"
             }
         },
         "github_com_ajuda-dev_backend_src_controller_community_dto.CommunityMemberDto": {
@@ -3104,6 +3121,9 @@ const docTemplate = `{
                 "address_id": {
                     "type": "string"
                 },
+                "configVisibility": {
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinksDto"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -3123,6 +3143,9 @@ const docTemplate = `{
             "properties": {
                 "address_id": {
                     "type": "string"
+                },
+                "configVisibility": {
+                    "$ref": "#/definitions/github_com_ajuda-dev_backend_src_controller_community_dto.CommunityLinksDto"
                 },
                 "description": {
                     "type": "string"
