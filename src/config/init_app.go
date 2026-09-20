@@ -42,6 +42,10 @@ import (
 func InitApp() {
 	logger.Info("iniciando aplicação")
 	godotenv.Load()
+	if err := identity.RequireAuthSecrets(); err != nil {
+		logger.Error("auth secrets", err)
+		log.Fatal(err)
+	}
 	db, err := database.Connect()
 	if err != nil {
 		logger.Error("Failed to connect to the database", err)

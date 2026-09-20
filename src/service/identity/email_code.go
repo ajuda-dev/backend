@@ -56,7 +56,7 @@ func EmailCodeConfigFromEnv() EmailCodeConfig {
 		}
 	}
 	secret := strings.TrimSpace(os.Getenv("EMAIL_CODE_SECRET"))
-	if secret == "" {
+	if secret == "" && !IsProduction() {
 		secret = os.Getenv("JWT_SECRET")
 	}
 	cfg.Secret = []byte(secret)
