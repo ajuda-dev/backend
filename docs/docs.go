@@ -991,7 +991,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna os participantes do evento com usuário (preload), com filtro opcional de status. Itens podem incluir comment e comment_kind após accept/reject/reagendamento. Mesma visibilidade do detalhe: MENTORING/COMMUNITY_EVENT CLOSED → 404 para terceiro.",
+                "description": "Retorna os participantes do evento com usuário (preload), com filtro opcional de status. comment e comment_kind só para o dono da linha ou quem gerencia o evento (owner, dono da comunidade, staff); terceiro autenticado recebe status/role/user sem o texto. Mesma visibilidade do detalhe: MENTORING/COMMUNITY_EVENT CLOSED → 404 para terceiro.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1276,7 +1276,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "O convidado aceita (CONFIRMED, comment opcional, comment_kind=NOTE) ou recusa (REJECTED, comment obrigatório após trim, máx. 500, comment_kind=REJECT). O texto fica em event_users (resposta e GET participants) e não entra na notificação. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.",
+                "description": "O convidado aceita (CONFIRMED, comment opcional, comment_kind=NOTE) ou recusa (REJECTED, comment obrigatório após trim, máx. 500, comment_kind=REJECT). O texto fica em event_users (a resposta da mutação inclui comment; GET participants só devolve comment/comment_kind ao dono da linha ou a quem gerencia o evento) e não entra na notificação. Garante no máximo 1 MENTEE CONFIRMED por evento MENTORING.",
                 "consumes": [
                     "application/json"
                 ],

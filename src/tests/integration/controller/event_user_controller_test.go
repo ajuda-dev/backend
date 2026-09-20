@@ -783,6 +783,100 @@ func TestGetParticipantsPhotoFiltered(t *testing.T) {
 	}
 }
 
+func TestGetParticipantsCommentFiltered(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "comment_vis_owner@ajuda.dev", userdomain.UserRoleUser)
+	speaker := createUserWithRole(t, "comment_vis_speaker@ajuda.dev", userdomain.UserRoleUser)
+	third := createUserWithRole(t, "comment_vis_third@ajuda.dev", userdomain.UserRoleUser)
+	moderator := createUserWithRole(t, "comment_vis_mod@ajuda.dev", userdomain.UserRoleModerator)
+	event := euCreateCommunityEvent(t, app, owner, nil)
+	ownerToken := validTokenFor(t, owner.Id)
+	speakerToken := validTokenFor(t, speaker.Id)
+	thirdToken := validTokenFor(t, third.Id)
+	moderatorToken := validTokenFor(t, moderator.Id)
+
+	resp := euAddParticipant(t, app, event.Id, `{"user_id":"`+speaker.Id+`","role":"SPEAKER"}`, ownerToken)
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Fatalf("esperava 201 no convite de palestrante, recebeu %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	const rejectComment = "Agenda conflitou nesta semana"
+	resp = euUpdateStatus(t, app, event.Id, speaker.Id, eventdomain.StatusRejected, rejectComment, speakerToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 na recusa com comment, recebeu %d", resp.StatusCode)
+	}
+	rejected := euDecodeEventUserDto(t, resp)
+	if rejected.Comment != rejectComment || rejected.CommentKind != eventdomain.CommentKindReject {
+		t.Errorf("esperava comment na resposta da mutação, recebeu comment=%q kind=%q", rejected.Comment, rejected.CommentKind)
+	}
+
+	resp = euGetParticipants(t, app, event.Id, thirdToken)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no GET participants do viewer, recebeu %d", resp.StatusCode)
+	}
+	viewerBody, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		t.Fatalf("erro ao ler body do viewer: %v", err)
+	}
+	var viewerRaw []map[string]interface{}
+	if err := json.Unmarshal(viewerBody, &viewerRaw); err != nil {
+		t.Fatalf("erro ao decodificar listagem raw do viewer: %v", err)
+	}
+	var viewerListed []eventdto.EventParticipantDto
+	if err := json.Unmarshal(viewerBody, &viewerListed); err != nil {
+		t.Fatalf("erro ao decodificar listagem do viewer: %v", err)
+	}
+	viewerRow := euFindParticipant(t, viewerListed, speaker.Id)
+	if viewerRow.Status != eventdomain.StatusRejected {
+		t.Errorf("esperava status REJECTED para o viewer, recebeu %s", viewerRow.Status)
+	}
+	if viewerRow.Comment != "" || viewerRow.CommentKind != "" {
+		t.Errorf("não esperava comment para o viewer, recebeu comment=%q kind=%q", viewerRow.Comment, viewerRow.CommentKind)
+	}
+	if viewerRow.User == nil || viewerRow.User.Email != "" {
+		t.Errorf("esperava o email não compartilhado omitido para o viewer, recebeu %+v", viewerRow.User)
+	}
+	foundRaw := false
+	for _, row := range viewerRaw {
+		if row["user_id"] != speaker.Id {
+			continue
+		}
+		foundRaw = true
+		if _, ok := row["comment"]; ok {
+			t.Errorf("não esperava chave comment na listagem do viewer")
+		}
+		if _, ok := row["comment_kind"]; ok {
+			t.Errorf("não esperava chave comment_kind na listagem do viewer")
+		}
+	}
+	if !foundRaw {
+		t.Fatalf("esperava achar o palestrante na listagem raw do viewer")
+	}
+
+	assertCommentVisible := func(token string, who string) {
+		t.Helper()
+		listedResp := euGetParticipants(t, app, event.Id, token)
+		if listedResp.StatusCode != fiber.StatusOK {
+			t.Fatalf("esperava 200 no GET participants de %s, recebeu %d", who, listedResp.StatusCode)
+		}
+		listed := euDecodeParticipants(t, listedResp)
+		got := euFindParticipant(t, listed, speaker.Id)
+		if got.Status != eventdomain.StatusRejected {
+			t.Errorf("esperava REJECTED para %s, recebeu %s", who, got.Status)
+		}
+		if got.Comment != rejectComment || got.CommentKind != eventdomain.CommentKindReject {
+			t.Errorf("esperava comment visível para %s, recebeu comment=%q kind=%q", who, got.Comment, got.CommentKind)
+		}
+	}
+	assertCommentVisible(speakerToken, "o recusante")
+	assertCommentVisible(ownerToken, "o owner")
+	assertCommentVisible(moderatorToken, "o moderator")
+}
+
 func euCreateMentoringEventWithRole(t *testing.T, app *fiber.App, owner *userdomain.UserDomain, creatorRole string) eventdto.RegisterEventDto {
 	t.Helper()
 	return registerEventViaApi(t, app, eventTestRequest{

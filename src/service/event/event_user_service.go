@@ -128,8 +128,13 @@ func (e *eventUserService) GetParticipants(eventId string, status string, reques
 		}
 		participants = filtered
 	}
+	manager := canManageEvent(requester, event)
 	for _, participant := range participants {
 		identity.ApplyVisibilityFilter(participant.User, requester)
+		if participant.UserId != requester.Id && !manager {
+			participant.StatusComment = ""
+			participant.StatusCommentKind = ""
+		}
 	}
 	return participants, nil
 }
