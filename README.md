@@ -34,7 +34,7 @@ Variáveis de conexão:
 
 ## Como usar
 
-Pré-requisitos: **Go 1.24+** e um **PostgreSQL** acessível. Docker é necessário só para os testes de integração (Testcontainers).
+Pré-requisitos: **Go 1.24+** e um **PostgreSQL** acessível. Para os testes de integração, o **Docker precisa estar rodando** (Testcontainers sobe um Postgres 15).
 
 1. Copie o template e preencha os valores:
 
@@ -62,12 +62,21 @@ Outros comandos:
 
 ```bash
 go build ./...
+```
+
+Swagger: `swag init` gera `docs/`.
+
+Imagem Docker: `Dockerfile` (API + binário de purge). O Compose da stack fica no repositório de deploy (`ajudadev/deploy`).
+
+## Testes
+
+Os testes de integração (`src/tests/integration`) usam **testcontainers-go**: na hora do `go test` eles sobem um container **PostgreSQL 15**. Por isso o **Docker Desktop (ou o daemon Docker) precisa estar em execução**; sem Docker os testes falham ao criar o container.
+
+```bash
 go test ./...
 ```
 
-`go test ./...` sobe um Postgres 15 via Testcontainers (precisa de Docker). Swagger: `swag init` gera `docs/`.
-
-Imagem Docker: `Dockerfile` (API + binário de purge). O Compose da stack fica no repositório de deploy (`ajudadev/deploy`).
+A API em si (`go run ./cmd/api`) não usa esse container: ela conecta no Postgres das variáveis `DB_*`.
 
 ## Variáveis de ambiente
 
