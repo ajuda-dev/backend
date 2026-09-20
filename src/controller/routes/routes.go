@@ -1,6 +1,10 @@
 package routes
 
 import (
+	"os"
+	"strconv"
+	"strings"
+
 	_ "github.com/ajuda-dev/backend/docs"
 	addressctrl "github.com/ajuda-dev/backend/src/controller/address"
 	communityctrl "github.com/ajuda-dev/backend/src/controller/community"
@@ -109,6 +113,27 @@ func SetupRoutesNotifications(app *fiber.App, notificationController notificatio
 	notifications.Put("/:id/read", notificationController.MarkRead())
 }
 
+func SetupHealthRoute(app *fiber.App) {
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+}
+
 func SetupSwaggerRoute(app *fiber.App) {
+	if !swaggerEnabled() {
+		return
+	}
 	app.Get("/swagger/*", swagger.HandlerDefault)
+}
+
+func swaggerEnabled() bool {
+	raw := strings.TrimSpace(os.Getenv("SWAGGER_ENABLED"))
+	if raw == "" {
+		return true
+	}
+	v, err := strconv.ParseBool(raw)
+	if err != nil {
+		return true
+	}
+	return v
 }

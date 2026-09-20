@@ -8,7 +8,7 @@ Backend of a communities/help platform (`github.com/ajuda-dev/backend`). The dom
 - **Addresses** (`addresses`): address registration, with lookup/validation via the external **ViaCEP** API (by CEP or by state + city + street).
 - **Communities** (`community`): belong to a user (owner) and are linked to an address. They support creation and paginated listing with optional `owner_id`, `name` and `city` filters.
 
-The project is in an early development stage (no Makefile/CI). Authentication uses a JWT stored in an HttpOnly session cookie (`ajudadev_session`), set on login, register and OAuth callback; the same JWT is also accepted via `Authorization: Bearer` (native/API clients) — see `src/controller/middleware`. All endpoints are protected by the VerifyJWT middleware, except POST /v1/user/register, POST /v1/user/login, POST /v1/user/logout, POST /v1/user/forgot-password and POST /v1/user/reset-password; the Swagger UI stays public.
+The project is in an early development stage (no Makefile/CI). Authentication uses a JWT stored in an HttpOnly session cookie (`ajudadev_session`), set on login, register and OAuth callback; the same JWT is also accepted via `Authorization: Bearer` (native/API clients) — see `src/controller/middleware`. All endpoints are protected by the VerifyJWT middleware, except POST /v1/user/register, POST /v1/user/login, POST /v1/user/logout, POST /v1/user/forgot-password, POST /v1/user/reset-password, GET /health and GET /swagger/* (Swagger is skipped when `SWAGGER_ENABLED=false`).
 
 ## Stack
 
@@ -16,7 +16,7 @@ The project is in an early development stage (no Makefile/CI). Authentication us
 - **Web framework:** Fiber v2
 - **ORM:** GORM (PostgreSQL driver)
 - **Database:** PostgreSQL
-- **Logging:** zap (structured JSON)
+- **Logging:** zap (structured JSON) to stdout; optional file via `LOG_OUTPUT` with lumberjack rotation (`LOG_MAX_SIZE_MB` / `LOG_MAX_AGE_DAYS` / `LOG_MAX_BACKUPS`)
 - **Swagger:** swaggo/swag + gofiber/swagger
 - **IDs:** samborkent/uuidv7 (UUID v7)
 - **Password:** golang.org/x/crypto (bcrypt)
@@ -27,7 +27,8 @@ The project is in an early development stage (no Makefile/CI). Authentication us
 
 ```
 backend/
-├── .env.exemple          # environment variables template (DB_*, PURGE_*)
+├── Dockerfile / .dockerignore
+├── .env.exemple          # environment variables template (DB_*, PURGE_*, LOG_*)
 ├── go.mod / go.sum       # Go 1.24.0 module
 ├── cmd/
 │   ├── api/              # entrypoint da API → config.InitApp() (porta 8080)
@@ -143,19 +144,21 @@ Defined in `src/controller/routes/routes.go`:
 | PUT | `/v1/event/:id/reschedule` | `RescheduleEvent` | Who can manage the event (`canManageEvent`) or the invited participant (MENTORING guest, or SPEAKER on COMMUNITY_EVENT/WEBINAR) changes `start_at` (must be in the future) and writes a required `comment` (trim, max 500) on the actor's `event_users.status_comment` with `comment_kind=RESCHEDULE` (creates an `ATTENDEE`/`CONFIRMED` row if the actor has none). A later reschedule overwrites that actor's comment. Approval status is unchanged. The rescheduler becomes `CONFIRMED`. In MENTORING the other `CONFIRMED` participant (typically the creator) becomes `REQUESTED` (`status_comment` cleared; `MENTORING_INVITE_RESCHEDULED` to whoever went `REQUESTED`). In COMMUNITY_EVENT/WEBINAR other `CONFIRMED` speakers become `REQUESTED` (`SPEAKER_INVITE_RESCHEDULED` to them and to the event owner if the speaker rescheduled); attendees stay `CONFIRMED`. 200 `EventDto` (no `comment`). Third party → **403**. |
 | PUT | `/v1/event/:id/meeting-link` | `UpdateEventMeetingLink` | Who can manage the event (`canManageEvent`: owner, community owner or staff) sets or clears `meeting_link`. Body `{ "meeting_link" }` (empty string clears). ONLINE/HYBRID only; non-empty value must be http/https with host, max 500. 200 `EventDto` (`meeting_link` omitempty). INPERSON or invalid URL → **400**. Third-party `USER` → **403**. |
 | DELETE | `/v1/event/:id` | `DeleteEventById` | Soft-deletes the event. Body `{ "comment" }` is **required** (trim, max 500); the text is written on the actor's `event_users.status_comment` with `comment_kind=CANCEL` in the same transaction as `deleted_at` (creates a participation row if missing). 204. Missing comment → **400** and the event stays. |
-| GET | `/swagger/*` | `swagger.HandlerDefault` | Swagger UI documentation |
+| GET | `/health` | `SetupHealthRoute` | Liveness probe (200, no JWT); used by Docker healthcheck |
+| GET | `/swagger/*` | `swagger.HandlerDefault` | Swagger UI; omitted when `SWAGGER_ENABLED=false` |
 
 ## How to run
 
 - **API:** `go run ./cmd/api` (starts the Fiber server on port **8080**).
 - **Purge (processo separado):** `go run ./cmd/purge` — conecta no banco e mantém o `StartPurgeJob` (ticker) vivo; sem `PURGE_ENABLED=true` ele loga `purge job disabled` e encerra. A primeira execução ocorre após `PURGE_INTERVAL_HOURS`.
+- **Docker:** imagens em `Dockerfile` (build `golang:1.24-alpine`, runtime `alpine:3.21`). Stack Compose em `C:\Users\Lucas\dev\ajudadev\deploy`.
 - **Build:** `go build ./...`.
 - **Tests:** `go test ./...` — the integration tests spin up a Postgres 15 container via Testcontainers (requires Docker).
-- **Swagger:** generated with `swag init` (generates `docs/`); `docs.go` is imported in `routes.go`.
+- **Swagger:** generated with `swag init` (generates `docs/`); `docs.go` is imported in `routes.go`. Disabled when `SWAGGER_ENABLED=false`.
 
 ## Code conventions
 
 - Follow the layered architecture described above; new features should add Controller, Service, Repository, Entity, DTO, Domain and Validator **inside the matching domain folders** (`src/{controller,service,data}/<domínio>/`). Shared HTTP helpers stay in `src/controller/middleware` and `src/controller/routes`. Shared validation helpers stay in `src/service/validation`.
 - Business errors must be returned as `*rest_err.RestErr` with the appropriate HTTP code.
-- Every endpoint must be protected by the VerifyJWT middleware. Authentication accepts the `ajudadev_session` HttpOnly cookie (browsers) or `Authorization: Bearer <jwt>` (native/API clients); the cookie is cleared when it carries an invalid/expired token. Permanent exceptions: POST /v1/user/register, POST /v1/user/login, POST /v1/user/logout, POST /v1/user/forgot-password, POST /v1/user/reset-password and GET /swagger/*. POST /v1/user/verify-email, POST /v1/user/resend-verification and POST /v1/user/change-password require JWT. New endpoints are authenticated by default; on mixed groups (public + protected under the same prefix), apply the middleware per route, never to the whole group.
+- Every endpoint must be protected by the VerifyJWT middleware. Authentication accepts the `ajudadev_session` HttpOnly cookie (browsers) or `Authorization: Bearer <jwt>` (native/API clients); the cookie is cleared when it carries an invalid/expired token. Permanent exceptions: POST /v1/user/register, POST /v1/user/login, POST /v1/user/logout, POST /v1/user/forgot-password, POST /v1/user/reset-password, GET /health and GET /swagger/*. POST /v1/user/verify-email, POST /v1/user/resend-verification and POST /v1/user/change-password require JWT. New endpoints are authenticated by default; on mixed groups (public + protected under the same prefix), apply the middleware per route, never to the whole group.
 - Do not add unnecessary comments to the code.

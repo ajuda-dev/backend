@@ -204,6 +204,7 @@ func setupAppWithEmail(sender email.EmailSender) *fiber.App {
 	routes.SetupRoutesSkills(app, skillctrl.NewSkillController(skillService), authMiddleware)
 	routes.SetupRoutesSkillUsers(app, skillctrl.NewSkillUserController(skill.NewSkillUserService(userService, skillService, skillUserRepository, skillvalidator.NewSkillUserValidator(), quotaCfg)), authMiddleware)
 	routes.SetupRoutesNotifications(app, notificationctrl.NewNotificationController(notification.NewNotificationHub(), notification.NewNotificationService(outboxEventRepository)), authMiddleware)
+	routes.SetupHealthRoute(app)
 	routes.SetupSwaggerRoute(app)
 
 	return app

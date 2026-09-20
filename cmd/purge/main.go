@@ -11,6 +11,7 @@ import (
 
 func main() {
 	godotenv.Load()
+	logger.Configure()
 	db, err := database.Connect()
 	if err != nil {
 		logger.Error("Failed to connect to the database", err)

@@ -40,8 +40,9 @@ import (
 )
 
 func InitApp() {
-	logger.Info("iniciando aplicação")
 	godotenv.Load()
+	logger.Configure()
+	logger.Info("iniciando aplicação")
 	if err := identity.RequireAuthSecrets(); err != nil {
 		logger.Error("auth secrets", err)
 		log.Fatal(err)
@@ -49,8 +50,10 @@ func InitApp() {
 	db, err := database.Connect()
 	if err != nil {
 		logger.Error("Failed to connect to the database", err)
+		log.Fatal(err)
 	}
 	app := fiber.New()
+	routes.SetupHealthRoute(app)
 	outboxEventRepository := notificationrepo.NewOutboxEventRepository(db)
 	emailCodeRepository := userrepo.NewEmailCodeRepository(db)
 	emailSender := email.FromEnv()

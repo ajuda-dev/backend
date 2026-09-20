@@ -1,0 +1,13 @@
+.git
+.idea
+.vscode
+.env
+**/*_test.go
+src/tests
+docs/security-audit
+*.md
+*.exe
+*.out
+coverage.*
+go.work
+go.work.sum
