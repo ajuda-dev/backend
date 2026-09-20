@@ -1986,7 +1986,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cria uma skill no catálogo. O nome é salvo em caixa alta (normalizado) e é único entre skills ativas.",
+                "description": "Cria uma skill no catálogo. O nome é salvo em caixa alta (normalizado) e é único entre skills ativas. Qualquer usuário autenticado pode criar, até o teto por criador.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2024,6 +2024,13 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true

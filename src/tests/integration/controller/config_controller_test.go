@@ -150,6 +150,8 @@ func TestMain(m *testing.M) {
 	os.Setenv("RATE_LIMIT_COMMUNITY_CREATE_PER_HOUR_MODERATOR", "1000")
 	os.Setenv("RATE_LIMIT_COMMUNITY_JOIN_PER_HOUR", "1000")
 	os.Setenv("RATE_LIMIT_COMMUNITY_JOIN_PER_HOUR_MODERATOR", "1000")
+	os.Setenv("MAX_CREATED_SKILLS", "1000")
+	os.Setenv("MAX_CREATED_SKILLS_MODERATOR", "1000")
 	os.Unsetenv("MAX_SKILLS_PER_USER")
 	os.Unsetenv("MAX_SKILLS_PER_USER_MODERATOR")
 
@@ -198,7 +200,7 @@ func setupAppWithEmail(sender email.EmailSender) *fiber.App {
 	eventService := event.NewEventService(userService, addressService, communityRepository, eventRepository, eventUserRepository, communityUserRepository, eventvalidator.NewEventValidator(), quotaCfg, rateLimiter)
 	routes.SetupRoutesEvents(app, eventctrl.NewEventController(eventService), authMiddleware)
 	routes.SetupRoutesEventUsers(app, eventctrl.NewEventUserController(event.NewEventUserService(userService, eventService, eventUserRepository, eventvalidator.NewEventUserValidator())), authMiddleware)
-	skillService := skill.NewSkillService(userService, skillRepository, skillvalidator.NewSkillValidator())
+	skillService := skill.NewSkillService(userService, skillRepository, skillvalidator.NewSkillValidator(), quotaCfg)
 	routes.SetupRoutesSkills(app, skillctrl.NewSkillController(skillService), authMiddleware)
 	routes.SetupRoutesSkillUsers(app, skillctrl.NewSkillUserController(skill.NewSkillUserService(userService, skillService, skillUserRepository, skillvalidator.NewSkillUserValidator(), quotaCfg)), authMiddleware)
 	routes.SetupRoutesNotifications(app, notificationctrl.NewNotificationController(notification.NewNotificationHub(), notification.NewNotificationService(outboxEventRepository)), authMiddleware)

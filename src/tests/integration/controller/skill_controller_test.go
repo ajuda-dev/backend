@@ -23,16 +23,22 @@ func newSkillRegisterRequest(body []byte) *http.Request {
 	return req
 }
 
-func registerSkillViaApi(t *testing.T, app *fiber.App, name string) skilldto.RegisterSkillDto {
+func doRegisterSkill(t *testing.T, app *fiber.App, name string, token string) *http.Response {
 	t.Helper()
 	payload, err := json.Marshal(skilldto.RegisterSkillDto{Name: name})
 	if err != nil {
 		t.Fatalf("erro ao montar body: %v", err)
 	}
-	resp, err := doAuthedRequest(app, newSkillRegisterRequest(payload), validTokenFor(t, uuidv7.New().String()))
+	resp, err := doAuthedRequest(app, newSkillRegisterRequest(payload), token)
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
+	return resp
+}
+
+func registerSkillViaApiAs(t *testing.T, app *fiber.App, name string, token string) skilldto.RegisterSkillDto {
+	t.Helper()
+	resp := doRegisterSkill(t, app, name, token)
 	defer resp.Body.Close()
 	if resp.StatusCode != fiber.StatusCreated {
 		var respBody rest_err.RestErr
@@ -46,9 +52,16 @@ func registerSkillViaApi(t *testing.T, app *fiber.App, name string) skilldto.Reg
 	return respDto
 }
 
+func registerSkillViaApi(t *testing.T, app *fiber.App, name string) skilldto.RegisterSkillDto {
+	t.Helper()
+	user := createUserWithRole(t, fmt.Sprintf("skill_reg_%s@ajuda.dev", uuidv7.New().String()), userdomain.UserRoleUser)
+	return registerSkillViaApiAs(t, app, name, validTokenFor(t, user.Id))
+}
+
 func skillReqValidation(t *testing.T, app *fiber.App, body []byte) rest_err.RestErr {
 	t.Helper()
-	resp, err := doAuthedRequest(app, newSkillRegisterRequest(body), validTokenFor(t, uuidv7.New().String()))
+	user := createUserWithRole(t, fmt.Sprintf("skill_val_%s@ajuda.dev", uuidv7.New().String()), userdomain.UserRoleUser)
+	resp, err := doAuthedRequest(app, newSkillRegisterRequest(body), validTokenFor(t, user.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -72,6 +85,7 @@ func skillCleanups() {
 
 func TestRegisterSkillNormalizesToUppercase(t *testing.T) {
 	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
 	respDto := registerSkillViaApi(t, app, "  java ")
@@ -86,6 +100,7 @@ func TestRegisterSkillNormalizesToUppercase(t *testing.T) {
 
 func TestRegisterSkillRejectsDuplicateName(t *testing.T) {
 	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
 	registerSkillViaApi(t, app, "java")
@@ -102,6 +117,7 @@ func TestRegisterSkillRejectsDuplicateName(t *testing.T) {
 
 func TestRegisterSkillRejectsInvalidNames(t *testing.T) {
 	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
 	invalidNames := []string{
@@ -123,6 +139,7 @@ func TestRegisterSkillRejectsInvalidNames(t *testing.T) {
 
 func TestRegisterSkillAllowsSpecialCharsets(t *testing.T) {
 	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
 	for _, name := range []string{"c++", "c#", "R2-D2", "REST API", "ÁGUA"} {
@@ -136,6 +153,7 @@ func TestRegisterSkillAllowsSpecialCharsets(t *testing.T) {
 
 func TestListSkillsByPrefix(t *testing.T) {
 	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
 	registerSkillViaApi(t, app, "go")
@@ -181,6 +199,7 @@ func TestListSkillsByPrefix(t *testing.T) {
 
 func TestListSkillsPagination(t *testing.T) {
 	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
 
 	app := setupApp()
 	for i := 0; i < 13; i++ {
@@ -319,4 +338,72 @@ func TestDeleteSkillRemovesAssociationsAndAllowsNameReuse(t *testing.T) {
 	}
 
 	registerSkillViaApi(t, app, "go")
+}
+
+func TestRegisterSkillRequiresPersistedUser(t *testing.T) {
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	payload := []byte(`{"name": "GHOST"}`)
+
+	req := newSkillRegisterRequest(payload)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401 sem token, recebeu %d", resp.StatusCode)
+	}
+
+	resp, err = doAuthedRequest(app, newSkillRegisterRequest(payload), validTokenFor(t, uuidv7.New().String()))
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("esperava 401 com token fantasma, recebeu %d", resp.StatusCode)
+	}
+	var respBody rest_err.RestErr
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if respBody.Message != "invalid authenticated user" {
+		t.Errorf("esperava message 'invalid authenticated user', recebeu '%s'", respBody.Message)
+	}
+
+	listReq := httptest.NewRequest("GET", "/v1/skill?name=GHOST", nil)
+	listResp, err := doAuthedRequest(app, listReq, validTokenFor(t, uuidv7.New().String()))
+	if err != nil {
+		t.Fatalf("erro ao listar skills: %v", err)
+	}
+	defer listResp.Body.Close()
+	var page skilldto.PageableSkillDto
+	if err := json.NewDecoder(listResp.Body).Decode(&page); err != nil {
+		t.Fatalf("erro ao decodificar lista: %v", err)
+	}
+	if len(page.Data) != 0 {
+		t.Errorf("esperava catálogo sem GHOST após 401, recebeu %+v", page.Data)
+	}
+}
+
+func TestRegisterSkillAllowsAnyAuthenticatedRole(t *testing.T) {
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	user := createUserWithRole(t, "skill_create_user@ajuda.dev", userdomain.UserRoleUser)
+	moderator := createUserWithRole(t, "skill_create_mod@ajuda.dev", userdomain.UserRoleModerator)
+	admin := createUserWithRole(t, "skill_create_admin@ajuda.dev", userdomain.UserRoleAdmin)
+
+	if got := registerSkillViaApiAs(t, app, "userlang", validTokenFor(t, user.Id)); got.Name != "USERLANG" {
+		t.Errorf("esperava USERLANG criado por USER, recebeu %+v", got)
+	}
+	if got := registerSkillViaApiAs(t, app, "modlang", validTokenFor(t, moderator.Id)); got.Name != "MODLANG" {
+		t.Errorf("esperava MODLANG criado por MODERATOR, recebeu %+v", got)
+	}
+	if got := registerSkillViaApiAs(t, app, "adminlang", validTokenFor(t, admin.Id)); got.Name != "ADMINLANG" {
+		t.Errorf("esperava ADMINLANG criado por ADMIN, recebeu %+v", got)
+	}
 }

@@ -75,7 +75,7 @@ func InitApp() {
 		eventvalidator.NewEventValidator(),
 		quotaCfg,
 		rateLimiter)
-	skillService := skill.NewSkillService(userService, skillRepository, skillvalidator.NewSkillValidator())
+	skillService := skill.NewSkillService(userService, skillRepository, skillvalidator.NewSkillValidator(), quotaCfg)
 	authMiddleware := middleware.VerifyJWT(authService)
 	communityService := community.NewCommunityService(userService, addressService, communityRepository, communityUserRepository, communityvalidator.NewCommunityValidator(), quotaCfg, rateLimiter)
 	communityUserService := community.NewCommunityUserService(userService, communityService, communityUserRepository, quotaCfg, rateLimiter)

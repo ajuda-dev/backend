@@ -3,6 +3,7 @@ package skill
 import (
 	"strings"
 
+	"github.com/ajuda-dev/backend/src/config/quota"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	skillrepo "github.com/ajuda-dev/backend/src/data/skill/repository"
 	"github.com/ajuda-dev/backend/src/service/identity"
@@ -12,7 +13,7 @@ import (
 )
 
 type SkillService interface {
-	CreateSkill(skill *skilldomain.SkillDomain) (*skilldomain.SkillDomain, *rest_err.RestErr)
+	CreateSkill(skill *skilldomain.SkillDomain, requesterId string) (*skilldomain.SkillDomain, *rest_err.RestErr)
 	GetSkillById(id string) (*skilldomain.SkillDomain, *rest_err.RestErr)
 	GetAll(filter skillrepo.SkillFilter, page int, limit int) (*skilldomain.PageableSkill, *rest_err.RestErr)
 	UpdateSkill(id string, name string, requesterId string) (*skilldomain.SkillDomain, *rest_err.RestErr)
@@ -23,13 +24,15 @@ type skillService struct {
 	userService     identity.UserService
 	skillRepository skillrepo.SkillRepository
 	skillValidator  skillvalidator.SkillValidator
+	quotaCfg        quota.Config
 }
 
-func NewSkillService(userService identity.UserService, skillRepository skillrepo.SkillRepository, skillValidator skillvalidator.SkillValidator) SkillService {
+func NewSkillService(userService identity.UserService, skillRepository skillrepo.SkillRepository, skillValidator skillvalidator.SkillValidator, quotaCfg quota.Config) SkillService {
 	return &skillService{
 		userService:     userService,
 		skillRepository: skillRepository,
 		skillValidator:  skillValidator,
+		quotaCfg:        quotaCfg,
 	}
 }
 
@@ -37,7 +40,11 @@ func normalizeSkillName(raw string) string {
 	return strings.ToUpper(strings.TrimSpace(raw))
 }
 
-func (s *skillService) CreateSkill(skill *skilldomain.SkillDomain) (*skilldomain.SkillDomain, *rest_err.RestErr) {
+func (s *skillService) CreateSkill(skill *skilldomain.SkillDomain, requesterId string) (*skilldomain.SkillDomain, *rest_err.RestErr) {
+	requester, err := identity.AuthenticatedUser(s.userService, requesterId)
+	if err != nil {
+		return nil, err
+	}
 	skill.Name = normalizeSkillName(skill.Name)
 	if err := s.skillValidator.ValidateSkillName(skill.Name); err != nil {
 		return nil, err
@@ -54,6 +61,17 @@ func (s *skillService) CreateSkill(skill *skilldomain.SkillDomain) (*skilldomain
 				Message: "Skill already exists",
 			}})
 	}
+	limit, bypass := quota.LimitForRole(requester.Role, s.quotaCfg.MaxCreatedSkills, s.quotaCfg.MaxCreatedSkillsModerator)
+	if !bypass {
+		count, countErr := s.skillRepository.CountByCreatedBy(requester.Id)
+		if countErr != nil {
+			return nil, countErr
+		}
+		if count >= int64(limit) {
+			return nil, rest_err.NewTooManyRequestsError("created skills limit reached")
+		}
+	}
+	skill.CreatedBy = requester.Id
 	return s.skillRepository.CreateSkill(skill)
 }
 

@@ -33,7 +33,7 @@ func NewSkillController(skillService skill.SkillService) SkillController {
 
 // RegisterSkill godoc
 // @Summary      Registra uma nova skill
-// @Description  Cria uma skill no catálogo. O nome é salvo em caixa alta (normalizado) e é único entre skills ativas.
+// @Description  Cria uma skill no catálogo. O nome é salvo em caixa alta (normalizado) e é único entre skills ativas. Qualquer usuário autenticado pode criar, até o teto por criador.
 // @Tags         skills
 // @Accept       json
 // @Produce      json
@@ -41,6 +41,7 @@ func NewSkillController(skillService skill.SkillService) SkillController {
 // @Success      201   {object}  skilldto.RegisterSkillDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
+// @Failure      429   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/skill/register [post]
 func (s *skillController) RegisterSkill() fiber.Handler {
@@ -53,7 +54,8 @@ func (s *skillController) RegisterSkill() fiber.Handler {
 			})
 		}
 
-		skill, err := s.skillService.CreateSkill(registerSkillDto.ToDomain())
+		requesterId := cf.Locals(middleware.UserIdKey).(string)
+		skill, err := s.skillService.CreateSkill(registerSkillDto.ToDomain(), requesterId)
 		if err != nil {
 			logger.Error("erro", err)
 			return cf.Status(err.Code).JSON(err)

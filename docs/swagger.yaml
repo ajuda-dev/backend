@@ -2065,7 +2065,8 @@ paths:
       consumes:
       - application/json
       description: Cria uma skill no catálogo. O nome é salvo em caixa alta (normalizado)
-        e é único entre skills ativas.
+        e é único entre skills ativas. Qualquer usuário autenticado pode criar, até
+        o teto por criador.
       parameters:
       - description: Dados da skill
         in: body
@@ -2087,6 +2088,11 @@ paths:
             type: object
         "401":
           description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "429":
+          description: Too Many Requests
           schema:
             additionalProperties: true
             type: object

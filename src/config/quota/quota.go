@@ -23,6 +23,8 @@ const (
 	defaultRateCommunityCreatePerHourMod = 6
 	defaultRateCommunityJoinPerHour      = 30
 	defaultRateCommunityJoinPerHourMod   = 60
+	defaultMaxCreatedSkills              = 100
+	defaultMaxCreatedSkillsMod           = 200
 )
 
 const (
@@ -48,6 +50,8 @@ type Config struct {
 	RateCommunityJoinPerHourModerator   int
 	MaxSkillsPerUser                    *int
 	MaxSkillsPerUserModerator           *int
+	MaxCreatedSkills                    int
+	MaxCreatedSkillsModerator           int
 }
 
 func LoadFromEnv() Config {
@@ -68,6 +72,8 @@ func LoadFromEnv() Config {
 		RateCommunityJoinPerHourModerator:   intFromEnv("RATE_LIMIT_COMMUNITY_JOIN_PER_HOUR_MODERATOR", defaultRateCommunityJoinPerHourMod),
 		MaxSkillsPerUser:                    optionalIntFromEnv("MAX_SKILLS_PER_USER"),
 		MaxSkillsPerUserModerator:           optionalIntFromEnv("MAX_SKILLS_PER_USER_MODERATOR"),
+		MaxCreatedSkills:                    intFromEnv("MAX_CREATED_SKILLS", defaultMaxCreatedSkills),
+		MaxCreatedSkillsModerator:           intFromEnv("MAX_CREATED_SKILLS_MODERATOR", defaultMaxCreatedSkillsMod),
 	}
 }
 

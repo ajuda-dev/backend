@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -368,4 +369,55 @@ func TestSkillsOptionalQuota(t *testing.T) {
 		skill := createSkillForTest(t, fmt.Sprintf("QUOTAADMIN%d", i))
 		assignSkillViaApi(t, app, skill.Id, admin.Id, skilldomain.LevelTeach)
 	}
+}
+
+func TestCreatedSkillsQuotaUserModeratorAdmin(t *testing.T) {
+	t.Cleanup(cleanSkillUsersTable)
+	t.Cleanup(cleanSkillsTable)
+	t.Cleanup(cleanUsersTable)
+
+	setQuotaEnv(t, map[string]string{
+		"MAX_CREATED_SKILLS":           "1",
+		"MAX_CREATED_SKILLS_MODERATOR": "2",
+	})
+	app := setupApp()
+
+	user := createUserWithRole(t, "quota_created_skill_user@ajuda.dev", userdomain.UserRoleUser)
+	userToken := validTokenFor(t, user.Id)
+	first := registerSkillViaApiAs(t, app, "CREATEDUSER1", userToken)
+	resp := doRegisterSkill(t, app, "CREATEDUSER2", userToken)
+	assertTooManyRequests(t, resp, "created skills limit reached")
+
+	dup := doRegisterSkill(t, app, "CREATEDUSER1", userToken)
+	defer dup.Body.Close()
+	if dup.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400 na duplicata no teto, recebeu %d", dup.StatusCode)
+	}
+
+	createSkillForTest(t, "CREATEDREPO")
+	resp = doRegisterSkill(t, app, "CREATEDUSER3", userToken)
+	assertTooManyRequests(t, resp, "created skills limit reached")
+
+	moderator := createUserWithRole(t, "quota_created_skill_mod@ajuda.dev", userdomain.UserRoleModerator)
+	modToken := validTokenFor(t, moderator.Id)
+	registerSkillViaApiAs(t, app, "CREATEDMOD1", modToken)
+	registerSkillViaApiAs(t, app, "CREATEDMOD2", modToken)
+	resp = doRegisterSkill(t, app, "CREATEDMOD3", modToken)
+	assertTooManyRequests(t, resp, "created skills limit reached")
+
+	admin := createUserWithRole(t, "quota_created_skill_admin@ajuda.dev", userdomain.UserRoleAdmin)
+	adminToken := validTokenFor(t, admin.Id)
+	registerSkillViaApiAs(t, app, "CREATEDADMIN1", adminToken)
+	registerSkillViaApiAs(t, app, "CREATEDADMIN2", adminToken)
+	registerSkillViaApiAs(t, app, "CREATEDADMIN3", adminToken)
+
+	delOwn, err := doAuthedRequest(app, httptest.NewRequest("DELETE", "/v1/skill/"+first.Id, nil), modToken)
+	if err != nil {
+		t.Fatalf("erro ao deletar skill do USER: %v", err)
+	}
+	delOwn.Body.Close()
+	if delOwn.StatusCode != fiber.StatusNoContent {
+		t.Fatalf("esperava 204 ao deletar skill do USER, recebeu %d", delOwn.StatusCode)
+	}
+	registerSkillViaApiAs(t, app, "CREATEDUSER4", userToken)
 }

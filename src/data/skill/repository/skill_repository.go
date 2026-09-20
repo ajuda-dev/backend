@@ -19,6 +19,7 @@ type SkillRepository interface {
 	FindByName(name string) (*skilldomain.SkillDomain, *rest_err.RestErr)
 	FindById(id string) (*skilldomain.SkillDomain, *rest_err.RestErr)
 	FindAll(filter SkillFilter, page int, limit int) (*skilldomain.PageableSkill, *rest_err.RestErr)
+	CountByCreatedBy(userId string) (int64, *rest_err.RestErr)
 	SoftDeleteById(id string) *rest_err.RestErr
 	UpdateName(id string, name string) (*skilldomain.SkillDomain, *rest_err.RestErr)
 }
@@ -51,6 +52,16 @@ func (s *skillRepository) FindByName(name string) (*skilldomain.SkillDomain, *re
 		return nil, rest_err.NewInternalServerError("Error getting skill: " + err.Error())
 	}
 	return skillEntity.ToDomain(), nil
+}
+
+func (s *skillRepository) CountByCreatedBy(userId string) (int64, *rest_err.RestErr) {
+	var count int64
+	if err := s.database.Model(&skillentity.SkillEntity{}).
+		Where("created_by = ?", userId).
+		Count(&count).Error; err != nil {
+		return 0, rest_err.NewInternalServerError("Error counting skills: " + err.Error())
+	}
+	return count, nil
 }
 
 func (s *skillRepository) FindById(id string) (*skilldomain.SkillDomain, *rest_err.RestErr) {
