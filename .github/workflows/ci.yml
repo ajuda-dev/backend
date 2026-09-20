@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Unit tests
+        run: go test $(go list ./... | grep -v '/src/tests/integration') -count=1
+      - name: Build
+        run: go build ./...
+
+  integration:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Integration tests
+        run: go test ./src/tests/integration/... -count=1 -timeout 15m
+
+  ci:
+    if: always()
+    needs: [unit, integration]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require jobs
+        run: |
+          test "${{ needs.unit.result }}" = "success"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            test "${{ needs.integration.result }}" = "success"
+          fi
