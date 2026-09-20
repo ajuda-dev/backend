@@ -30,7 +30,8 @@ func createUserForSkillSearch(t *testing.T, name string, email string) *userdoma
 
 func searchUsersQuery(t *testing.T, app *fiber.App, query string) userdto.PageableUserDto {
 	t.Helper()
-	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/user"+query, nil), validTokenFor(t, uuidv7.New().String()))
+	requester := createUserWithRole(t, "search_users_requester_"+uuidv7.New().String()+"@ajuda.dev", userdomain.UserRoleUser)
+	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", "/v1/user"+query, nil), validTokenFor(t, requester.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}
@@ -144,9 +145,10 @@ func TestGetUsersBySkillLengthValidation(t *testing.T) {
 	t.Cleanup(cleanSkillUsersTable)
 
 	app := setupApp()
+	user := createUserWithRole(t, "skill_len_user@ajuda.dev", userdomain.UserRoleUser)
 
 	target := "/v1/user?skill=" + strings.Repeat("A", 51)
-	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", target, nil), validTokenFor(t, uuidv7.New().String()))
+	resp, err := doAuthedRequest(app, httptest.NewRequest("GET", target, nil), validTokenFor(t, user.Id))
 	if err != nil {
 		t.Fatalf("erro ao executar requisição: %v", err)
 	}

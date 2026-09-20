@@ -2304,7 +2304,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna usuários ativos com as skills do perfil, em ordem alfabética por nome. Filtros opcionais e combináveis (AND): skill (match exato do nome, normalizado para caixa alta, máx. 50), name (busca parcial, case-insensitive, ignora acentos) e email (match exato, case-insensitive). Sem filtros, retorna todos os usuários ativos paginados. O e-mail não é exposto no response.",
+                "description": "Retorna usuários ativos com as skills do perfil, em ordem alfabética por nome. Filtros opcionais e combináveis (AND): skill (match exato do nome, normalizado para caixa alta, máx. 50) e name (busca parcial, case-insensitive, ignora acentos). O filtro email (match exato, case-insensitive) é somente ADMIN; USER/MODERATOR com ?email= recebem 403. Sem filtros, retorna todos os usuários ativos paginados. O e-mail não é exposto no response.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2330,7 +2330,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "E-mail do usuário (match exato, case-insensitive)",
+                        "description": "E-mail do usuário (match exato, case-insensitive). Somente ADMIN",
                         "name": "email",
                         "in": "query"
                     },
@@ -2363,6 +2363,13 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true

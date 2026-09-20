@@ -160,30 +160,32 @@ func (u *userController) Logout() fiber.Handler {
 
 // GetAllUsers godoc
 // @Summary      Lista/busca usuários
-// @Description  Retorna usuários ativos com as skills do perfil, em ordem alfabética por nome. Filtros opcionais e combináveis (AND): skill (match exato do nome, normalizado para caixa alta, máx. 50), name (busca parcial, case-insensitive, ignora acentos) e email (match exato, case-insensitive). Sem filtros, retorna todos os usuários ativos paginados. O e-mail não é exposto no response.
+// @Description  Retorna usuários ativos com as skills do perfil, em ordem alfabética por nome. Filtros opcionais e combináveis (AND): skill (match exato do nome, normalizado para caixa alta, máx. 50) e name (busca parcial, case-insensitive, ignora acentos). O filtro email (match exato, case-insensitive) é somente ADMIN; USER/MODERATOR com ?email= recebem 403. Sem filtros, retorna todos os usuários ativos paginados. O e-mail não é exposto no response.
 // @Tags         users
 // @Accept       json
 // @Produce      json
 // @Param        skill  query  string  false  "Nome da skill (match exato, normalizado para caixa alta, máx. 50)"
 // @Param        name   query  string  false  "Nome do usuário (busca parcial, case-insensitive, ignora acentos)"
-// @Param        email  query  string  false  "E-mail do usuário (match exato, case-insensitive)"
+// @Param        email  query  string  false  "E-mail do usuário (match exato, case-insensitive). Somente ADMIN"
 // @Param        page   query  int     false  "Página"
 // @Param        limit  query  int     false  "Limite"
 // @Success      200   {object}  userdto.PageableUserDto
 // @Failure      400   {object}  map[string]interface{}
 // @Failure      401   {object}  map[string]interface{}
+// @Failure      403   {object}  map[string]interface{}
 // @Security     BearerAuth
 // @Router       /v1/user [get]
 func (u *userController) GetAllUsers() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		page, _ := strconv.Atoi(c.Query("page", "1"))
 		limit, _ := strconv.Atoi(c.Query("limit", "10"))
+		requesterId := c.Locals(middleware.UserIdKey).(string)
 
 		result, e := u.userService.GetAllUsers(userrepo.UserFilter{
 			SkillName: c.Query("skill"),
 			Name:      c.Query("name"),
 			Email:     c.Query("email"),
-		}, page, limit)
+		}, page, limit, requesterId)
 		if e != nil {
 			logger.Error("error: ", e)
 			return c.Status(e.Code).JSON(e)

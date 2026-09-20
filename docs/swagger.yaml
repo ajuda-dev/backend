@@ -2113,9 +2113,10 @@ paths:
       - application/json
       description: 'Retorna usuários ativos com as skills do perfil, em ordem alfabética
         por nome. Filtros opcionais e combináveis (AND): skill (match exato do nome,
-        normalizado para caixa alta, máx. 50), name (busca parcial, case-insensitive,
-        ignora acentos) e email (match exato, case-insensitive). Sem filtros, retorna
-        todos os usuários ativos paginados. O e-mail não é exposto no response.'
+        normalizado para caixa alta, máx. 50) e name (busca parcial, case-insensitive,
+        ignora acentos). O filtro email (match exato, case-insensitive) é somente
+        ADMIN; USER/MODERATOR com ?email= recebem 403. Sem filtros, retorna todos
+        os usuários ativos paginados. O e-mail não é exposto no response.'
       parameters:
       - description: Nome da skill (match exato, normalizado para caixa alta, máx.
           50)
@@ -2126,7 +2127,7 @@ paths:
         in: query
         name: name
         type: string
-      - description: E-mail do usuário (match exato, case-insensitive)
+      - description: E-mail do usuário (match exato, case-insensitive). Somente ADMIN
         in: query
         name: email
         type: string
@@ -2152,6 +2153,11 @@ paths:
             type: object
         "401":
           description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
           schema:
             additionalProperties: true
             type: object

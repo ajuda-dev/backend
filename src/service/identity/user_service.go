@@ -43,7 +43,7 @@ type UserService interface {
 	CreateUser(user *userdomain.UserDomain) (*userdomain.UserDomain, string, *rest_err.RestErr)
 	FindById(id string) (*userdomain.UserDomain, *rest_err.RestErr)
 	GetUserById(targetId string, requesterId string) (*userdomain.UserDomain, *rest_err.RestErr)
-	GetAllUsers(filter userrepo.UserFilter, page int, limit int) (*userdomain.PageableUser, *rest_err.RestErr)
+	GetAllUsers(filter userrepo.UserFilter, page int, limit int, requesterId string) (*userdomain.PageableUser, *rest_err.RestErr)
 	UpdateUser(targetId string, requesterId string, changes *userdomain.UserDomain) (*userdomain.UserDomain, *rest_err.RestErr)
 	DeleteUser(targetId string, requesterId string) *rest_err.RestErr
 	VerifyEmail(userId, code string) (*userdomain.UserDomain, *rest_err.RestErr)
@@ -88,7 +88,15 @@ func normalizeSkillName(raw string) string {
 }
 
 // GetAllUsers implements UserService.
-func (u *userService) GetAllUsers(filter userrepo.UserFilter, page int, limit int) (*userdomain.PageableUser, *rest_err.RestErr) {
+func (u *userService) GetAllUsers(filter userrepo.UserFilter, page int, limit int, requesterId string) (*userdomain.PageableUser, *rest_err.RestErr) {
+	requester, err := AuthenticatedUser(u, requesterId)
+	if err != nil {
+		return nil, err
+	}
+	email := strings.ToLower(strings.TrimSpace(filter.Email))
+	if email != "" && requester.Role != userdomain.UserRoleAdmin {
+		return nil, rest_err.NewForbiddenError("only admins can filter users by email")
+	}
 	skillName := normalizeSkillName(filter.SkillName)
 	if len(skillName) > 50 {
 		return nil, rest_err.NewBadRequestValidationError(
@@ -101,7 +109,7 @@ func (u *userService) GetAllUsers(filter userrepo.UserFilter, page int, limit in
 	return u.userRepository.FindAll(userrepo.UserFilter{
 		SkillName: skillName,
 		Name:      filter.Name,
-		Email:     filter.Email,
+		Email:     email,
 	}, page, limit)
 }
 
