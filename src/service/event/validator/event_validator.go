@@ -164,10 +164,16 @@ func meetingLinkCauses(eventType string, meetingLink string) []rest_err.Causes {
 			Message: "meeting_link is only allowed for ONLINE and HYBRID events",
 		}}
 	}
+	if len(trimmed) > 500 {
+		return []rest_err.Causes{{
+			Field:   "meeting_link",
+			Message: "meeting_link must have at most 500 characters",
+		}}
+	}
 	if !validation.IsValidHTTPURL(trimmed) {
 		return []rest_err.Causes{{
 			Field:   "meeting_link",
-			Message: "value must be a valid http or https url",
+			Message: "meeting_link must be a valid http or https url",
 		}}
 	}
 	return nil

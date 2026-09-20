@@ -20,7 +20,7 @@ type RegisterEventDto struct {
 	Description string    `json:"description"`
 	StartAt     time.Time `json:"start_at"`
 	DurationMin int       `json:"duration_min"`
-	MeetingLink string    `json:"meeting_link"`
+	MeetingLink string    `json:"meeting_link" example:"https://meet.example.com/sala" maxLength:"500"`
 	MaxSlots    *int      `json:"max_slots"`
 	CreatorRole string    `json:"creator_role"`
 	Status      string    `json:"status"`

@@ -38,7 +38,7 @@ func NewEventController(eventService event.EventService) EventController {
 
 // RegisterEvent godoc
 // @Summary      Registra um novo evento
-// @Description  Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado). creator_role (MENTOR default ou MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1. MENTORING nasce CLOSED (não entra no catálogo); WEBINAR nasce PUBLIC; COMMUNITY_EVENT nasce CLOSED.
+// @Description  Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado). creator_role (MENTOR default ou MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1. MENTORING nasce CLOSED (não entra no catálogo); WEBINAR nasce PUBLIC; COMMUNITY_EVENT nasce CLOSED. meeting_link é opcional (http/https com host, máx. 500; só ONLINE/HYBRID).
 // @Tags         events
 // @Accept       json
 // @Produce      json
@@ -355,7 +355,7 @@ func (e *eventController) UpdateEventVisibility() fiber.Handler {
 
 // UpdateEventMeetingLink godoc
 // @Summary      Atualiza o link da reunião
-// @Description  Quem gerencia o evento (dono, dono da comunidade ou staff) inclui, altera ou limpa meeting_link. Vazio limpa o campo. Só ONLINE e HYBRID; URL http/https.
+// @Description  Quem gerencia o evento (dono, dono da comunidade ou staff) inclui, altera ou limpa meeting_link. Vazio limpa o campo. Só ONLINE e HYBRID; URL http/https com host, máx. 500.
 // @Tags         events
 // @Accept       json
 // @Produce      json

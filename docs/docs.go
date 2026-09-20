@@ -866,7 +866,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado). creator_role (MENTOR default ou MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1. MENTORING nasce CLOSED (não entra no catálogo); WEBINAR nasce PUBLIC; COMMUNITY_EVENT nasce CLOSED.",
+                "description": "Cria um novo evento no sistema. Para eventos INPERSON/HYBRID, address_id é obrigatório; para ONLINE, address_id deve ser nulo. O owner é sempre o usuário autenticado (owner_id do body é ignorado). creator_role (MENTOR default ou MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1. MENTORING nasce CLOSED (não entra no catálogo); WEBINAR nasce PUBLIC; COMMUNITY_EVENT nasce CLOSED. meeting_link é opcional (http/https com host, máx. 500; só ONLINE/HYBRID).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1555,7 +1555,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Quem gerencia o evento (dono, dono da comunidade ou staff) inclui, altera ou limpa meeting_link. Vazio limpa o campo. Só ONLINE e HYBRID; URL http/https.",
+                "description": "Quem gerencia o evento (dono, dono da comunidade ou staff) inclui, altera ou limpa meeting_link. Vazio limpa o campo. Só ONLINE e HYBRID; URL http/https com host, máx. 500.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3521,7 +3521,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "meeting_link": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 500,
+                    "example": "https://meet.example.com/sala"
                 },
                 "owner_id": {
                     "type": "string"
@@ -3566,7 +3568,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "meeting_link": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 500,
+                    "example": "https://meet.example.com/sala"
                 }
             }
         },

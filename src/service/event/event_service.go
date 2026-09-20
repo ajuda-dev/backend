@@ -84,10 +84,10 @@ func (e *eventService) CreateEvent(event *eventdomain.EventDomain) (*eventdomain
 		}
 	}
 
+	event.MeetingLink = strings.TrimSpace(event.MeetingLink)
 	if err := e.eventValidator.ValidatorRegisterEvent(*event); err != nil {
 		return &eventdomain.EventDomain{}, err
 	}
-	event.MeetingLink = strings.TrimSpace(event.MeetingLink)
 
 	if event.Address != nil {
 		address, err_a := e.addressService.GetAddressById(event.Address.Id)

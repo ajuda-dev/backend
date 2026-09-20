@@ -251,6 +251,8 @@ definitions:
       max_slots:
         type: integer
       meeting_link:
+        example: https://meet.example.com/sala
+        maxLength: 500
         type: string
       owner_id:
         type: string
@@ -280,6 +282,8 @@ definitions:
   github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventMeetingLinkDto:
     properties:
       meeting_link:
+        example: https://meet.example.com/sala
+        maxLength: 500
         type: string
     type: object
   github_com_ajuda-dev_backend_src_controller_event_dto.UpdateEventVisibilityDto:
@@ -515,12 +519,12 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retorna os endereços com paginação. USER precisa de pelo menos
+      description: 'Retorna os endereços com paginação. USER precisa de pelo menos
         um filtro (city, state ou zip_code) e não recebe street/number/complement;
         MODERATOR/ADMIN podem listar sem filtro e veem o logradouro completo. Filtros:
         cidade (busca parcial, case-insensitive e accent-insensitive), estado (UF
         exata) e CEP (igualdade pelos dígitos, aceita com ou sem hífen). Token fantasma
-        → 401.
+        → 401.'
       parameters:
       - description: Página
         in: query
@@ -1025,10 +1029,10 @@ paths:
     get:
       consumes:
       - application/json
-      description: Catálogo paginado: só eventos APPROVED com visibility PUBLIC (ou
+      description: 'Catálogo paginado: só eventos APPROVED com visibility PUBLIC (ou
         vazia), mais os do requester (owner, dono da comunidade ou participante ativo).
         MENTORING CLOSED não aparece para terceiro; use ?user_id= self para a agenda.
-        meeting_link omitido para quem não participa. Staff lista também não aprovados/fechados.
+        meeting_link omitido para quem não participa. Staff lista também não aprovados/fechados.'
       parameters:
       - description: Página
         in: query
@@ -1460,10 +1464,10 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retorna o detalhe do evento com owner, endereço e comunidade (preloads).
+      description: 'Retorna o detalhe do evento com owner, endereço e comunidade (preloads).
         MENTORING CLOSED e COMMUNITY_EVENT CLOSED: terceiro recebe 404. meeting_link
         só para owner, participante ativo (status ≠ CANCELLED) ou staff; omitido no
-        JSON para os demais.
+        JSON para os demais.'
       parameters:
       - description: ID do evento
         in: path
@@ -1554,7 +1558,7 @@ paths:
       - application/json
       description: Quem gerencia o evento (dono, dono da comunidade ou staff) inclui,
         altera ou limpa meeting_link. Vazio limpa o campo. Só ONLINE e HYBRID; URL
-        http/https.
+        http/https com host, máx. 500.
       parameters:
       - description: ID do evento
         in: path
@@ -1715,7 +1719,7 @@ paths:
         autenticado (owner_id do body é ignorado). creator_role (MENTOR default ou
         MENTEE) só é aceito em eventos MENTORING e define o papel do criador no 1:1.
         MENTORING nasce CLOSED (não entra no catálogo); WEBINAR nasce PUBLIC; COMMUNITY_EVENT
-        nasce CLOSED.
+        nasce CLOSED. meeting_link é opcional (http/https com host, máx. 500; só ONLINE/HYBRID).
       parameters:
       - description: Dados do evento
         in: body

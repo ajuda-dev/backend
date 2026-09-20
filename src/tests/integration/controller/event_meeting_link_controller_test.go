@@ -2,6 +2,7 @@ package controller_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
@@ -138,7 +139,7 @@ func TestMeetingLinkUpdateRejectsInvalidURL(t *testing.T) {
 	}
 	respBody := decodeRestErr(t, resp)
 	causes := getCauseByField("meeting_link", respBody.Causes)
-	if len(causes) == 0 || causes[0] != "value must be a valid http or https url" {
+	if len(causes) == 0 || causes[0] != "meeting_link must be a valid http or https url" {
 		t.Errorf("esperava cause de URL inválida, recebeu %+v", respBody.Causes)
 	}
 }
@@ -209,25 +210,84 @@ func TestEmptyMeetingLinkClearsField(t *testing.T) {
 	assertMeetingLinkOmitted(t, getRaw)
 }
 
+func TestCreateOnlinePersistsTrimmedMeetingLink(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "meeting_link_create_trim@ajuda.dev", userdomain.UserRoleUser)
+
+	created := registerEventViaApi(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		Category:    eventdomain.CategoryWebinar,
+		Type:        eventdomain.TypeOnline,
+		Title:       "Webinar com link",
+		Description: "url válida com espaço",
+		StartAt:     uniqueEventStartAt(),
+		DurationMin: 60,
+		MeetingLink: "  https://meet.example.com/x  ",
+	})
+	if created.MeetingLink != "https://meet.example.com/x" {
+		t.Fatalf("esperava meeting_link trimado, recebeu %q", created.MeetingLink)
+	}
+}
+
+func TestCreateOnlineOmitsEmptyMeetingLink(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "meeting_link_create_empty@ajuda.dev", userdomain.UserRoleUser)
+
+	created := registerEventViaApi(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		Category:    eventdomain.CategoryWebinar,
+		Type:        eventdomain.TypeOnline,
+		Title:       "Webinar sem link",
+		Description: "campo vazio",
+		StartAt:     uniqueEventStartAt(),
+		DurationMin: 60,
+		MeetingLink: "",
+	})
+	if created.MeetingLink != "" {
+		t.Fatalf("esperava meeting_link vazio, recebeu %q", created.MeetingLink)
+	}
+}
+
 func TestCreateRejectsInvalidMeetingLink(t *testing.T) {
 	t.Cleanup(cleanAuthorizationData)
 
 	app := setupApp()
 	owner := createUserWithRole(t, "meeting_link_create_invalid@ajuda.dev", userdomain.UserRoleUser)
+	tooLong := "https://exemplo.com/" + strings.Repeat("a", 501-len("https://exemplo.com/"))
 
-	respBody := eventReqValidation(t, app, eventTestRequest{
-		OwnerId:     owner.Id,
-		Category:    eventdomain.CategoryWebinar,
-		Type:        eventdomain.TypeOnline,
-		Title:       "Webinar url ruim",
-		Description: "create",
-		StartAt:     uniqueEventStartAt(),
-		DurationMin: 60,
-		MeetingLink: "ftp://not-http.example",
-	}, "meeting_link")
-	causes := getCauseByField("meeting_link", respBody.Causes)
-	if len(causes) == 0 || causes[0] != "value must be a valid http or https url" {
-		t.Errorf("esperava cause de URL inválida no create, recebeu %+v", respBody.Causes)
+	cases := []struct {
+		name string
+		link string
+		want string
+	}{
+		{"javascript", "javascript:alert(1)", "meeting_link must be a valid http or https url"},
+		{"data", "data:text/html,hi", "meeting_link must be a valid http or https url"},
+		{"ftp", "ftp://files.example.com/a", "meeting_link must be a valid http or https url"},
+		{"sem host", "https://", "meeting_link must be a valid http or https url"},
+		{"acima de 500", tooLong, "meeting_link must have at most 500 characters"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			respBody := eventReqValidation(t, app, eventTestRequest{
+				OwnerId:     owner.Id,
+				Category:    eventdomain.CategoryWebinar,
+				Type:        eventdomain.TypeOnline,
+				Title:       "Webinar url ruim",
+				Description: "create",
+				StartAt:     uniqueEventStartAt(),
+				DurationMin: 60,
+				MeetingLink: tc.link,
+			}, "meeting_link")
+			causes := getCauseByField("meeting_link", respBody.Causes)
+			if len(causes) == 0 || causes[0] != tc.want {
+				t.Errorf("esperava %q, recebeu %+v", tc.want, respBody.Causes)
+			}
+		})
 	}
 }
 
@@ -252,5 +312,21 @@ func TestCreateInpersonRejectsMeetingLink(t *testing.T) {
 	causes := getCauseByField("meeting_link", respBody.Causes)
 	if len(causes) == 0 || causes[0] != "meeting_link is only allowed for ONLINE and HYBRID events" {
 		t.Errorf("esperava cause de INPERSON no create, recebeu %+v", respBody.Causes)
+	}
+
+	respBody = eventReqValidation(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		AddressId:   strPtr(address.Id),
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeInperson,
+		Title:       "Presencial javascript",
+		Description: "não deveria",
+		StartAt:     uniqueEventStartAt(),
+		DurationMin: 60,
+		MeetingLink: "javascript:alert(1)",
+	}, "meeting_link")
+	causes = getCauseByField("meeting_link", respBody.Causes)
+	if len(causes) == 0 {
+		t.Errorf("esperava 400 para javascript: em INPERSON, recebeu %+v", respBody.Causes)
 	}
 }
