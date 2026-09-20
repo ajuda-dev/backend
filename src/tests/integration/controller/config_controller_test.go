@@ -188,7 +188,7 @@ func setupAppWithEmail(sender email.EmailSender) *fiber.App {
 	userService := identity.NewUserService(userRepo, identityvalidator.NewUserValidator(), authService,
 		communityRepository, eventRepository, eventUserRepository, communityUserRepository,
 		outboxEventRepository, emailCodeRepository)
-	addressService := address.NewAddressService(addressRepository, addressvalidator.NewAddressValidator(), NewAddressSearchClient())
+	addressService := address.NewAddressService(userService, addressRepository, addressvalidator.NewAddressValidator(), NewAddressSearchClient())
 	routes.SetupRoutesUser(app, identityctrl.NewUserController(userService), identityctrl.NewAuthController(authService), authMiddleware)
 	routes.SetupRoutesAuth(app, identityctrl.NewOAuthController(oauthService))
 	routes.SetupRoutesAddress(app, addressctrl.NewAddressController(addressService), authMiddleware)

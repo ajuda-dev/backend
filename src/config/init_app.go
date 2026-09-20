@@ -62,7 +62,7 @@ func InitApp() {
 	authService := identity.NewAuthService(userRepository, emailSender)
 	oauthService := identity.NewOAuthService(oauth.NewRegistry(oauth.ProvidersFromEnv()...), userrepo.NewOAuthAccountRepository(db), userRepository, authService)
 	userService := initUserService(userRepository, authService, communityRepository, eventRepository, eventUserRepository, communityUserRepository, outboxEventRepository, emailCodeRepository)
-	addressService := initAddressService(addressRepository)
+	addressService := initAddressService(userService, addressRepository)
 	quotaCfg := quota.LoadFromEnv()
 	rateLimiter := quota.NewHourlyLimiter()
 	eventService := event.NewEventService(
@@ -138,8 +138,9 @@ func initUserService(userRepository userrepo.UserRepository,
 		outboxEventRepository, emailCodeRepository)
 }
 
-func initAddressService(addressRepository addressrepo.AddressRepository) address.AddressService {
+func initAddressService(userService identity.UserService, addressRepository addressrepo.AddressRepository) address.AddressService {
 	return address.NewAddressService(
+		userService,
 		addressRepository,
 		addressvalidator.NewAddressValidator(),
 		client.NewAddressSearchClient())

@@ -7,6 +7,7 @@ import (
 	"github.com/ajuda-dev/backend/src/config/logger"
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	addressdto "github.com/ajuda-dev/backend/src/controller/address/dto"
+	"github.com/ajuda-dev/backend/src/controller/middleware"
 	addressrepo "github.com/ajuda-dev/backend/src/data/address/repository"
 	"github.com/ajuda-dev/backend/src/service/address"
 	"github.com/gofiber/fiber/v2"
@@ -59,7 +60,7 @@ func (a *addressController) RegisterAddress() fiber.Handler {
 
 // GetAllAddresses godoc
 // @Summary      Lista endereços
-// @Description  Retorna os endereços com paginação e filtros opcionais por cidade (busca parcial, case-insensitive e accent-insensitive), estado (UF exata) e CEP (igualdade pelos dígitos, aceita com ou sem hífen)
+// @Description  Retorna os endereços com paginação. USER precisa de pelo menos um filtro (city, state ou zip_code) e não recebe street/number/complement; MODERATOR/ADMIN podem listar sem filtro e veem o logradouro completo. Filtros: cidade (busca parcial, case-insensitive e accent-insensitive), estado (UF exata) e CEP (igualdade pelos dígitos, aceita com ou sem hífen). Token fantasma → 401.
 // @Tags         addresses
 // @Accept       json
 // @Produce      json
@@ -88,8 +89,12 @@ func (a *addressController) GetAllAddresses() fiber.Handler {
 				"Invalid query params",
 				[]rest_err.Causes{{Field: "zip_code", Message: "zip_code must contain digits"}}))
 		}
+		requesterId, ok := c.Locals(middleware.UserIdKey).(string)
+		if !ok || requesterId == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(rest_err.NewUnauthorizedError("missing authenticated user"))
+		}
 
-		result, e := a.addressService.GetAll(filter, page, limit)
+		result, e := a.addressService.GetAll(filter, page, limit, requesterId)
 		if e != nil {
 			logger.Error("error: ", e)
 			return c.Status(e.Code).JSON(e)

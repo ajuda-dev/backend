@@ -14,7 +14,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna os endereços com paginação e filtros opcionais por cidade (busca parcial, case-insensitive e accent-insensitive), estado (UF exata) e CEP (igualdade pelos dígitos, aceita com ou sem hífen)",
+                "description": "Retorna os endereços com paginação. USER precisa de pelo menos um filtro (city, state ou zip_code) e não recebe street/number/complement; MODERATOR/ADMIN podem listar sem filtro e veem o logradouro completo. Filtros: cidade (busca parcial, case-insensitive e accent-insensitive), estado (UF exata) e CEP (igualdade pelos dígitos, aceita com ou sem hífen). Token fantasma → 401.",
                 "consumes": [
                     "application/json"
                 ],

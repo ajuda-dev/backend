@@ -10,7 +10,10 @@ import (
 
 	"github.com/ajuda-dev/backend/src/config/rest_err"
 	addressdto "github.com/ajuda-dev/backend/src/controller/address/dto"
+	communitydto "github.com/ajuda-dev/backend/src/controller/community/dto"
 	addressdomain "github.com/ajuda-dev/backend/src/service/address/domain"
+	eventdomain "github.com/ajuda-dev/backend/src/service/event/domain"
+	userdomain "github.com/ajuda-dev/backend/src/service/identity/domain"
 	"github.com/gofiber/fiber/v2"
 	"github.com/samborkent/uuidv7"
 )
@@ -354,9 +357,23 @@ func listAddresses(t *testing.T, app *fiber.App, token string, query string) add
 	return page
 }
 
+func addressListerToken(t *testing.T, email string, role string) string {
+	t.Helper()
+	t.Cleanup(cleanUsersTable)
+	user := createUserWithRole(t, email, role)
+	return validTokenFor(t, user.Id)
+}
+
+func assertStreetRedacted(t *testing.T, item addressdto.AddressDto) {
+	t.Helper()
+	if item.Street != "" || item.Number != "" || item.Complement != "" {
+		t.Errorf("USER não deve receber logradouro fino, recebeu street=%q number=%q complement=%q", item.Street, item.Number, item.Complement)
+	}
+}
+
 func TestListAddressesWithoutFilter(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_nofilter_admin@ajuda.dev", userdomain.UserRoleAdmin)
 	createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 	createAddressForSearch(t, "campinas", "SP", "13010-100", "rua treze de maio", "200")
 
@@ -364,11 +381,21 @@ func TestListAddressesWithoutFilter(t *testing.T) {
 	if len(page.Data) != 2 || page.HasNext {
 		t.Errorf("esperava 2 itens com has_next false, recebeu %d itens, has_next=%v", len(page.Data), page.HasNext)
 	}
+	foundStreet := false
+	for _, item := range page.Data {
+		if item.Street != "" && item.Number != "" {
+			foundStreet = true
+			break
+		}
+	}
+	if !foundStreet {
+		t.Errorf("ADMIN sem filtro deve receber logradouro, recebeu %+v", page.Data)
+	}
 }
 
 func TestListAddressesHasNext(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_hasnext_admin@ajuda.dev", userdomain.UserRoleAdmin)
 	createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 	createAddressForSearch(t, "sao paulo", "SP", "01310-101", "avenida paulista", "1001")
 	createAddressForSearch(t, "sao paulo", "SP", "01310-102", "avenida paulista", "1002")
@@ -381,7 +408,7 @@ func TestListAddressesHasNext(t *testing.T) {
 
 func TestListAddressesByCityPartial(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_city_partial@ajuda.dev", userdomain.UserRoleUser)
 	saoPaulo := createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 	createAddressForSearch(t, "campinas", "SP", "13010-100", "rua treze de maio", "200")
 
@@ -393,7 +420,7 @@ func TestListAddressesByCityPartial(t *testing.T) {
 
 func TestListAddressesByCityCaseInsensitive(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_city_case@ajuda.dev", userdomain.UserRoleUser)
 	saoPaulo := createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 
 	page := listAddresses(t, app, token, "city=SAO%20PAULO")
@@ -404,7 +431,7 @@ func TestListAddressesByCityCaseInsensitive(t *testing.T) {
 
 func TestListAddressesByCityAccentInsensitive(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_city_accent@ajuda.dev", userdomain.UserRoleUser)
 	belem := createAddressForSearch(t, "belem", "PA", "66010-000", "avenida presidente vargas", "100")
 
 	page := listAddresses(t, app, token, "city=bel%C3%A9m")
@@ -415,7 +442,7 @@ func TestListAddressesByCityAccentInsensitive(t *testing.T) {
 
 func TestListAddressesByCityAccentInsensitiveInverse(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_city_accent_inv@ajuda.dev", userdomain.UserRoleUser)
 	belem := createAddressForSearch(t, "belém", "PA", "66010-000", "avenida presidente vargas", "100")
 
 	page := listAddresses(t, app, token, "city=belem")
@@ -426,7 +453,7 @@ func TestListAddressesByCityAccentInsensitiveInverse(t *testing.T) {
 
 func TestListAddressesByCityNoMatch(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_city_nomatch@ajuda.dev", userdomain.UserRoleUser)
 	createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 
 	page := listAddresses(t, app, token, "city=zzz")
@@ -437,7 +464,7 @@ func TestListAddressesByCityNoMatch(t *testing.T) {
 
 func TestListAddressesByCityWildcardEscape(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_city_wildcard@ajuda.dev", userdomain.UserRoleUser)
 	createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 
 	wildcardPage := listAddresses(t, app, token, "city=%25")
@@ -453,7 +480,7 @@ func TestListAddressesByCityWildcardEscape(t *testing.T) {
 
 func TestListAddressesByState(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_state@ajuda.dev", userdomain.UserRoleUser)
 	sp := createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 	createAddressForSearch(t, "rio de janeiro", "RJ", "20040-020", "avenida rio branco", "1")
 
@@ -471,7 +498,7 @@ func TestListAddressesByState(t *testing.T) {
 func TestListAddressesByStateFromApi(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_state_api@ajuda.dev", userdomain.UserRoleUser)
 	body := []byte(`{"zip_code": "test_zip_code", "number": "123"}`)
 	req := newAddressRegisterRequest(body)
 	resp, err := doAuthedRequest(app, req, token)
@@ -495,7 +522,7 @@ func TestListAddressesByStateFromApi(t *testing.T) {
 
 func TestListAddressesByStateNoMatch(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_state_nomatch@ajuda.dev", userdomain.UserRoleUser)
 	createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 
 	page := listAddresses(t, app, token, "state=XYZ")
@@ -506,7 +533,7 @@ func TestListAddressesByStateNoMatch(t *testing.T) {
 
 func TestListAddressesByZipCodeWithAndWithoutHyphen(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_zip_hyphen@ajuda.dev", userdomain.UserRoleUser)
 	address := createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 
 	withHyphen := listAddresses(t, app, token, "zip_code=01310-100")
@@ -522,7 +549,7 @@ func TestListAddressesByZipCodeWithAndWithoutHyphen(t *testing.T) {
 
 func TestListAddressesByZipCodeStoredWithoutHyphen(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_zip_stored@ajuda.dev", userdomain.UserRoleUser)
 	address := createAddressForSearch(t, "sao paulo", "SP", "87654321", "avenida paulista", "1000")
 
 	page := listAddresses(t, app, token, "zip_code=87654-321")
@@ -533,7 +560,7 @@ func TestListAddressesByZipCodeStoredWithoutHyphen(t *testing.T) {
 
 func TestListAddressesByZipCodeWithoutDigits(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_zip_nodigits@ajuda.dev", userdomain.UserRoleUser)
 	createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 
 	req := httptest.NewRequest("GET", "/v1/address?zip_code=abc", nil)
@@ -560,7 +587,7 @@ func TestListAddressesByZipCodeWithoutDigits(t *testing.T) {
 
 func TestListAddressesByZipCodeIncomplete(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_zip_incomplete@ajuda.dev", userdomain.UserRoleUser)
 	createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 
 	page := listAddresses(t, app, token, "zip_code=123")
@@ -572,7 +599,7 @@ func TestListAddressesByZipCodeIncomplete(t *testing.T) {
 func TestListAddressesCombinedFilters(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_combined@ajuda.dev", userdomain.UserRoleUser)
 	body := []byte(`{"zip_code": "test_zip_code", "number": "123"}`)
 	req := newAddressRegisterRequest(body)
 	resp, err := doAuthedRequest(app, req, token)
@@ -602,7 +629,7 @@ func TestListAddressesCombinedFilters(t *testing.T) {
 func TestListAddressesSoftDeleted(t *testing.T) {
 	t.Cleanup(cleanAddressesTable)
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_softdelete_admin@ajuda.dev", userdomain.UserRoleAdmin)
 	address := createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 	createAddressForSearch(t, "campinas", "SP", "13010-100", "rua treze de maio", "200")
 
@@ -623,7 +650,7 @@ func TestListAddressesSoftDeleted(t *testing.T) {
 
 func TestListAddressesPaginationWithFilter(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_pagination@ajuda.dev", userdomain.UserRoleUser)
 	for i := 0; i < 5; i++ {
 		createAddressForSearch(t, "sao paulo", "SP", "01310-10"+strconv.Itoa(i), "avenida paulista", strconv.Itoa(1000+i))
 	}
@@ -657,7 +684,7 @@ func TestListAddressesPaginationWithFilter(t *testing.T) {
 
 func TestListAddressesInvalidPaginationDefaults(t *testing.T) {
 	app := setupApp()
-	token := validTokenFor(t, uuidv7.New().String())
+	token := addressListerToken(t, "addr_pagination_defaults_admin@ajuda.dev", userdomain.UserRoleAdmin)
 	createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
 
 	page := listAddresses(t, app, token, "page=0&limit=-1")
@@ -677,5 +704,170 @@ func TestListAddressesUnauthorized(t *testing.T) {
 
 	if resp.StatusCode != fiber.StatusUnauthorized {
 		t.Errorf("esperava 401 sem token, recebeu %d", resp.StatusCode)
+	}
+}
+
+func TestListAddressesUserWithoutFilter(t *testing.T) {
+	app := setupApp()
+	token := addressListerToken(t, "addr_user_nofilter@ajuda.dev", userdomain.UserRoleUser)
+	createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
+
+	req := httptest.NewRequest("GET", "/v1/address", nil)
+	resp, err := doAuthedRequest(app, req, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusBadRequest {
+		t.Fatalf("esperava 400, recebeu %d", resp.StatusCode)
+	}
+	var respBody rest_err.RestErr
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if respBody.Message != "Invalid query params" {
+		t.Errorf("esperava message 'Invalid query params', recebeu '%s'", respBody.Message)
+	}
+	if len(respBody.Causes) == 0 || respBody.Causes[0].Field != "filter" || respBody.Causes[0].Message != "city, state or zip_code is required" {
+		t.Errorf("esperava cause filter obrigatório, recebeu %+v", respBody.Causes)
+	}
+}
+
+func TestListAddressesUserRedactsStreetByZipCode(t *testing.T) {
+	app := setupApp()
+	token := addressListerToken(t, "addr_user_zip_redact@ajuda.dev", userdomain.UserRoleUser)
+	address := createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
+
+	page := listAddresses(t, app, token, "zip_code=01310100")
+	if len(page.Data) != 1 || page.Data[0].Id != address.Id {
+		t.Fatalf("esperava o endereço pelo CEP, recebeu %+v", page.Data)
+	}
+	if page.Data[0].ZipCode != "01310-100" {
+		t.Errorf("esperava zip_code '01310-100', recebeu '%s'", page.Data[0].ZipCode)
+	}
+	assertStreetRedacted(t, page.Data[0])
+}
+
+func TestListAddressesModeratorKeepsStreetByZipCode(t *testing.T) {
+	app := setupApp()
+	token := addressListerToken(t, "addr_mod_zip@ajuda.dev", userdomain.UserRoleModerator)
+	address := createAddressForSearch(t, "sao paulo", "SP", "01310-100", "avenida paulista", "1000")
+
+	page := listAddresses(t, app, token, "zip_code=01310100")
+	if len(page.Data) != 1 || page.Data[0].Id != address.Id {
+		t.Fatalf("esperava o endereço pelo CEP, recebeu %+v", page.Data)
+	}
+	if page.Data[0].Street != "avenida paulista" || page.Data[0].Number != "1000" {
+		t.Errorf("MODERATOR deve receber street/number, recebeu %+v", page.Data[0])
+	}
+}
+
+func TestListAddressesUserCannotSeeStreetOfClosedEvent(t *testing.T) {
+	t.Cleanup(cleanAuthorizationData)
+	app := setupApp()
+	owner := createUserWithRole(t, "addr_closed_owner@ajuda.dev", userdomain.UserRoleUser)
+	third := createUserWithRole(t, "addr_closed_third@ajuda.dev", userdomain.UserRoleUser)
+	address, aErr := addressRepository.CreateAddress(&addressdomain.AddressDomain{
+		City:    "sao paulo",
+		State:   "SP",
+		Street:  "rua fechada",
+		ZipCode: "04567-000",
+		Number:  "50",
+	})
+	if aErr != nil {
+		t.Fatalf("failed to create address: %v", aErr)
+	}
+
+	created := registerEventViaApi(t, app, eventTestRequest{
+		OwnerId:     owner.Id,
+		AddressId:   strPtr(address.Id),
+		Category:    eventdomain.CategoryCommunityEvent,
+		Type:        eventdomain.TypeInperson,
+		Title:       "Evento fechado",
+		Description: "endereco so no evento closed",
+		StartAt:     uniqueEventStartAt(),
+		DurationMin: 60,
+	})
+	if created.Visibility != eventdomain.EventVisibilityClosed {
+		t.Fatalf("esperava CLOSED, recebeu %s", created.Visibility)
+	}
+
+	page := listAddresses(t, app, validTokenFor(t, third.Id), "zip_code=04567000")
+	if len(page.Data) != 1 || page.Data[0].Id != address.Id {
+		t.Fatalf("esperava o endereço do evento CLOSED, recebeu %+v", page.Data)
+	}
+	assertStreetRedacted(t, page.Data[0])
+}
+
+func TestGetCommunityStillReturnsAddressStreet(t *testing.T) {
+	t.Cleanup(cleanCommunityUsersTable)
+	t.Cleanup(cleanCommunityTable)
+	t.Cleanup(cleanAddressesTable)
+	t.Cleanup(cleanUsersTable)
+
+	app := setupApp()
+	owner := createUserWithRole(t, "addr_community_owner@ajuda.dev", userdomain.UserRoleUser)
+	third := createUserWithRole(t, "addr_community_third@ajuda.dev", userdomain.UserRoleUser)
+	address, aErr := addressRepository.CreateAddress(&addressdomain.AddressDomain{
+		City:    "sao paulo",
+		State:   "SP",
+		Street:  "avenida paulista",
+		ZipCode: "01310-100",
+		Number:  "1000",
+	})
+	if aErr != nil {
+		t.Fatalf("failed to create address: %v", aErr)
+	}
+	communityId := registerCommunityViaApi(t, app, validTokenFor(t, owner.Id), address.Id, "Comunidade publica")
+
+	resp := getCommunityByIdRequest(t, app, validTokenFor(t, third.Id), communityId)
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("esperava 200 no GET da comunidade, recebeu %d", resp.StatusCode)
+	}
+	var detail communitydto.CommunityDto
+	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if detail.Address == nil || detail.Address.Street != "avenida paulista" {
+		t.Errorf("esperava address.street no DTO da comunidade, recebeu %+v", detail.Address)
+	}
+}
+
+func TestListAddressesGhostToken(t *testing.T) {
+	app := setupApp()
+	token := validTokenFor(t, uuidv7.New().String())
+	req := httptest.NewRequest("GET", "/v1/address?zip_code=01310100", nil)
+	resp, err := doAuthedRequest(app, req, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Fatalf("esperava 401, recebeu %d", resp.StatusCode)
+	}
+	var respBody rest_err.RestErr
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		t.Fatalf("erro ao decodificar body: %v", err)
+	}
+	if respBody.Message != "invalid authenticated user" {
+		t.Errorf("esperava 'invalid authenticated user', recebeu '%s'", respBody.Message)
+	}
+}
+
+func TestRegisterAddressPersistedUser(t *testing.T) {
+	t.Cleanup(cleanAddressesTable)
+	app := setupApp()
+	token := addressListerToken(t, "addr_register_user@ajuda.dev", userdomain.UserRoleUser)
+	body := []byte(`{"zip_code": "test_zip_code", "number": "123", "complement": "ap 5"}`)
+	req := newAddressRegisterRequest(body)
+
+	resp, err := doAuthedRequest(app, req, token)
+	if err != nil {
+		t.Fatalf("erro ao executar requisição: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != fiber.StatusCreated {
+		t.Errorf("esperava 201, recebeu %d", resp.StatusCode)
 	}
 }
